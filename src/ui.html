@@ -243,77 +243,81 @@
       font-family: 'Roboto Mono', monospace;
       white-space: pre-wrap;
     }
+
+    .radio-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    
+    .radio-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+    
+    input[type="radio"] {
+      margin: 0;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
-  <!-- Abas de navegação -->
+  <!-- Tab Navigation -->
   <div class="tabs">
-    <div class="tab active" data-tab="update-variables">Update Variables</div>
+    <div class="tab active" data-tab="update-collections">Update Collections</div>
+    <div class="tab" data-tab="update-variables">Update Variables</div>
     <div class="tab" data-tab="list-libs">List Libraries</div>
   </div>
-  
-  <!-- Conteúdo da Aba Update Variables -->
-  <div id="update-variables" class="tab-content active container">
-    <h2>Substituir Variáveis</h2>
-    <div id="error-container-update" style="display: none;" class="error-message"></div>
-    <div id="info-container-update" style="display: none;" class="info-message"></div>
-    
-    <div class="variable-form">
+
+  <!-- Tab Contents -->
+  <div class="tab-content">
+    <!-- Conteúdo da Aba Update Collections -->
+    <div class="tab-pane active" id="update-collections">
+      <h2>Update Collections</h2>
+      <p>Substitua variáveis locais por equivalentes de uma biblioteca.</p>
       <div class="form-group">
-        <label class="form-label">Biblioteca de referência:</label>
-        <select id="library-select-update" class="form-select">
-          <option value="">Carregando bibliotecas...</option>
+        <label for="lib-select">Selecione uma biblioteca:</label>
+        <select id="lib-select" class="select-field">
+          <option value="">Selecione...</option>
         </select>
-        <p class="form-help">Selecione a biblioteca externa com as variáveis que deseja usar como referência</p>
       </div>
-      
       <div class="form-group">
-        <label class="form-label">Coleção local:</label>
-        <select id="local-collection-select" class="form-select">
-          <option value="">Carregando coleções locais...</option>
+        <label for="collection-select">Selecione uma coleção:</label>
+        <select id="collection-select" class="select-field">
+          <option value="">Selecione...</option>
         </select>
-        <p class="form-help">Selecione a coleção local cujas variáveis serão substituídas</p>
       </div>
-      
-      <div class="variable-preview">
-        <div class="preview-title">Pré-visualização:</div>
-        <div id="preview-content" class="preview-content">
-          Ainda não há nada para pré-visualizar.
-          Selecione uma biblioteca externa e uma coleção local para ver as correspondências.
-        </div>
+      <div class="form-group">
+        <button id="update-collection-btn" class="primary-button">Substituir Variáveis</button>
       </div>
-      
-      <button id="update-button" class="action-button" disabled>Substituir Variáveis</button>
-    </div>
-  </div>
-  
-  <!-- Conteúdo da Aba List Libs (funcionalidade original) -->
-  <div id="list-libs" class="tab-content container">
-    <h2>Biblioteca Sweep</h2>
-    <div id="error-container" style="display: none;" class="error-message"></div>
-    <div id="info-container" style="display: none;" class="info-message"></div>
-
-    <!-- Novo seletor de bibliotecas -->
-    <div class="section-title">Selecione uma biblioteca:</div>
-    <select id="library-select" class="library-select">
-      <option value="">Carregando bibliotecas...</option>
-    </select>
-
-    <!-- Container para exibir as coleções da biblioteca selecionada -->
-    <div class="section-title">Coleções da biblioteca:</div>
-    <div id="collections-container" class="collections-container">
-      <div id="collections-loading" class="loading">Selecione uma biblioteca para ver suas coleções</div>
-      <div id="collections-list" class="hidden"></div>
-      <div id="collections-empty" class="no-components hidden">Nenhuma coleção encontrada nesta biblioteca</div>
-    </div>
-
-    <!-- Container original para exibir todas as bibliotecas -->
-    <div class="section-title">Todas as bibliotecas:</div>
-    <div id="components-container">
-      <p class="no-components">Procurando bibliotecas...</p>
+      <div id="update-status"></div>
     </div>
     
-    <button id="refresh-button" class="action-button">Recarregar</button>
+    <!-- Conteúdo da Aba Update Variables -->
+    <div class="tab-pane" id="update-variables">
+      <h2>Update Variables</h2>
+      <p>Atualize as variáveis aplicadas aos nós/elementos.</p>
+      <div class="form-group">
+        <p>Funcionalidade em desenvolvimento.</p>
+        <p>Esta aba permitirá atualizar variáveis em nós (elementos) ao invés de coleções.</p>
+      </div>
+    </div>
+
+    <!-- Conteúdo da Aba List Libs -->
+    <div class="tab-pane" id="list-libs">
+      <h2>Biblioteca Sweep</h2>
+      <div id="error-container" style="display: none;" class="error-message"></div>
+      <div id="info-container" style="display: none;" class="info-message"></div>
+      
+      <ul id="library-list" class="library-list">
+        <li class="loading">Carregando bibliotecas...</li>
+      </ul>
+      
+      <button id="refresh-button" class="action-button">Recarregar</button>
+    </div>
   </div>
 
   <script>
@@ -333,10 +337,10 @@
     const collectionsEmpty = document.getElementById('collections-empty');
     
     // Elementos da aba Update Variables
-    const librarySelectUpdate = document.getElementById('library-select-update');
-    const localCollectionSelect = document.getElementById('local-collection-select');
+    const librarySelectUpdate = document.getElementById('var-lib-select');
+    const localCollectionSelect = document.getElementById('var-collection-select');
     const previewContent = document.getElementById('preview-content');
-    const updateButton = document.getElementById('update-button');
+    const updateButton = document.getElementById('update-variables-btn');
     const errorContainerUpdate = document.getElementById('error-container-update');
     const infoContainerUpdate = document.getElementById('info-container-update');
     

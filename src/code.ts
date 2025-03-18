@@ -430,249 +430,25 @@ async function carregarBibliotecas(): Promise<void> {
 }
 
 // Função para carregar as coleções de uma biblioteca específica
-async function carregarColecoesDaBiblioteca(libraryId: string): Promise<void> {
+async function carregarColecoesDaBiblioteca(libraryId: string, target?: string): Promise<void> {
   try {
     console.log(`Carregando coleções da biblioteca com ID: ${libraryId}`);
-    const colecoes: ColecaoInfo[] = [];
     
-    // Primeiro, vamos buscar a biblioteca pelo ID para ter o nome dela
-    const bibliotecasMap = await obterTodasBibliotecas();
-    const bibliotecas = Array.from(bibliotecasMap.values());
-    const bibliotecaSelecionada = bibliotecas.find(bib => bib.id === libraryId) as BibliotecaInfo | undefined;
-    
-    if (!bibliotecaSelecionada) {
-      console.warn(`Biblioteca com ID ${libraryId} não encontrada`);
-      figma.ui.postMessage({
-        type: 'collections-data',
-        collections: []
-      });
-      return;
-    }
-    
-    const nomeBiblioteca = bibliotecaSelecionada.name;
-    console.log(`Nome da biblioteca selecionada: ${nomeBiblioteca}`);
-    
-    // MÉTODO 1: Tentar obter coleções de variáveis da biblioteca
-    try {
-      // @ts-ignore - API pode não estar nas tipagens
-      const variableCollections = await figma.teamLibrary.getAvailableLibraryVariableCollectionsAsync();
-      
-      if (variableCollections && Array.isArray(variableCollections)) {
-        console.log(`Procurando em ${variableCollections.length} coleções de variáveis`);
-        
-        // Filtramos apenas as coleções da biblioteca selecionada
-        for (let i = 0; i < variableCollections.length; i++) {
-          try {
-            const collection = variableCollections[i] as any;
-            
-            // Verificamos se a coleção pertence à biblioteca que queremos
-            // usando o nome da biblioteca como principal referência
-            let belongsToSelectedLibrary = false;
-            
-            if (collection.libraryName === nomeBiblioteca) {
-              belongsToSelectedLibrary = true;
-            } else if (collection.key === libraryId || collection.id === libraryId) {
-              belongsToSelectedLibrary = true;
-            } else if (collection.libraryId === libraryId) {
-              belongsToSelectedLibrary = true;
-            }
-            
-            if (belongsToSelectedLibrary) {
-              // Adicionamos essa coleção à lista
-              colecoes.push({
-                id: collection.key || collection.id || `collection-${Date.now()}-${i}`,
-                name: collection.name || `Coleção ${i + 1}`,
-                type: "Variáveis"
-              });
-              
-              console.log(`Adicionada coleção de variáveis: ${collection.name}`);
-            }
-          } catch (err) {
-            console.warn(`Erro ao processar coleção ${i}:`, err);
-          }
-        }
-      }
-    } catch (err) {
-      console.warn("Erro ao buscar coleções de variáveis:", err);
-    }
-    
-    // MÉTODO 2: Tentar obter coleções de componentes da biblioteca
-    try {
-      // Buscar componentes em todas as páginas
-      let componentSets: any[] = [];
-      
-      // Adicionamos os componentes locais primeiro
-      for (const page of figma.root.children) {
-        const localSets = page.findAllWithCriteria({types: ['COMPONENT_SET']});
-        if (localSets && localSets.length > 0) {
-          componentSets = [...componentSets, ...localSets];
-        }
-      }
-      
-      // Tentar também obter via API, se disponível
-      try {
-        // @ts-ignore
-        if (typeof figma.teamLibrary?.getComponentSetsAsync === 'function') {
-          // @ts-ignore
-          const remoteSets = await figma.teamLibrary.getComponentSetsAsync();
-          if (remoteSets && Array.isArray(remoteSets)) {
-            componentSets = [...componentSets, ...remoteSets];
-          }
-        }
-      } catch (apiErr) {
-        console.warn("Erro ao buscar via API:", apiErr);
-      }
-      
-      console.log(`Procurando em ${componentSets.length} conjuntos de componentes`);
-      
-      // Filtramos apenas os conjuntos da biblioteca selecionada
-      for (let i = 0; i < componentSets.length; i++) {
-        try {
-          const set = componentSets[i] as any;
-          let setName = set.name || "";
-          
-          // Verificamos se o conjunto pertence à biblioteca que queremos
-          let belongsToSelectedLibrary = false;
-          
-          // Se for um componente remoto, verificamos o nome da biblioteca
-          if (set.remote === true) {
-            // Tenta extrair o nome da biblioteca do nome do componente
-            if (typeof setName === 'string' && setName.includes('/')) {
-              const libName = setName.split('/')[0].trim();
-              if (libName === nomeBiblioteca) {
-                belongsToSelectedLibrary = true;
-              }
-            }
-          }
-          
-          // Verificações adicionais
-          if (set.libraryName === nomeBiblioteca) {
-            belongsToSelectedLibrary = true;
-          } else if (set.libraryId === libraryId) {
-            belongsToSelectedLibrary = true;
-          } else if (set.key && typeof set.key === 'string') {
-            // Tenta extrair o nome da biblioteca da chave
-            const keyParts = set.key.split(';');
-            if (keyParts.length > 0 && keyParts[0].trim() === nomeBiblioteca) {
-              belongsToSelectedLibrary = true;
-            }
-          }
-          
-          if (belongsToSelectedLibrary) {
-            // Obtém o nome mais limpo possível
-            let cleanName = setName;
-            if (cleanName.includes('/')) {
-              // Remove o prefixo da biblioteca
-              cleanName = cleanName.split('/').slice(1).join('/');
-            }
-            
-            // Adicionamos esse conjunto à lista
-            colecoes.push({
-              id: set.key || set.id || `set-${Date.now()}-${i}`,
-              name: cleanName || `Conjunto ${i + 1}`,
-              type: "Componentes"
-            });
-            
-            console.log(`Adicionado conjunto de componentes: ${cleanName}`);
-          }
-        } catch (err) {
-          console.warn(`Erro ao processar conjunto ${i}:`, err);
-        }
-      }
-    } catch (err) {
-      console.warn("Erro ao buscar conjuntos de componentes:", err);
-    }
-    
-    // MÉTODO 3: Buscar estilos da biblioteca
-    try {
-      // Tentamos identificar coleções de estilos que pertencem à biblioteca
-      const allStyles = [
-        ...figma.getLocalPaintStyles(),
-        ...figma.getLocalTextStyles(),
-        ...figma.getLocalEffectStyles(),
-        ...figma.getLocalGridStyles()
-      ];
-      
-      console.log(`Analisando ${allStyles.length} estilos para encontrar coleções`);
-      
-      // Mapa para agrupar estilos por coleção
-      const styleCollections = new Map<string, { count: number, type: string }>();
-      
-      // Processa cada estilo
-      for (const style of allStyles) {
-        try {
-          // Verifica se o estilo é de uma biblioteca remota
-          if (style.remote === true) {
-            // Tenta identificar a biblioteca e a coleção
-            if (typeof style.name === 'string' && style.name.includes('/')) {
-              const parts = style.name.split('/');
-              const bibliotecaName = parts[0].trim();
-              
-              // Verifica se pertence à biblioteca selecionada
-              if (bibliotecaName === nomeBiblioteca) {
-                // Se tiver mais partes, pode indicar uma coleção
-                if (parts.length > 1) {
-                  // A coleção pode ser formada por um ou mais níveis após o nome da biblioteca
-                  const collectionName = parts[1].trim();
-                  
-                  // Incrementa a contagem para essa coleção
-                  const existing = styleCollections.get(collectionName);
-                  if (existing) {
-                    existing.count++;
-                  } else {
-                    // Determina o tipo de estilo
-                    let styleType = "Estilo";
-                    if (style.type === 'PAINT') styleType = "Cores";
-                    else if (style.type === 'TEXT') styleType = "Textos";
-                    else if (style.type === 'EFFECT') styleType = "Efeitos";
-                    else if (style.type === 'GRID') styleType = "Grids";
-                    
-                    styleCollections.set(collectionName, { count: 1, type: styleType });
-                  }
-                }
-              }
-            }
-          }
-        } catch (err) {
-          console.warn("Erro ao processar estilo:", err);
-        }
-      }
-      
-      // Adiciona as coleções de estilos encontradas
-      styleCollections.forEach((info, name) => {
-        // Adiciona todas as coleções, mesmo com apenas 1 estilo
-        colecoes.push({
-          id: `style-collection-${Date.now()}-${name.replace(/\W+/g, '-')}`,
-          name: name,
-          type: `${info.type} (${info.count})`
-        });
-        
-        console.log(`Adicionada coleção de estilos: ${name} com ${info.count} estilos`);
-      });
-    } catch (err) {
-      console.warn("Erro ao buscar coleções de estilos:", err);
-    }
+    const colecoes = await figma.variables.getVariableCollectionsAsync(libraryId);
+    console.log(`Encontradas ${colecoes.length} coleções na biblioteca`);
     
     // Enviar as coleções para a UI
-    if (colecoes.length === 0) {
-      console.log("Nenhuma coleção encontrada na biblioteca");
-      figma.ui.postMessage({
-        type: 'collections-data',
-        collections: []
-      });
-    } else {
-      console.log(`Encontradas ${colecoes.length} coleções na biblioteca`);
-      figma.ui.postMessage({
-        type: 'collections-data',
-        collections: colecoes
-      });
-    }
+    figma.ui.postMessage({ 
+      type: target === 'display' ? 'collections-for-display-loaded' : 'collections-loaded',
+      libraryId,
+      collections: colecoes,
+      target
+    });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("Erro ao carregar coleções:", errorMessage);
-    figma.ui.postMessage({
-      type: 'error',
-      message: "Ocorreu um erro ao tentar listar as coleções: " + errorMessage
+    console.error("Erro ao carregar coleções:", error);
+    figma.ui.postMessage({ 
+      type: 'error', 
+      error: `Erro ao carregar coleções da biblioteca: ${error}` 
     });
   }
 }
@@ -1478,59 +1254,470 @@ async function substituirVariaveis(
   }
 }
 
-// Quando o UI envia mensagens
-figma.ui.onmessage = (msg) => {
-  console.log("Mensagem recebida:", msg);
+// Quando a UI está pronta, enviar as bibliotecas disponíveis
+figma.ui.onmessage = async (msg) => {
+  console.log('Mensagem recebida do UI:', msg);
+
+  try {
+    switch (msg.type) {
+      case 'ui-ready':
+        await carregarBibliotecas();
+        break;
+
+      case 'get-libraries':
+        await carregarBibliotecas();
+        break;
+
+      case 'get-collections':
+        await carregarColecoesDaBiblioteca(msg.libraryId, msg.target);
+        break;
+
+      case 'get-collections-for-display':
+        await carregarColecoesDaBiblioteca(msg.libraryId, 'display');
+        break;
+
+      case 'update-collections': // Antigo 'update-variables'
+        await atualizarColecoes(msg.libraryId, msg.collectionId);
+        break;
+        
+      case 'update-variables': // Nova funcionalidade para atualizar variáveis nos nós
+        await atualizarVariaveisNosNos(msg.libraryId, msg.collectionId, msg.scope);
+        break;
+        
+      default:
+        console.warn('Tipo de mensagem desconhecido:', msg.type);
+    }
+  } catch (error) {
+    console.error('Erro ao processar mensagem:', error);
+    figma.ui.postMessage({
+      type: 'error',
+      error: `Erro: ${error}`,
+      context: msg.type // Passa o contexto do erro
+    });
+  }
+};
+
+// Função para atualizar coleções (antigo substituirVariáveis)
+async function atualizarColecoes(libraryId: string, collectionId: string) {
+  try {
+    console.log(`Atualizando coleções. Library ID: ${libraryId}, Collection ID: ${collectionId}`);
+    
+    // Obter a biblioteca pelo ID
+    const bibliotecas = await figma.variables.getAvailableLibraryVariableCollectionsAsync();
+    const biblioteca = bibliotecas.find(lib => lib.libraryId === libraryId);
+    
+    if (!biblioteca) {
+      throw new Error('Biblioteca não encontrada');
+    }
+    
+    // Encontrar a coleção local pelo ID
+    const localCollection = figma.variables.getVariableCollectionById(collectionId);
+    if (!localCollection) {
+      throw new Error('Coleção local não encontrada');
+    }
+    
+    // Obter as variáveis da biblioteca e as variáveis locais
+    const libraryVariables = await figma.variables.getVariablesInLibraryAsync(libraryId);
+    const localVariables = figma.variables.getLocalVariables();
+    const localVarsInCollection = localVariables.filter(v => v.variableCollectionId === collectionId);
+    
+    // Resultado da atualização
+    const resultado = await substituirVariaveis(localCollection, libraryVariables, localVarsInCollection);
+    
+    // Enviar resultado para a UI
+    figma.ui.postMessage({
+      type: 'update-collections-result',
+      success: true,
+      updatedCount: resultado
+    });
+    
+  } catch (error) {
+    console.error('Erro ao atualizar coleções:', error);
+    figma.ui.postMessage({
+      type: 'update-collections-result',
+      success: false,
+      error: `Erro ao atualizar coleções: ${error}`
+    });
+  }
+}
+
+// Função para atualizar variáveis nos nós (nova funcionalidade)
+async function atualizarVariaveisNosNos(libraryId: string, collectionId: string, scope: string) {
+  try {
+    console.log(`Atualizando variáveis nos nós. Library ID: ${libraryId}, Collection ID: ${collectionId}, Scope: ${scope}`);
+    
+    // Obter a biblioteca pelo ID
+    const bibliotecas = await figma.variables.getAvailableLibraryVariableCollectionsAsync();
+    const biblioteca = bibliotecas.find(lib => lib.libraryId === libraryId);
+    
+    if (!biblioteca) {
+      throw new Error('Biblioteca não encontrada');
+    }
+    
+    // Obter a coleção da biblioteca pelo ID
+    const libCollections = await figma.variables.getVariableCollectionsAsync(libraryId);
+    const libCollection = libCollections.find(c => c.id === collectionId);
+    
+    if (!libCollection) {
+      throw new Error('Coleção na biblioteca não encontrada');
+    }
+    
+    // Obter as variáveis da biblioteca na coleção especificada
+    const allLibVariables = await figma.variables.getVariablesInLibraryAsync(libraryId);
+    const libraryVariables = allLibVariables.filter(v => v.variableCollectionId === collectionId);
+    
+    if (!libraryVariables || libraryVariables.length === 0) {
+      throw new Error('Nenhuma variável encontrada na coleção da biblioteca');
+    }
+    
+    console.log(`Encontradas ${libraryVariables.length} variáveis na coleção da biblioteca`);
+    
+    // Determinar quais nós processar com base no escopo
+    let nodes: SceneNode[] = [];
+    
+    switch (scope) {
+      case 'selection':
+        nodes = figma.currentPage.selection;
+        if (nodes.length === 0) {
+          throw new Error('Nenhum elemento selecionado. Selecione ao menos um elemento para atualizar.');
+        }
+        break;
+        
+      case 'page':
+        nodes = figma.currentPage.children;
+        break;
+        
+      case 'document':
+        // Obter todos os nós de todas as páginas
+        nodes = figma.root.children.flatMap(page => page.children);
+        break;
+        
+      default:
+        throw new Error(`Escopo inválido: ${scope}`);
+    }
+    
+    console.log(`Processando ${nodes.length} nós no escopo "${scope}"`);
+    
+    // Contadores para feedback
+    let nodesAtualizados = 0;
+    let variaveisAtualizadas = 0;
+    
+    // Processar cada nó
+    for (const node of nodes) {
+      let nodeAtualizado = false;
+      
+      // Processar variáveis de preenchimento (fill)
+      if ('fills' in node && node.fills) {
+        const variaveisAtualizadasNoFill = await atualizarVariaveisEmPaint(node, 'fills', libraryVariables);
+        if (variaveisAtualizadasNoFill > 0) {
+          nodeAtualizado = true;
+          variaveisAtualizadas += variaveisAtualizadasNoFill;
+        }
+      }
+      
+      // Processar variáveis de stroke
+      if ('strokes' in node && node.strokes) {
+        const variaveisAtualizadasNoStroke = await atualizarVariaveisEmPaint(node, 'strokes', libraryVariables);
+        if (variaveisAtualizadasNoStroke > 0) {
+          nodeAtualizado = true;
+          variaveisAtualizadas += variaveisAtualizadasNoStroke;
+        }
+      }
+      
+      // Processar variáveis de efeitos
+      if ('effects' in node && node.effects) {
+        const variaveisAtualizadasNosEfeitos = await atualizarVariaveisEmEfeitos(node, libraryVariables);
+        if (variaveisAtualizadasNosEfeitos > 0) {
+          nodeAtualizado = true;
+          variaveisAtualizadas += variaveisAtualizadasNosEfeitos;
+        }
+      }
+      
+      if (nodeAtualizado) {
+        nodesAtualizados++;
+      }
+      
+      // Se for um FrameNode, ComponentNode, etc., processar os filhos recursivamente
+      if ('children' in node) {
+        // Chamar recursivamente para cada filho
+        const { nodes: childrenUpdated, variables: childrenVarsUpdated } = 
+          await atualizarVariaveisEmNosFilhos(node.children, libraryVariables);
+        
+        nodesAtualizados += childrenUpdated;
+        variaveisAtualizadas += childrenVarsUpdated;
+      }
+    }
+    
+    // Enviar resultado para a UI
+    figma.ui.postMessage({
+      type: 'update-variables-result',
+      success: true,
+      nodesCount: nodesAtualizados,
+      updatedCount: variaveisAtualizadas
+    });
+    
+  } catch (error) {
+    console.error('Erro ao atualizar variáveis nos nós:', error);
+    figma.ui.postMessage({
+      type: 'update-variables-result',
+      success: false,
+      error: `Erro ao atualizar variáveis nos nós: ${error}`
+    });
+  }
+}
+
+// Função auxiliar para atualizar variáveis em nós filhos (recursivamente)
+async function atualizarVariaveisEmNosFilhos(
+  nodes: readonly SceneNode[],
+  libraryVariables: VariableReference[]
+): Promise<{ nodes: number, variables: number }> {
+  let nodesAtualizados = 0;
+  let variaveisAtualizadas = 0;
   
-  if (msg.type === 'ui-ready') {
-    console.log("UI está pronta, carregando bibliotecas...");
-    carregarBibliotecas();
+  for (const node of nodes) {
+    let nodeAtualizado = false;
+    
+    // Processar variáveis de preenchimento (fill)
+    if ('fills' in node && node.fills) {
+      const variaveisAtualizadasNoFill = await atualizarVariaveisEmPaint(node, 'fills', libraryVariables);
+      if (variaveisAtualizadasNoFill > 0) {
+        nodeAtualizado = true;
+        variaveisAtualizadas += variaveisAtualizadasNoFill;
+      }
+    }
+    
+    // Processar variáveis de stroke
+    if ('strokes' in node && node.strokes) {
+      const variaveisAtualizadasNoStroke = await atualizarVariaveisEmPaint(node, 'strokes', libraryVariables);
+      if (variaveisAtualizadasNoStroke > 0) {
+        nodeAtualizado = true;
+        variaveisAtualizadas += variaveisAtualizadasNoStroke;
+      }
+    }
+    
+    // Processar variáveis de efeitos
+    if ('effects' in node && node.effects) {
+      const variaveisAtualizadasNosEfeitos = await atualizarVariaveisEmEfeitos(node, libraryVariables);
+      if (variaveisAtualizadasNosEfeitos > 0) {
+        nodeAtualizado = true;
+        variaveisAtualizadas += variaveisAtualizadasNosEfeitos;
+      }
+    }
+    
+    if (nodeAtualizado) {
+      nodesAtualizados++;
+    }
+    
+    // Processar nós filhos recursivamente
+    if ('children' in node) {
+      const { nodes: childrenUpdated, variables: childrenVarsUpdated } = 
+        await atualizarVariaveisEmNosFilhos(node.children, libraryVariables);
+      
+      nodesAtualizados += childrenUpdated;
+      variaveisAtualizadas += childrenVarsUpdated;
+    }
   }
   
-  // Recarregar bibliotecas
-  if (msg.type === 'recarregar') {
-    console.log("Recarregando bibliotecas...");
-    carregarBibliotecas();
+  return { nodes: nodesAtualizados, variables: variaveisAtualizadas };
+}
+
+// Função auxiliar para atualizar variáveis em propriedades de paint (fills, strokes)
+async function atualizarVariaveisEmPaint(
+  node: SceneNode, 
+  property: 'fills' | 'strokes',
+  libraryVariables: VariableReference[]
+): Promise<number> {
+  let variaveisAtualizadas = 0;
+  
+  if (!(property in node)) return 0;
+  
+  const paints = node[property] as Paint[];
+  if (!paints || !Array.isArray(paints)) return 0;
+  
+  // Criar uma cópia do array de paints para modificar
+  const updatedPaints = [...paints];
+  let paintModificado = false;
+  
+  for (let i = 0; i < updatedPaints.length; i++) {
+    const paint = updatedPaints[i];
+    
+    if (paint.type === 'SOLID') {
+      // Verificar se a cor usa uma variável
+      if (paint.boundVariables && paint.boundVariables.color) {
+        const varId = (paint.boundVariables.color as VariableAlias).id;
+        
+        // Encontrar a variável local
+        const localVariable = figma.variables.getVariableById(varId);
+        
+        if (localVariable) {
+          // Tentar encontrar uma variável equivalente na biblioteca
+          const varEquivalente = await encontrarVariavelEquivalenteNaBiblioteca(
+            localVariable, 
+            libraryVariables
+          );
+          
+          if (varEquivalente) {
+            try {
+              // Importar a variável da biblioteca primeiro
+              const importedVar = await figma.variables.importVariableByKeyAsync(varEquivalente.key);
+              
+              if (importedVar) {
+                // Atualizar a referência para a variável importada da biblioteca
+                updatedPaints[i] = {
+                  ...paint,
+                  boundVariables: {
+                    ...paint.boundVariables,
+                    color: {
+                      type: 'VARIABLE_ALIAS',
+                      id: importedVar.id
+                    }
+                  }
+                };
+                
+                paintModificado = true;
+                variaveisAtualizadas++;
+                console.log(`Variável de cor atualizada em ${node.name}`);
+              }
+            } catch (error) {
+              console.warn(`Erro ao importar variável ${varEquivalente.key}:`, error);
+            }
+          }
+        }
+      }
+    }
+    
+    // Adicionar outros tipos de paint conforme necessário (gradientes, etc.)
   }
   
-  // Carregar coleções de uma biblioteca específica
-  if (msg.type === 'carregarColecoes' && msg.libraryId) {
-    console.log(`Solicitando coleções da biblioteca: ${msg.libraryId}`);
-    carregarColecoesDaBiblioteca(msg.libraryId);
+  // Aplicar as mudanças se houver alguma atualização
+  if (paintModificado) {
+    node[property] = updatedPaints;
   }
   
-  // Carregar coleções locais
-  if (msg.type === 'carregarColecoesLocais') {
-    console.log("Solicitando coleções locais de variáveis");
-    carregarColecoesLocais();
+  return variaveisAtualizadas;
+}
+
+// Função para atualizar variáveis em efeitos
+async function atualizarVariaveisEmEfeitos(
+  node: SceneNode & { effects?: Effect[] },
+  libraryVariables: VariableReference[]
+): Promise<number> {
+  let variaveisAtualizadas = 0;
+  
+  if (!node.effects || !Array.isArray(node.effects)) return 0;
+  
+  // Criar uma cópia do array de efeitos para modificar
+  const updatedEffects = [...node.effects];
+  let effectsModificados = false;
+  
+  for (let i = 0; i < updatedEffects.length; i++) {
+    const effect = updatedEffects[i];
+    
+    // Verificar variáveis em efeitos do tipo DROP_SHADOW ou INNER_SHADOW
+    if ((effect.type === 'DROP_SHADOW' || effect.type === 'INNER_SHADOW') && 
+        effect.boundVariables && effect.boundVariables.color) {
+      
+      const varId = (effect.boundVariables.color as VariableAlias).id;
+      
+      // Encontrar a variável local
+      const localVariable = figma.variables.getVariableById(varId);
+      
+      if (localVariable) {
+        // Tentar encontrar uma variável equivalente na biblioteca
+        const varEquivalente = await encontrarVariavelEquivalenteNaBiblioteca(
+          localVariable, 
+          libraryVariables
+        );
+        
+        if (varEquivalente) {
+          try {
+            // Importar a variável da biblioteca primeiro
+            const importedVar = await figma.variables.importVariableByKeyAsync(varEquivalente.key);
+            
+            if (importedVar) {
+              // Atualizar a referência para a variável importada da biblioteca
+              updatedEffects[i] = {
+                ...effect,
+                boundVariables: {
+                  ...effect.boundVariables,
+                  color: {
+                    type: 'VARIABLE_ALIAS',
+                    id: importedVar.id
+                  }
+                }
+              };
+              
+              effectsModificados = true;
+              variaveisAtualizadas++;
+              console.log(`Variável de cor em efeito atualizada em ${node.name}`);
+            }
+          } catch (error) {
+            console.warn(`Erro ao importar variável ${varEquivalente.key}:`, error);
+          }
+        }
+      }
+    }
   }
   
-  // Pré-visualizar substituição de variáveis
-  if (msg.type === 'preVisualizarSubstituicao') {
-    console.log("Solicitando prévia de substituição:", msg);
-    preVisualizarSubstituicao(msg.libraryId, msg.localCollectionId);
+  // Aplicar as mudanças se houver alguma atualização
+  if (effectsModificados) {
+    node.effects = updatedEffects;
   }
   
-  // Substituir variáveis
-  if (msg.type === 'substituirVariaveis') {
-    console.log("Solicitando substituição de variáveis:", msg);
-    substituirVariaveis(msg.libraryId, msg.localCollectionId);
+  return variaveisAtualizadas;
+}
+
+// Função para encontrar uma variável equivalente na biblioteca com base no valor
+async function encontrarVariavelEquivalenteNaBiblioteca(
+  localVariable: Variable,
+  libraryVariables: VariableReference[]
+): Promise<VariableReference | null> {
+  // Obter os valores da variável local para cada modo
+  for (const mode of localVariable.collection.modes) {
+    try {
+      // Obter o valor da variável local neste modo
+      const valorLocal = localVariable.valuesByMode[mode.modeId];
+      
+      // Se o valor for uma referência a outra variável, pular
+      if (valorLocal && typeof valorLocal === 'object' && 'type' in valorLocal && valorLocal.type === 'VARIABLE_ALIAS') {
+        continue;
+      }
+      
+      // Buscar variáveis na biblioteca com valor equivalente
+      for (const libVarRef of libraryVariables) {
+        try {
+          // Obter a variável completa da biblioteca
+          const libVar = await figma.variables.getVariableByIdInLibraryAsync(libVarRef.id, libVarRef.libraryId);
+          
+          if (!libVar) continue;
+          
+          // Verificar os valores para cada modo da biblioteca
+          for (const libMode of libVar.collection.modes) {
+            const valorLib = libVar.valuesByMode[libMode.modeId];
+            
+            // Se o valor for um alias, pular
+            if (valorLib && typeof valorLib === 'object' && 'type' in valorLib && valorLib.type === 'VARIABLE_ALIAS') {
+              continue;
+            }
+            
+            // Comparar os valores (conversão para string para comparação simplificada)
+            const valorLocalStr = JSON.stringify(valorLocal);
+            const valorLibStr = JSON.stringify(valorLib);
+            
+            if (valorLocalStr === valorLibStr) {
+              // Encontrou uma correspondência!
+              console.log(`Variável equivalente encontrada: ${libVar.name} (${libVarRef.key})`);
+              return libVarRef;
+            }
+          }
+        } catch (error) {
+          console.warn(`Erro ao verificar variável da biblioteca:`, error);
+        }
+      }
+    } catch (error) {
+      console.warn(`Erro ao processar modo ${mode.name}:`, error);
+    }
   }
   
-  // Atualizar variáveis (função antiga, mantida por compatibilidade)
-  if (msg.type === 'atualizarVariaveis') {
-    console.log("Solicitando atualização de variáveis (função legada):", msg);
-    atualizarVariaveis(
-      msg.libraryId,
-      msg.collectionId,
-      msg.oldPrefix, 
-      msg.newPrefix
-    );
-  }
-  
-  // Fecha o plugin se solicitado
-  if (msg.type === 'fechar') {
-    console.log("Fechando plugin");
-    figma.closePlugin();
-  }
-}; 
+  return null; // Nenhuma correspondência encontrada
+} 
