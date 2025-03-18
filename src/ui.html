@@ -3,9 +3,9 @@
 <head>
   <style>
     body {
-      font-family: 'Inter', sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       margin: 0;
-      padding: 0;
+      padding: 16px;
       color: #333;
     }
     
@@ -62,8 +62,8 @@
     }
     
     .error-message {
-      background-color: #fee2e2;
-      color: #b91c1c;
+      background-color: #ffebee;
+      color: #c62828;
       padding: 12px;
       border-radius: 6px;
       margin-bottom: 16px;
@@ -71,8 +71,8 @@
     }
     
     .info-message {
-      background-color: #f0f9ff;
-      color: #075985;
+      background-color: #e3f2fd;
+      color: #1565c0;
       padding: 12px;
       border-radius: 6px;
       margin-bottom: 16px;
@@ -80,10 +80,10 @@
     }
     
     .action-button {
-      background-color: #0070e0;
+      background-color: #18a0fb;
       color: white;
       border: none;
-      border-radius: 4px;
+      border-radius: 6px;
       padding: 8px 16px;
       font-size: 13px;
       cursor: pointer;
@@ -93,16 +93,16 @@
     }
     
     .action-button:hover {
-      background-color: #0057b3;
+      background-color: #0d8fe0;
     }
 
     .library-select {
       width: 100%;
       padding: 8px;
+      margin: 8px 0;
+      border: 1px solid #ddd;
       border-radius: 4px;
-      border: 1px solid #ccc;
-      margin-bottom: 16px;
-      font-size: 14px;
+      font-size: 12px;
     }
 
     .collections-container {
@@ -135,16 +135,17 @@
     .section-title {
       font-size: 14px;
       font-weight: 600;
-      margin-top: 20px;
-      margin-bottom: 10px;
-      color: #374151;
+      margin: 16px 0 8px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid #e0e0e0;
+      color: #1e1e1e;
     }
 
     .loading {
-      text-align: center;
-      color: #6b7280;
+      display: none;
+      margin: 16px 0;
+      color: #666;
       font-style: italic;
-      padding: 12px;
     }
 
     .hidden {
@@ -154,28 +155,23 @@
     /* Estilos para as abas */
     .tabs {
       display: flex;
-      border-bottom: 1px solid #e5e7eb;
-      background-color: #f3f4f6;
-      position: sticky;
-      top: 0;
-      z-index: 10;
+      margin-bottom: 16px;
+      border-bottom: 1px solid #ddd;
     }
     
     .tab {
-      padding: 12px 20px;
-      font-size: 14px;
-      font-weight: 500;
+      padding: 8px 16px;
+      border: none;
+      background: none;
+      color: #666;
       cursor: pointer;
-      border-bottom: 2px solid transparent;
-      transition: all 0.3s ease;
-      text-align: center;
-      flex: 1;
+      font-size: 12px;
+      font-weight: 500;
     }
     
     .tab.active {
-      border-bottom-color: #0070e0;
-      color: #0070e0;
-      background-color: #fff;
+      color: #18a0fb;
+      border-bottom: 2px solid #18a0fb;
     }
     
     .tab-content {
@@ -259,6 +255,269 @@
     .radio-label input {
       margin-right: 8px;
     }
+
+    .secondary-button {
+      background-color: #f3f4f6;
+      color: #374151;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      padding: 8px 16px;
+      font-size: 13px;
+      cursor: pointer;
+      margin-top: 8px;
+      display: block;
+      width: 100%;
+    }
+    
+    .secondary-button:hover {
+      background-color: #e5e7eb;
+    }
+
+    .secondary-button:disabled {
+      background-color: #f3f4f6;
+      color: #9ca3af;
+      cursor: not-allowed;
+    }
+
+    .action-button:disabled {
+      background-color: #9ca3af;
+      cursor: not-allowed;
+    }
+
+    .preview-section {
+      margin-bottom: 16px;
+    }
+
+    .preview-subtitle {
+      font-size: 12px;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 8px;
+    }
+
+    .preview-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .preview-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 8px;
+      border-radius: 4px;
+      background-color: #ffffff;
+      margin-bottom: 4px;
+      font-size: 12px;
+    }
+
+    .preview-item:hover {
+      background-color: #f3f4f6;
+    }
+
+    .variable-name {
+      color: #111827;
+      font-family: 'Roboto Mono', monospace;
+    }
+
+    .variable-collection {
+      color: #6b7280;
+      font-size: 11px;
+      padding: 2px 6px;
+      background-color: #f3f4f6;
+      border-radius: 3px;
+    }
+
+    .preview-more {
+      font-size: 11px;
+      color: #6b7280;
+      padding: 4px 8px;
+      font-style: italic;
+    }
+
+    /* Grupos de variáveis/estilos - Layout mais compacto */
+    .variable-group {
+      margin-bottom: 12px;
+    }
+
+    .variable-group h3 {
+      font-size: 11px;
+      font-weight: 500;
+      margin: 4px 0;
+      color: #666;
+    }
+
+    .variable-group ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .variable-group li {
+      display: flex;
+      align-items: center;
+      padding: 3px 6px;
+      margin: 1px 0;
+      border-radius: 3px;
+      background: #f5f5f5;
+      font-size: 11px;
+    }
+
+    .variable-group li:hover {
+      background: #eee;
+    }
+
+    .var-name {
+      flex: 1;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 150px;
+    }
+
+    .var-type {
+      padding: 1px 4px;
+      margin: 0 4px;
+      border-radius: 3px;
+      font-size: 10px;
+    }
+
+    .var-collection {
+      font-size: 10px;
+      color: #999;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 80px;
+    }
+
+    .more-items {
+      color: #666;
+      font-style: italic;
+      text-align: center;
+      padding: 2px 0;
+    }
+
+    .load-more-button {
+      background-color: transparent;
+      color: #18a0fb;
+      border: 1px solid #18a0fb;
+      border-radius: 3px;
+      padding: 2px 8px;
+      font-size: 10px;
+      cursor: pointer;
+      margin: 4px auto;
+      display: block;
+      width: auto;
+    }
+
+    .load-more-button:hover {
+      background-color: #e8f4fd;
+    }
+
+    /* Seções - Layout mais compacto */
+    .section-title {
+      font-size: 12px;
+      font-weight: 600;
+      margin: 12px 0 6px;
+      padding-bottom: 3px;
+      border-bottom: 1px solid #e0e0e0;
+      color: #1e1e1e;
+    }
+
+    /* Tipos específicos de variáveis */
+    .var-type.color {
+      background: #ffebee;
+      color: #c62828;
+    }
+
+    .var-type.number {
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    .var-type.text {
+      background: #e3f2fd;
+      color: #1565c0;
+    }
+
+    .var-type.boolean {
+      background: #fff3e0;
+      color: #ef6c00;
+    }
+
+    /* Tipos específicos de estilos */
+    .var-type.fill {
+      background: #f3e5f5;
+      color: #7b1fa2;
+    }
+
+    .var-type.stroke {
+      background: #e8eaf6;
+      color: #3949ab;
+    }
+
+    .var-type.effect {
+      background: #e0f2f1;
+      color: #00695c;
+    }
+
+    .var-type.text-style {
+      background: #fce4ec;
+      color: #c2185b;
+    }
+
+    .var-type.grid {
+      background: #f1f8e9;
+      color: #558b2f;
+    }
+
+    /* Mensagens */
+    .message {
+      padding: 8px 12px;
+      margin: 8px 0;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+
+    .error {
+      background: #ffebee;
+      color: #c62828;
+    }
+
+    .info {
+      background: #e3f2fd;
+      color: #1565c0;
+    }
+
+    /* Estilo para a lista de correspondências */
+    .variables-list {
+      margin-top: 10px;
+    }
+    
+    .match-item {
+      padding: 8px;
+      background-color: #f9fafb;
+      border-radius: 4px;
+      margin-bottom: 6px;
+      font-size: 12px;
+    }
+    
+    .match-local {
+      margin-bottom: 4px;
+    }
+    
+    .match-library {
+      color: #666;
+      font-size: 11px;
+    }
+    
+    .warning {
+      color: #b45309;
+      font-style: italic;
+    }
   </style>
 </head>
 <body>
@@ -320,29 +579,24 @@
       </div>
       
       <div class="form-group">
-        <label class="form-label">Escopo da substituição:</label>
+        <label class="form-label">Escopo de substituição</label>
         <div class="radio-group">
-          <label class="radio-label">
-            <input type="radio" name="scope" value="selection" checked>
-            Seleção atual
-          </label>
-          <label class="radio-label">
-            <input type="radio" name="scope" value="page">
-            Página atual
-          </label>
-          <label class="radio-label">
-            <input type="radio" name="scope" value="document">
-            Todo o documento
-          </label>
+          <input type="radio" id="selection" name="scope" value="selection" checked>
+          <label for="selection">Seleção atual</label>
         </div>
-        <p class="form-help">Escolha onde as variáveis serão substituídas</p>
+        <div class="radio-group">
+          <input type="radio" id="page" name="scope" value="page">
+          <label for="page">Página atual</label>
+        </div>
+        <button id="searchVariablesBtn" class="secondary-button">
+          Procurar variáveis e estilos
+        </button>
       </div>
       
-      <div class="variable-preview">
-        <div class="preview-title">Pré-visualização:</div>
+      <div id="variable-preview" class="variable-preview hidden">
+        <div class="preview-title">Variáveis e estilos encontrados</div>
         <div id="preview-content-var" class="preview-content">
-          Ainda não há nada para pré-visualizar.
-          Selecione uma biblioteca para ver as correspondências.
+          <!-- Lista de variáveis será inserida aqui -->
         </div>
       </div>
       
@@ -384,11 +638,12 @@
   </div>
 
   <script>
+    document.addEventListener('DOMContentLoaded', function() {
     // Elementos do DOM para ambas as abas
     const tabs = document.querySelectorAll('.tab');
     const tabContents = document.querySelectorAll('.tab-content');
 
-    // Elementos da aba List Libs
+      // Elementos da interface
     const componentsContainer = document.getElementById('components-container');
     const errorContainer = document.getElementById('error-container');
     const infoContainer = document.getElementById('info-container');
@@ -398,54 +653,54 @@
     const collectionsLoading = document.getElementById('collections-loading');
     const collectionsList = document.getElementById('collections-list');
     const collectionsEmpty = document.getElementById('collections-empty');
-    
-    // Elementos da aba Update Collections
     const librarySelectUpdate = document.getElementById('library-select-update');
     const localCollectionSelect = document.getElementById('local-collection-select');
     const previewContent = document.getElementById('preview-content');
     const updateButton = document.getElementById('update-button');
     const errorContainerUpdate = document.getElementById('error-container-update');
     const infoContainerUpdate = document.getElementById('info-container-update');
-    
-    // Elementos da aba Update Variables
-    const librarySelectVar = document.getElementById('library-select-var');
-    const previewContentVar = document.getElementById('preview-content-var');
-    const updateButtonVar = document.getElementById('update-button-var');
-    const errorContainerVar = document.getElementById('error-container-var');
-    const infoContainerVar = document.getElementById('info-container-var');
-    const loadingPreviewVar = document.getElementById('loading-preview-var');
-    const previewLoadingVar = document.getElementById('loading-preview-var');
+      const librarySelectVar = document.getElementById('library-select-var');
+      const previewContentVar = document.getElementById('preview-content-var');
+      const updateButtonVar = document.getElementById('update-button-var');
+      const errorContainerVar = document.getElementById('error-container-var');
+      const infoContainerVar = document.getElementById('info-container-var');
+      const loadingPreviewVar = document.getElementById('loading-preview-var');
+      const searchVariablesBtn = document.getElementById('searchVariablesBtn');
+      const variablePreview = document.getElementById('variable-preview');
+      
+      // Variável para armazenar as variáveis encontradas
+      let foundVariables = [];
     
     // Função para alternar entre abas
     function switchTab(tabId) {
-      // Ocultar todos os conteúdos de abas
-      document.querySelectorAll('.tab-content').forEach(content => {
-        content.style.display = 'none';
-      });
-      
-      // Desmarcar todas as abas
-      document.querySelectorAll('.tab').forEach(tab => {
-        tab.classList.remove('active');
-      });
-      
-      // Exibir o conteúdo da aba selecionada
-      document.getElementById(tabId).style.display = 'block';
-      
-      // Marcar a aba selecionada
+        // Ocultar todos os conteúdos de abas
+        document.querySelectorAll('.tab-content').forEach(content => {
+          content.style.display = 'none';
+        });
+        
+        // Desmarcar todas as abas
+        document.querySelectorAll('.tab').forEach(tab => {
+          tab.classList.remove('active');
+        });
+        
+        // Exibir o conteúdo da aba selecionada
+        document.getElementById(tabId).style.display = 'block';
+        
+        // Marcar a aba selecionada
       document.querySelector(`.tab[data-tab="${tabId}"]`).classList.add('active');
+        
+        // Notificar o plugin sobre a mudança de aba
+        parent.postMessage({
+          pluginMessage: { 
+            type: 'activeTabChanged', 
+            tabId: tabId 
+          }
+        }, '*');
+      }
       
-      // Notificar o plugin sobre a mudança de aba
-      parent.postMessage({
-        pluginMessage: { 
-          type: 'activeTabChanged', 
-          tabId: tabId 
-        }
-      }, '*');
-    }
-    
-    // Adicionar listeners para as abas
-    document.querySelectorAll('.tab').forEach(tab => {
-      tab.addEventListener('click', (e) => {
+      // Adicionar listeners para as abas
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', (e) => {
         const tabId = tab.getAttribute('data-tab');
         switchTab(tabId);
       });
@@ -468,18 +723,18 @@
       infoContainer.style.display = message ? "block" : "none";
     }
     
-    // Função para mostrar erro na aba Update Collections
+      // Função para mostrar erro na aba Update Collections
     function showErrorUpdate(message) {
       errorContainerUpdate.textContent = message || "Ocorreu um erro desconhecido";
       errorContainerUpdate.style.display = "block";
     }
     
-    // Função para esconder erro na aba Update Collections
+      // Função para esconder erro na aba Update Collections
     function hideErrorUpdate() {
       errorContainerUpdate.style.display = "none";
     }
     
-    // Função para mostrar informação na aba Update Collections
+      // Função para mostrar informação na aba Update Collections
     function showInfoUpdate(message) {
       infoContainerUpdate.textContent = message || "";
       infoContainerUpdate.style.display = message ? "block" : "none";
@@ -569,7 +824,7 @@
       }, '*');
     });
     
-    // Evento para o seletor de bibliotecas da aba Update Collections
+      // Evento para o seletor de bibliotecas da aba Update Collections
     librarySelectUpdate.addEventListener('change', updatePreview);
     
     // Evento para o seletor de coleções locais
@@ -600,131 +855,356 @@
       }, '*');
     });
     
-    // Evento para o seletor de bibliotecas da aba Update Variables
-    librarySelectVar.addEventListener('change', () => {
-      const selectedLibraryId = librarySelectVar.value;
-      
-      if (!selectedLibraryId) {
+      // Evento para o seletor de bibliotecas da aba Update Variables
+      librarySelectVar.addEventListener('change', () => {
+        const selectedLibraryId = librarySelectVar.value;
+        
+        if (!selectedLibraryId) {
+          showCollectionsLoading();
+          previewContentVar.textContent = "Ainda não há nada para pré-visualizar.\nSelecione uma biblioteca.";
+          updateButtonVar.disabled = true;
+          return;
+        }
+        
+        // Limpar e mostrar loading
+        clearCollectionsList();
         showCollectionsLoading();
-        previewContentVar.textContent = "Ainda não há nada para pré-visualizar.\nSelecione uma biblioteca.";
-        updateButtonVar.disabled = true;
-        return;
-      }
-      
-      // Limpar e mostrar loading
-      clearCollectionsList();
-      showCollectionsLoading();
-      collectionsLoading.textContent = "Carregando coleções...";
-      
-      // Atualizar a prévia com a nova biblioteca selecionada
-      updatePreviewVar();
-      
-      // Solicitar coleções da biblioteca selecionada
-      parent.postMessage({ 
-        pluginMessage: { 
-          type: 'carregarColecoes', 
-          libraryId: selectedLibraryId
-        } 
-      }, '*');
-    });
-    
-    // Evento para os radio buttons da aba Update Variables
-    document.querySelectorAll('input[name="scope"]').forEach(radio => {
-      radio.addEventListener('change', updatePreviewVar);
-    });
-    
-    // Evento para o botão de atualizar
-    updateButtonVar.addEventListener('click', () => {
-      const libraryId = librarySelectVar.value;
-      const scope = document.querySelector('input[name="scope"]:checked').value;
-      
-      if (!libraryId) {
-        alert('Selecione uma biblioteca!');
-        return;
-      }
-      
-      // Mostrar loading enquanto processa a substituição
-      previewLoadingVar.style.display = 'block';
-      
-      // Enviar mensagem para substituir variáveis
-      parent.postMessage({
-        pluginMessage: {
-          type: 'substituirVariaveisNos',
-          libraryId: libraryId,
-          scope: scope
-        }
-      }, '*');
-    });
-    
-    // Função para atualizar a prévia quando a biblioteca é selecionada
-    function updatePreviewVar() {
-      const libraryId = librarySelectVar.value;
-      const scope = document.querySelector('input[name="scope"]:checked').value;
-      
-      if (!libraryId) {
-        previewContentVar.textContent = "Ainda não há nada para pré-visualizar.\nSelecione uma biblioteca.";
-        updateButtonVar.disabled = true;
-        return;
-      }
-      
-      // Mostrar loading enquanto processa a prévia
-      previewContentVar.textContent = "Procurando variáveis e estilos na seleção atual...";
-      previewLoadingVar.style.display = 'block';
-      
-      // Enviar mensagem para pré-visualizar variáveis com a biblioteca selecionada
-      parent.postMessage({
-        pluginMessage: {
-          type: 'preVisualizarSubstituicaoNos',
-          libraryId: libraryId,
-          scope: scope
-        }
-      }, '*');
-    }
-    
-    // Função para mostrar erro na aba Update Variables
-    function showErrorVar(message) {
-      errorContainerVar.textContent = message || "Ocorreu um erro desconhecido";
-      errorContainerVar.style.display = "block";
-    }
-    
-    // Função para esconder erro na aba Update Variables
-    function hideErrorVar() {
-      errorContainerVar.style.display = "none";
-    }
-    
-    // Função para mostrar informação na aba Update Variables
-    function showInfoVar(message) {
-      infoContainerVar.textContent = message || "";
-      infoContainerVar.style.display = message ? "block" : "none";
-    }
-    
-    // Escuta as mensagens enviadas pelo código do plugin
-    window.onmessage = async (event) => {
-      try {
-        const message = event.data.pluginMessage;
+        collectionsLoading.textContent = "Carregando coleções...";
         
-        if (!message) {
-          showError("Mensagem inválida recebida do plugin");
+        // Atualizar a prévia com a nova biblioteca selecionada
+        updatePreviewVar();
+        
+        // Solicitar coleções da biblioteca selecionada
+        parent.postMessage({ 
+          pluginMessage: { 
+            type: 'carregarColecoes', 
+            libraryId: selectedLibraryId
+          } 
+        }, '*');
+      });
+      
+      // Evento para os radio buttons da aba Update Variables
+      document.querySelectorAll('input[name="scope"]').forEach(radio => {
+        radio.addEventListener('change', updatePreviewVar);
+      });
+      
+      // Evento para o botão de atualizar
+      updateButtonVar.addEventListener('click', () => {
+        const libraryId = librarySelectVar.value;
+        const scope = document.querySelector('input[name="scope"]:checked').value;
+        
+        if (!libraryId) {
+          alert('Selecione uma biblioteca!');
           return;
         }
         
-        // Tratamento de erros
-        if (message.type === 'error') {
-          showError(message.message);
-          showErrorUpdate(message.message);
-          showErrorVar(message.message);
+        // Mostrar loading enquanto processa a substituição
+        loadingPreviewVar.style.display = 'block';
+        
+        // Enviar mensagem para substituir variáveis
+        parent.postMessage({
+          pluginMessage: {
+            type: 'substituirVariaveis',
+            libraryId: libraryId,
+            scope: scope,
+            variables: foundVariables
+          }
+        }, '*');
+      });
+      
+      // Função para atualizar a prévia quando a biblioteca é selecionada
+      function updatePreviewVar() {
+        const libraryId = librarySelectVar.value;
+        const scope = document.querySelector('input[name="scope"]:checked').value;
+        
+        if (!libraryId) {
+          previewContentVar.textContent = "Ainda não há nada para pré-visualizar.\nSelecione uma biblioteca.";
+          updateButtonVar.disabled = true;
           return;
         }
         
-        // Recebendo as bibliotecas
-        if (message.type === 'libraries-data') {
-          const libraries = message.libraries || [];
-          showInfo(message.message || "");
+        // Mostrar loading enquanto processa a prévia
+        previewContentVar.textContent = "Procurando variáveis e estilos na seleção atual...";
+        loadingPreviewVar.style.display = 'block';
+        
+        // Enviar mensagem para pré-visualizar variáveis com a biblioteca selecionada
+        parent.postMessage({
+          pluginMessage: {
+            type: 'search-variables',
+            libraryId: libraryId,
+            scope: scope
+          }
+        }, '*');
+      }
+      
+      // Função para mostrar erro na aba Update Variables
+      function showErrorVar(message) {
+        errorContainerVar.textContent = message || "Ocorreu um erro desconhecido";
+        errorContainerVar.style.display = "block";
+      }
+      
+      // Função para esconder erro na aba Update Variables
+      function hideErrorVar() {
+        errorContainerVar.style.display = "none";
+      }
+      
+      // Função para mostrar informação na aba Update Variables
+      function showInfoVar(message) {
+        infoContainerVar.textContent = message || "";
+        infoContainerVar.style.display = message ? "block" : "none";
+      }
+      
+      // Função para formatar a lista de variáveis
+      function formatVariablesList(variables) {
+        if (!variables || variables.length === 0) {
+          return '<p>Nenhuma variável ou estilo encontrado.</p>';
+        }
+
+        let html = '';
+
+        // Agrupar variáveis e estilos por tipo
+        const groups = {
+          colors: variables.filter(v => v.type === 'COLOR'),
+          numbers: variables.filter(v => v.type === 'FLOAT'),
+          texts: variables.filter(v => v.type === 'STRING'),
+          booleans: variables.filter(v => v.type === 'BOOLEAN'),
+          fills: variables.filter(v => v.property === 'fill'),
+          strokes: variables.filter(v => v.property === 'stroke'),
+          effects: variables.filter(v => v.property === 'effect'),
+          textStyles: variables.filter(v => v.property === 'text'),
+          grids: variables.filter(v => v.property === 'grid')
+        };
+
+        // Primeiro, mostrar as variáveis
+        if (groups.colors.length > 0 || groups.numbers.length > 0 || 
+            groups.texts.length > 0 || groups.booleans.length > 0) {
+          html += '<div class="section-title">Variáveis</div>';
           
-          // Limpar e preencher o select com as bibliotecas (ambas as abas)
+          // Mapeamento de nomes amigáveis para os tipos de variáveis
+          const varNames = {
+            colors: 'Cores',
+            numbers: 'Números',
+            texts: 'Textos',
+            booleans: 'Booleanos'
+          };
+          
+          // Gerar HTML para cada grupo de variáveis
+          ['colors', 'numbers', 'texts', 'booleans'].forEach(groupName => {
+            const items = groups[groupName];
+            if (items.length > 0) {
+              const groupId = `group-${groupName}`;
+              html += `<div class="variable-group" data-group="${groupId}">
+                <h3>${varNames[groupName]} (${items.length})</h3>
+                <ul>`;
+
+              items.slice(0, 5).forEach(item => {
+                html += `<li>
+                  <span class="var-name" title="${item.name}">${item.name}</span>
+                  <span class="var-type ${groupName.slice(0, -1)}">${item.type}</span>
+                  ${item.collection ? `<span class="var-collection" title="${item.collection}">${item.collection}</span>` : ''}
+                </li>`;
+              });
+
+              if (items.length > 5) {
+                html += `<li class="more-items">
+                  <button class="load-more-button" data-group="${groupId}" data-type="${groupName}">
+                    Mostrar +${items.length - 5} itens
+                  </button>
+                </li>`;
+              }
+
+              html += '</ul></div>';
+            }
+          });
+        }
+
+        // Depois, mostrar os estilos
+        if (groups.fills.length > 0 || groups.strokes.length > 0 || 
+            groups.effects.length > 0 || groups.textStyles.length > 0 || 
+            groups.grids.length > 0) {
+          html += '<div class="section-title">Estilos</div>';
+          
+          // Mapeamento de nomes amigáveis para os tipos de estilo
+          const styleNames = {
+            fills: 'Preenchimentos',
+            strokes: 'Contornos',
+            effects: 'Efeitos',
+            textStyles: 'Textos',
+            grids: 'Grids'
+          };
+          
+          // Mapeamento de classes CSS para os tipos de estilo
+          const styleClasses = {
+            fills: 'fill',
+            strokes: 'stroke',
+            effects: 'effect',
+            textStyles: 'text-style',
+            grids: 'grid'
+          };
+          
+          // Gerar HTML para cada grupo de estilos
+          ['fills', 'strokes', 'effects', 'textStyles', 'grids'].forEach(groupName => {
+            const items = groups[groupName];
+            if (items.length > 0) {
+              const groupId = `group-${groupName}`;
+              html += `<div class="variable-group" data-group="${groupId}">
+                <h3>${styleNames[groupName]} (${items.length})</h3>
+                <ul>`;
+
+              items.slice(0, 5).forEach(item => {
+                html += `<li>
+                  <span class="var-name" title="${item.name}">${item.name}</span>
+                  <span class="var-type ${styleClasses[groupName]}">Estilo</span>
+                  ${item.collection ? `<span class="var-collection" title="${item.collection}">${item.collection}</span>` : ''}
+                </li>`;
+              });
+
+              if (items.length > 5) {
+                html += `<li class="more-items">
+                  <button class="load-more-button" data-group="${groupId}" data-type="${groupName}">
+                    Mostrar +${items.length - 5} itens
+                  </button>
+                </li>`;
+              }
+
+              html += '</ul></div>';
+            }
+          });
+        }
+
+        return html || '<p>Nenhuma variável ou estilo encontrado.</p>';
+      }
+
+      // Variável para armazenar as variáveis completas por grupo
+      let variablesByGroup = {};
+
+      // Evento de clique no botão de procurar variáveis
+      searchVariablesBtn.addEventListener('click', function() {
+        searchVariablesBtn.disabled = true;
+        variablePreview.classList.remove('hidden');
+        previewContentVar.innerHTML = '<div class="loading">Procurando variáveis e estilos...</div>';
+        
+        // Envia mensagem para o plugin procurar as variáveis
+        parent.postMessage({ pluginMessage: { type: 'search-variables' } }, '*');
+      });
+
+      // Manipulador de mensagens do plugin
+      window.onmessage = async (event) => {
+        const message = event.data.pluginMessage;
+        console.log('Mensagem recebida:', message);
+
+        if (!message) return;
+
+        switch (message.type) {
+          case 'variables-found':
+            searchVariablesBtn.disabled = false;
+            updateButtonVar.disabled = false;
+            // Armazena as variáveis encontradas para uso posterior
+            foundVariables = message.variables;
+            
+            // Organiza as variáveis por grupo para o carregamento posterior
+            variablesByGroup = {
+              colors: foundVariables.filter(v => v.type === 'COLOR'),
+              numbers: foundVariables.filter(v => v.type === 'FLOAT'),
+              texts: foundVariables.filter(v => v.type === 'STRING'),
+              booleans: foundVariables.filter(v => v.type === 'BOOLEAN'),
+              fills: foundVariables.filter(v => v.property === 'fill'),
+              strokes: foundVariables.filter(v => v.property === 'stroke'),
+              effects: foundVariables.filter(v => v.property === 'effect'),
+              textStyles: foundVariables.filter(v => v.property === 'text'),
+              grids: foundVariables.filter(v => v.property === 'grid')
+            };
+            
+            previewContentVar.innerHTML = formatVariablesList(message.variables);
+            
+            // Adiciona os event listeners para os botões de carregar mais
+            document.querySelectorAll('.load-more-button').forEach(button => {
+              button.addEventListener('click', handleLoadMoreClick);
+            });
+            
+            // Esconde o loading
+            loadingPreviewVar.style.display = 'none';
+            break;
+
+          case 'no-variables-found':
+            searchVariablesBtn.disabled = false;
+            updateButtonVar.disabled = true;
+            // Limpa as variáveis encontradas
+            foundVariables = [];
+            variablesByGroup = {};
+            previewContentVar.innerHTML = '<p>Nenhuma variável ou estilo encontrado nos elementos selecionados.</p>';
+            // Esconde o loading
+            loadingPreviewVar.style.display = 'none';
+            break;
+            
+          case 'preview-correspondencias':
+            // Atualizar a pré-visualização das correspondências
+            if (message.hasMatches) {
+              updateButton.disabled = false;
+              // Formatar e exibir as correspondências
+              let htmlContent = `<p class="info">Encontradas ${message.totalMatches} correspondências</p>`;
+              htmlContent += '<div class="variables-list">';
+              
+              message.matches.forEach(match => {
+                const matchType = match.valueType || 'Variável';
+                htmlContent += `<div class="match-item">
+                  <div class="match-local">Variável local: <strong>${match.localName}</strong> (${matchType})</div>
+                  <div class="match-library">Biblioteca: <strong>${match.libraryName}</strong></div>
+                </div>`;
+              });
+              
+              htmlContent += '</div>';
+              previewContent.innerHTML = htmlContent;
+            } else {
+              updateButton.disabled = true;
+              previewContent.innerHTML = `<p class="warning">${message.message || 'Não há correspondências'}</p>`;
+              if (message.error) {
+                previewContent.innerHTML += `<p class="error">${message.error}</p>`;
+              }
+            }
+            break;
+            
+          case 'local-collections-data':
+            // Atualizar o dropdown de coleções locais
+            localCollectionSelect.innerHTML = '';
+            
+            if (!message.collections || message.collections.length === 0) {
+              const defaultOption = document.createElement('option');
+              defaultOption.value = '';
+              defaultOption.textContent = 'Nenhuma coleção local disponível';
+              localCollectionSelect.appendChild(defaultOption);
+              showErrorUpdate('Nenhuma coleção local encontrada. Crie coleções de variáveis locais primeiro.');
+            } else {
+              // Adicionar opção padrão
+              const defaultOption = document.createElement('option');
+              defaultOption.value = '';
+              defaultOption.textContent = 'Selecione uma coleção local...';
+              localCollectionSelect.appendChild(defaultOption);
+              
+              // Adicionar opções para cada coleção
+              message.collections.forEach(collection => {
+                const option = document.createElement('option');
+                option.value = collection.id;
+                option.textContent = collection.name;
+                localCollectionSelect.appendChild(option);
+              });
+              
+              hideErrorUpdate();
+            }
+            
+            // Atualizar a prévia se ambos os seletores tiverem valores
+            if (librarySelectUpdate.value && localCollectionSelect.value) {
+              updatePreview();
+            }
+            break;
+
+          case 'libraries-data':
+          const libraries = message.libraries || [];
+          
+            // Limpar e preencher o select com as bibliotecas
           librarySelect.innerHTML = '';
           librarySelectUpdate.innerHTML = '';
-          librarySelectVar.innerHTML = '';
+            librarySelectVar.innerHTML = '';
           
           // Adicionar opção padrão
           const defaultOption = document.createElement('option');
@@ -732,41 +1212,24 @@
           defaultOption.textContent = libraries.length > 0 
             ? 'Selecione uma biblioteca...' 
             : 'Nenhuma biblioteca disponível';
-          librarySelect.appendChild(defaultOption);
           
-          const defaultOptionUpdate = defaultOption.cloneNode(true);
-          librarySelectUpdate.appendChild(defaultOptionUpdate);
-          
-          const defaultOptionVar = defaultOption.cloneNode(true);
-          librarySelectVar.appendChild(defaultOptionVar);
+            librarySelect.appendChild(defaultOption.cloneNode(true));
+            librarySelectUpdate.appendChild(defaultOption.cloneNode(true));
+            librarySelectVar.appendChild(defaultOption.cloneNode(true));
           
           // Adicionar opções para cada biblioteca
           libraries.forEach(library => {
-            // Para a aba List Libs
             const option = document.createElement('option');
             option.value = library.id;
             option.textContent = library.name;
-            librarySelect.appendChild(option);
-            
-            // Para a aba Update Collections
-            const optionUpdate = option.cloneNode(true);
-            librarySelectUpdate.appendChild(optionUpdate);
-            
-            // Para a aba Update Variables
-            const optionVar = option.cloneNode(true);
-            librarySelectVar.appendChild(optionVar);
-          });
-          
-          // Carregar coleções locais
-          parent.postMessage({ 
-            pluginMessage: { 
-              type: 'carregarColecoesLocais'
-            } 
-          }, '*');
+              
+              librarySelect.appendChild(option.cloneNode(true));
+              librarySelectUpdate.appendChild(option.cloneNode(true));
+              librarySelectVar.appendChild(option.cloneNode(true));
+            });
           
           // Mostrar bibliotecas no container principal
           componentsContainer.innerHTML = '';
-          hideError();
           
           if (!libraries || libraries.length === 0) {
             componentsContainer.innerHTML = '<p class="no-components">Não foram encontradas bibliotecas neste arquivo</p>';
@@ -774,30 +1237,26 @@
           }
           
           libraries.forEach((library) => {
-            if (!library) return; // Pula bibliotecas inválidas
+              if (!library) return;
             
             const libraryElement = document.createElement('div');
             libraryElement.className = 'component-item';
             
-            // Adicionar etiqueta do tipo de biblioteca
             const labelElement = document.createElement('span');
             labelElement.className = 'library-label';
             labelElement.textContent = library.type || 'Biblioteca';
             libraryElement.appendChild(labelElement);
             
-            // Nome da biblioteca
             const nameElement = document.createElement('div');
             nameElement.className = 'component-name';
             nameElement.textContent = library.name || 'Biblioteca sem nome';
             libraryElement.appendChild(nameElement);
             
-            // ID da biblioteca
             const idElement = document.createElement('div');
             idElement.className = 'component-id';
             idElement.textContent = `ID: ${library.id || 'Desconhecido'}`;
             libraryElement.appendChild(idElement);
             
-            // Tipo da biblioteca
             if (library.library) {
               const typeElement = document.createElement('div');
               typeElement.className = 'library-name';
@@ -807,248 +1266,87 @@
             
             componentsContainer.appendChild(libraryElement);
           });
+            break;
+        }
+      };
+      
+      // Informa ao plugin que a UI está pronta
+      parent.postMessage({ pluginMessage: { type: 'ui-ready' } }, '*');
+      
+      // Solicita especificamente as coleções locais
+      setTimeout(() => {
+        parent.postMessage({ pluginMessage: { type: 'carregarColecoesLocais' } }, '*');
+      }, 500);
+
+      // Função para lidar com clique no botão "carregar mais"
+      function handleLoadMoreClick(event) {
+        const button = event.target;
+        const groupType = button.dataset.type;
+        const groupId = button.dataset.group;
+        const items = variablesByGroup[groupType];
+        
+        if (!items || items.length <= 5) return;
+        
+        // Encontra o grupo no DOM
+        const groupElement = document.querySelector(`.variable-group[data-group="${groupId}"]`);
+        if (!groupElement) return;
+        
+        const ul = groupElement.querySelector('ul');
+        const existingItems = groupElement.querySelectorAll('li:not(.more-items)').length;
+        
+        // Obtém o HTML para os próximos 10 itens (ou o restante, se forem menos)
+        let newItemsHtml = '';
+        
+        // Mapeamento de classes CSS para os tipos de estilo
+        const styleClasses = {
+          fills: 'fill',
+          strokes: 'stroke',
+          effects: 'effect',
+          textStyles: 'text-style',
+          grids: 'grid'
+        };
+        
+        const isStyleGroup = ['fills', 'strokes', 'effects', 'textStyles', 'grids'].includes(groupType);
+        
+        items.slice(existingItems, existingItems + 10).forEach(item => {
+          newItemsHtml += `<li>
+            <span class="var-name" title="${item.name}">${item.name}</span>
+            <span class="var-type ${isStyleGroup ? styleClasses[groupType] : groupType.slice(0, -1)}">
+              ${isStyleGroup ? 'Estilo' : item.type}
+            </span>
+            ${item.collection ? `<span class="var-collection" title="${item.collection}">${item.collection}</span>` : ''}
+          </li>`;
+        });
+        
+        // Remove o botão atual
+        const moreItemsLi = ul.querySelector('.more-items');
+        if (moreItemsLi) {
+          ul.removeChild(moreItemsLi);
         }
         
-        // Recebendo as coleções locais
-        if (message.type === 'local-collections-data') {
-          const collections = message.collections || [];
-          
-          // Atualizar o select de coleções locais
-          localCollectionSelect.innerHTML = '';
-          
-          // Adicionar opção padrão
-          const defaultOption = document.createElement('option');
-          defaultOption.value = '';
-          defaultOption.textContent = collections.length > 0 
-            ? 'Selecione uma coleção local...' 
-            : 'Nenhuma coleção local disponível';
-          localCollectionSelect.appendChild(defaultOption);
-          
-          // Adicionar opções para cada coleção
-          collections.forEach(collection => {
-            const option = document.createElement('option');
-            option.value = collection.id;
-            option.textContent = collection.name;
-            localCollectionSelect.appendChild(option);
-          });
-          
-          // Habilitar ou desabilitar o select de coleções
-          localCollectionSelect.disabled = collections.length === 0;
-          
-          // Atualizar a prévia
-          updatePreview();
+        // Adiciona os novos itens
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = newItemsHtml;
+        while (tempDiv.firstChild) {
+          ul.appendChild(tempDiv.firstChild);
         }
         
-        // Recebendo prévia de substituição
-        if (message.type === 'preview-substituicao') {
-          updateButton.disabled = !message.hasMatches;
+        // Se ainda houver mais itens para mostrar, adiciona um novo botão
+        if (items.length > existingItems + 10) {
+          const newMore = document.createElement('li');
+          newMore.className = 'more-items';
+          newMore.innerHTML = `
+            <button class="load-more-button" data-group="${groupId}" data-type="${groupType}">
+              Mostrar +${items.length - (existingItems + 10)} itens
+            </button>
+          `;
+          ul.appendChild(newMore);
           
-          if (message.hasMatches) {
-            let previewText = "Variáveis que serão substituídas:\n\n";
-            
-            if (message.matches && Array.isArray(message.matches)) {
-              message.matches.forEach((match, index) => {
-                if (index < 10) { // Limitar a exibição para não sobrecarregar
-                  previewText += `- Local: "${match.localName}" → "${match.libraryName}" (${match.mode}, ${match.valueType})\n`;
-                }
-              });
-              
-              if (message.matches.length > 10) {
-                previewText += `\n... e mais ${message.matches.length - 10} correspondências.`;
-              }
-              
-              previewText += `\n\nTotal: ${message.matches.length} variáveis serão substituídas.`;
-            } else {
-              previewText += "Correspondências encontradas, mas detalhes não disponíveis.";
-            }
-            
-            previewContent.textContent = previewText;
-          } else {
-            previewContent.textContent = "Não foram encontradas correspondências entre a coleção local e a biblioteca selecionada.";
-          }
+          // Adiciona o event listener ao novo botão
+          newMore.querySelector('.load-more-button').addEventListener('click', handleLoadMoreClick);
         }
-        
-        // Recebendo prévia de substituição para nós
-        if (message.type === 'preview-substituicao-nos') {
-          updateButtonVar.disabled = !message.hasMatches;
-          
-          if (message.hasMatches) {
-            let previewText = `Escopo: ${message.scope}\n\n`;
-            
-            // Mostrar informações resumidas
-            previewText += `Encontrados ${message.nodesWithVariables} nós com variáveis e ${message.nodesWithStyles || 0} nós com estilos no escopo atual.\n`;
-            previewText += `Total de elementos verificados: ${message.nodeCount}\n\n`;
-            
-            // === VARIÁVEIS ===
-            if (message.variables && message.variables.length > 0) {
-              previewText += `=== VARIÁVEIS (${message.variables.length}) ===\n\n`;
-              
-              // Agrupar por tipo
-              if (message.colorVars && message.colorVars.length > 0) {
-                previewText += `== CORES (${message.colorVars.length}) ==\n`;
-                message.colorVars.slice(0, 5).forEach((v, i) => {
-                  previewText += `${i+1}. ${v.varName} - ${v.isRemote ? "Remota" : "Local"}${v.collectionName ? ` (${v.collectionName})` : ""}\n   Nó: "${v.nodeName}" → Prop: ${v.property}\n`;
-                });
-                if (message.colorVars.length > 5) {
-                  previewText += `... e mais ${message.colorVars.length - 5} cores\n`;
-                }
-                previewText += "\n";
-              }
-              
-              if (message.floatVars && message.floatVars.length > 0) {
-                previewText += `== NÚMEROS (${message.floatVars.length}) ==\n`;
-                message.floatVars.slice(0, 5).forEach((v, i) => {
-                  previewText += `${i+1}. ${v.varName} - ${v.isRemote ? "Remota" : "Local"}${v.collectionName ? ` (${v.collectionName})` : ""}\n   Nó: "${v.nodeName}" → Prop: ${v.property}\n`;
-                });
-                if (message.floatVars.length > 5) {
-                  previewText += `... e mais ${message.floatVars.length - 5} números\n`;
-                }
-                previewText += "\n";
-              }
-              
-              if (message.stringVars && message.stringVars.length > 0) {
-                previewText += `== TEXTOS (${message.stringVars.length}) ==\n`;
-                message.stringVars.slice(0, 5).forEach((v, i) => {
-                  previewText += `${i+1}. ${v.varName} - ${v.isRemote ? "Remota" : "Local"}${v.collectionName ? ` (${v.collectionName})` : ""}\n   Nó: "${v.nodeName}" → Prop: ${v.property}\n`;
-                });
-                if (message.stringVars.length > 5) {
-                  previewText += `... e mais ${message.stringVars.length - 5} textos\n`;
-                }
-                previewText += "\n";
-              }
-              
-              if (message.booleanVars && message.booleanVars.length > 0) {
-                previewText += `== BOOLEANOS (${message.booleanVars.length}) ==\n`;
-                message.booleanVars.slice(0, 5).forEach((v, i) => {
-                  previewText += `${i+1}. ${v.varName} - ${v.isRemote ? "Remota" : "Local"}${v.collectionName ? ` (${v.collectionName})` : ""}\n   Nó: "${v.nodeName}" → Prop: ${v.property}\n`;
-                });
-                if (message.booleanVars.length > 5) {
-                  previewText += `... e mais ${message.booleanVars.length - 5} booleanos\n`;
-                }
-                previewText += "\n";
-              }
-              
-              if (message.aliasVars && message.aliasVars.length > 0) {
-                previewText += `== REFERÊNCIAS (${message.aliasVars.length}) ==\n`;
-                message.aliasVars.slice(0, 5).forEach((v, i) => {
-                  previewText += `${i+1}. ${v.varName} - ${v.isRemote ? "Remota" : "Local"}${v.collectionName ? ` (${v.collectionName})` : ""}\n   Nó: "${v.nodeName}" → Prop: ${v.property}\n`;
-                });
-                if (message.aliasVars.length > 5) {
-                  previewText += `... e mais ${message.aliasVars.length - 5} referências\n`;
-                }
-                previewText += "\n";
-              }
-            }
-            
-            // === ESTILOS ===
-            if (message.styles && message.styles.length > 0) {
-              previewText += `=== ESTILOS (${message.styles.length}) ===\n\n`;
-              
-              // Agrupar por tipo
-              if (message.fillStyles && message.fillStyles.length > 0) {
-                previewText += `== PREENCHIMENTOS (${message.fillStyles.length}) ==\n`;
-                message.fillStyles.slice(0, 5).forEach((s, i) => {
-                  previewText += `${i+1}. ${s.styleName} - ${s.isRemote ? "Remoto" : "Local"} \n   Nó: "${s.nodeName}" → Tipo: ${s.styleType}\n`;
-                });
-                if (message.fillStyles.length > 5) {
-                  previewText += `... e mais ${message.fillStyles.length - 5} estilos de preenchimento\n`;
-                }
-                previewText += "\n";
-              }
-              
-              if (message.strokeStyles && message.strokeStyles.length > 0) {
-                previewText += `== CONTORNOS (${message.strokeStyles.length}) ==\n`;
-                message.strokeStyles.slice(0, 5).forEach((s, i) => {
-                  previewText += `${i+1}. ${s.styleName} - ${s.isRemote ? "Remoto" : "Local"} \n   Nó: "${s.nodeName}" → Tipo: ${s.styleType}\n`;
-                });
-                if (message.strokeStyles.length > 5) {
-                  previewText += `... e mais ${message.strokeStyles.length - 5} estilos de contorno\n`;
-                }
-                previewText += "\n";
-              }
-              
-              if (message.effectStyles && message.effectStyles.length > 0) {
-                previewText += `== EFEITOS (${message.effectStyles.length}) ==\n`;
-                message.effectStyles.slice(0, 5).forEach((s, i) => {
-                  previewText += `${i+1}. ${s.styleName} - ${s.isRemote ? "Remoto" : "Local"} \n   Nó: "${s.nodeName}"\n`;
-                });
-                if (message.effectStyles.length > 5) {
-                  previewText += `... e mais ${message.effectStyles.length - 5} estilos de efeito\n`;
-                }
-                previewText += "\n";
-              }
-              
-              if (message.textStyles && message.textStyles.length > 0) {
-                previewText += `== TEXTOS (${message.textStyles.length}) ==\n`;
-                message.textStyles.slice(0, 5).forEach((s, i) => {
-                  previewText += `${i+1}. ${s.styleName} - ${s.isRemote ? "Remoto" : "Local"} \n   Nó: "${s.nodeName}"\n`;
-                });
-                if (message.textStyles.length > 5) {
-                  previewText += `... e mais ${message.textStyles.length - 5} estilos de texto\n`;
-                }
-                previewText += "\n";
-              }
-              
-              if (message.gridStyles && message.gridStyles.length > 0) {
-                previewText += `== GRIDS (${message.gridStyles.length}) ==\n`;
-                message.gridStyles.slice(0, 5).forEach((s, i) => {
-                  previewText += `${i+1}. ${s.styleName} - ${s.isRemote ? "Remoto" : "Local"} \n   Nó: "${s.nodeName}"\n`;
-                });
-                if (message.gridStyles.length > 5) {
-                  previewText += `... e mais ${message.gridStyles.length - 5} estilos de grid\n`;
-                }
-              }
-            }
-            
-            previewContentVar.textContent = previewText;
-          } else {
-            previewContentVar.textContent = message.error 
-              ? `Erro: ${message.error}` 
-              : `Não foram encontradas variáveis ou estilos no escopo selecionado (${message.scope}).`;
-          }
-          
-          // Esconder loading
-          loadingPreviewVar.style.display = "none";
-        }
-        
-        // Eventos de loading
-        if (message.type === 'loading-preview-start') {
-          loadingPreviewVar.style.display = "block";
-        }
-        
-        if (message.type === 'loading-preview-end') {
-          loadingPreviewVar.style.display = "none";
-        }
-        
-        // Recebendo resultado de substituição de variáveis para collections
-        if (message.type === 'substituicao-result') {
-          updateButton.disabled = false;
-          
-          if (message.success) {
-            showInfoUpdate(message.message || "Variáveis substituídas com sucesso!");
-          } else {
-            showErrorUpdate(message.message || "Erro ao substituir variáveis");
-          }
-        }
-        
-        // Recebendo resultado de substituição de variáveis nos nós
-        if (message.type === 'substituicao-nos-result') {
-          updateButtonVar.disabled = false;
-          
-          if (message.success) {
-            showInfoVar(message.message || "Variáveis substituídas com sucesso!");
-          } else {
-            showErrorVar(message.message || "Erro ao substituir variáveis");
-          }
-        }
-      } catch (error) {
-        console.error("Erro ao processar mensagem:", error);
-        showError("Erro ao processar dados: " + (error.message || "erro desconhecido"));
       }
-    };
-    
-    // Informa ao plugin que a UI está pronta
-    parent.postMessage({ pluginMessage: { type: 'ui-ready' } }, '*');
+    });
   </script>
 </body>
 </html> 
