@@ -1,6 +1,5 @@
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const path = require('path');
-const webpack = require('webpack');
 
 module.exports = (env, argv) => ({
   mode: argv.mode === 'production' ? 'production' : 'development',
@@ -13,12 +12,7 @@ module.exports = (env, argv) => ({
     rules: [
       {
         test: /\.tsx?$/,
-        use: {
-          loader: 'ts-loader',
-          options: {
-            transpileOnly: true,
-          },
-        },
+        use: 'ts-loader',
         exclude: /node_modules/,
       },
       {
@@ -28,21 +22,18 @@ module.exports = (env, argv) => ({
     ],
   },
   resolve: {
-    extensions: ['.tsx', '.ts', '.jsx', '.js'],
+    extensions: ['.tsx', '.ts', '.js'],
   },
   output: {
     filename: '[name].js',
     path: path.resolve(__dirname, 'dist'),
   },
   plugins: [
-    new webpack.DefinePlugin({
-      global: {},
-    }),
     new HtmlWebpackPlugin({
-      inject: "body",
       template: './src/ui.html',
       filename: 'ui.html',
       chunks: ['ui'],
+      cache: false,
     }),
   ],
 }); 
