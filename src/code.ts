@@ -87,6 +87,18 @@ async function carregarBibliotecas(): Promise<BibliotecaInfo[]> {
       const variableCollections = await figma.variables.getLocalVariableCollectionsAsync();
       console.log(`Encontradas ${variableCollections.length} coleções de variáveis`);
       
+      // Vamos fazer um log detalhado de cada coleção para depuração
+      for (let i = 0; i < variableCollections.length; i++) {
+        const collection = variableCollections[i];
+        const extendedCollection = collection as unknown as VariableCollectionExtended;
+        
+        console.log(`Coleção ${i+1}: ${collection.name}`);
+        console.log(`- ID: ${collection.id}`);
+        console.log(`- Remote: ${extendedCollection.remote}`);
+        console.log(`- LibraryName: ${extendedCollection.libraryName}`);
+        console.log(`- LibraryId: ${extendedCollection.libraryId}`);
+      }
+      
       // Criar um mapa para agrupar coleções por biblioteca
       const bibliotecasRemotasMap = new Map<string, string[]>();
       
@@ -95,10 +107,25 @@ async function carregarBibliotecas(): Promise<BibliotecaInfo[]> {
         // Use type assertion para acessar propriedades não documentadas
         const extendedCollection = collection as unknown as VariableCollectionExtended;
         
-        // Somente adiciona coleções de bibliotecas remotas (não locais)
-        if (extendedCollection.remote && extendedCollection.libraryName && extendedCollection.libraryId) {
-          const bibliotecaId = extendedCollection.libraryId;
-          const bibliotecaName = extendedCollection.libraryName;
+        // Vamos relaxar a condição para considerar bibliotecas remotas
+        // Antes checávamos: remote && libraryName && libraryId
+        // Agora consideramos uma biblioteca remota se qualquer um desses critérios for atendido
+        const isRemote = extendedCollection.remote === true;
+        const hasLibraryName = typeof extendedCollection.libraryName === 'string' && extendedCollection.libraryName.trim().length > 0;
+        const hasLibraryId = typeof extendedCollection.libraryId === 'string' && extendedCollection.libraryId.trim().length > 0;
+        
+        // Se tem qualquer indicação de ser uma biblioteca remota
+        if (isRemote || hasLibraryName || hasLibraryId) {
+          // Definir um ID para a biblioteca (preferindo libraryId, mas usando o que estiver disponível)
+          const bibliotecaId = extendedCollection.libraryId || 
+                              (extendedCollection.libraryName ? `name-${extendedCollection.libraryName}` : collection.id);
+          
+          // Definir o nome da biblioteca (preferindo libraryName, mas usando o que estiver disponível)
+          const bibliotecaName = extendedCollection.libraryName || 
+                               (collection.name.includes('/') ? collection.name.split('/')[0] : collection.name);
+          
+          console.log(`Detectada biblioteca potencialmente remota: ${bibliotecaName} (ID: ${bibliotecaId})`);
+          console.log(`- Remote: ${isRemote}, hasLibraryName: ${hasLibraryName}, hasLibraryId: ${hasLibraryId}`);
           
           // Só adiciona se ainda não existir no Map
           if (!bibliotecasMap.has(bibliotecaId)) {
@@ -155,15 +182,32 @@ async function obterColecoesDeVariaveis(libraryId: string): Promise<ColecaoVaria
   try {
     // Obter todas as coleções de variáveis locais
     const variableCollections = await figma.variables.getLocalVariableCollectionsAsync();
+    console.log(`Total de coleções encontradas: ${variableCollections.length}`);
     
     // Filtrar apenas coleções que são dessa biblioteca remota
     for (const collection of variableCollections) {
       // Use type assertion para acessar propriedades não documentadas
       const extendedCollection = collection as unknown as VariableCollectionExtended;
       
-      // Verifica se a coleção pertence à biblioteca solicitada (remota)
-      if (extendedCollection.remote && extendedCollection.libraryId === libraryId) {
-        console.log(`Encontrada coleção remota: ${collection.name}`);
+      // Extrai IDs que podem identificar a biblioteca
+      const collectionLibraryId = extendedCollection.libraryId || '';
+      const nameBasedId = extendedCollection.libraryName ? `name-${extendedCollection.libraryName}` : '';
+      
+      // Log para depuração
+      console.log(`Verificando coleção: ${collection.name}`);
+      console.log(`- Biblioteca solicitada: ${libraryId}`);
+      console.log(`- ID da biblioteca da coleção: ${collectionLibraryId}`);
+      console.log(`- ID baseado em nome: ${nameBasedId}`);
+      console.log(`- É remota: ${extendedCollection.remote}`);
+      
+      // Verifica se a coleção pertence à biblioteca solicitada (usando diferentes formas de identificação)
+      const matchesLibraryId = collectionLibraryId === libraryId;
+      const matchesNameBasedId = nameBasedId === libraryId;
+      const isDirectMatch = collection.id === libraryId;
+      
+      // Se qualquer um dos critérios for verdadeiro, consideramos que esta coleção pertence à biblioteca
+      if (matchesLibraryId || matchesNameBasedId || isDirectMatch) {
+        console.log(`Encontrada coleção para a biblioteca: ${collection.name}`);
         
         try {
           // Obter as variáveis dessa coleção
