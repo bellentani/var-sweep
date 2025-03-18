@@ -179,10 +179,14 @@
     }
     
     .tab-content {
+      padding: 16px;
+    }
+    
+    .tab-pane {
       display: none;
     }
     
-    .tab-content.active {
+    .tab-pane.active {
       display: block;
     }
     
@@ -321,376 +325,272 @@
   </div>
 
   <script>
-    // Elementos do DOM para ambas as abas
-    const tabs = document.querySelectorAll('.tab');
-    const tabContents = document.querySelectorAll('.tab-content');
-
-    // Elementos da aba List Libs
-    const componentsContainer = document.getElementById('components-container');
-    const errorContainer = document.getElementById('error-container');
-    const infoContainer = document.getElementById('info-container');
-    const refreshButton = document.getElementById('refresh-button');
-    const librarySelect = document.getElementById('library-select');
-    const collectionsContainer = document.getElementById('collections-container');
-    const collectionsLoading = document.getElementById('collections-loading');
-    const collectionsList = document.getElementById('collections-list');
-    const collectionsEmpty = document.getElementById('collections-empty');
-    
-    // Elementos da aba Update Variables
-    const librarySelectUpdate = document.getElementById('var-lib-select');
-    const localCollectionSelect = document.getElementById('var-collection-select');
-    const previewContent = document.getElementById('preview-content');
-    const updateButton = document.getElementById('update-variables-btn');
-    const errorContainerUpdate = document.getElementById('error-container-update');
-    const infoContainerUpdate = document.getElementById('info-container-update');
-    
-    // Função para alternar entre abas
-    function switchTab(tabId) {
-      // Remover classe ativa de todas as abas
-      tabs.forEach(tab => tab.classList.remove('active'));
-      tabContents.forEach(content => content.classList.remove('active'));
+    // Inicialização
+    document.addEventListener('DOMContentLoaded', () => {
+      // Informa ao plugin que a UI está pronta
+      parent.postMessage({ pluginMessage: { type: 'ui-ready' } }, '*');
       
-      // Adicionar classe ativa à aba selecionada
-      document.querySelector(`.tab[data-tab="${tabId}"]`).classList.add('active');
-      document.getElementById(tabId).classList.add('active');
-    }
-    
-    // Adicionar evento de clique às abas
-    tabs.forEach(tab => {
-      tab.addEventListener('click', () => {
-        const tabId = tab.getAttribute('data-tab');
-        switchTab(tabId);
+      // Configurar a navegação entre abas
+      setupTabs();
+      
+      // Configurar os listeners para os botões e selects
+      setupEventListeners();
+    });
+
+    // Configuração da navegação entre abas
+    function setupTabs() {
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          // Remover a classe 'active' de todas as abas
+          document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+          document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+          
+          // Adicionar a classe 'active' à aba clicada
+          tab.classList.add('active');
+          
+          // Mostrar o conteúdo correspondente
+          const tabId = tab.getAttribute('data-tab');
+          if (tabId) {
+            const tabPane = document.getElementById(tabId);
+            if (tabPane) {
+              tabPane.classList.add('active');
+            }
+          }
+        });
       });
-    });
-    
-    // Função para mostrar erro na aba List Libs
-    function showError(message) {
-      errorContainer.textContent = message || "Ocorreu um erro desconhecido";
-      errorContainer.style.display = "block";
-    }
-    
-    // Função para esconder erro na aba List Libs
-    function hideError() {
-      errorContainer.style.display = "none";
-    }
-    
-    // Função para mostrar informação na aba List Libs
-    function showInfo(message) {
-      infoContainer.textContent = message || "";
-      infoContainer.style.display = message ? "block" : "none";
-    }
-    
-    // Função para mostrar erro na aba Update Variables
-    function showErrorUpdate(message) {
-      errorContainerUpdate.textContent = message || "Ocorreu um erro desconhecido";
-      errorContainerUpdate.style.display = "block";
-    }
-    
-    // Função para esconder erro na aba Update Variables
-    function hideErrorUpdate() {
-      errorContainerUpdate.style.display = "none";
-    }
-    
-    // Função para mostrar informação na aba Update Variables
-    function showInfoUpdate(message) {
-      infoContainerUpdate.textContent = message || "";
-      infoContainerUpdate.style.display = message ? "block" : "none";
     }
 
-    // Função para mostrar o loading das coleções
-    function showCollectionsLoading() {
-      collectionsLoading.classList.remove('hidden');
-      collectionsList.classList.add('hidden');
-      collectionsEmpty.classList.add('hidden');
-    }
-
-    // Função para mostrar a lista vazia
-    function showCollectionsEmpty() {
-      collectionsLoading.classList.add('hidden');
-      collectionsList.classList.add('hidden');
-      collectionsEmpty.classList.remove('hidden');
-    }
-
-    // Função para mostrar a lista de coleções
-    function showCollectionsList() {
-      collectionsLoading.classList.add('hidden');
-      collectionsList.classList.remove('hidden');
-      collectionsEmpty.classList.add('hidden');
-    }
-
-    // Função para limpar a lista de coleções
-    function clearCollectionsList() {
-      while (collectionsList.firstChild) {
-        collectionsList.removeChild(collectionsList.firstChild);
-      }
-    }
-    
-    // Função para atualizar a prévia de substituição de variáveis
-    function updatePreview() {
-      const libraryId = librarySelectUpdate.value;
-      const localCollectionId = localCollectionSelect.value;
+    // Configurar listeners para botões e selects
+    function setupEventListeners() {
+      // Elementos da aba Update Collections
+      const libSelect = document.getElementById('lib-select');
+      const collectionSelect = document.getElementById('collection-select');
+      const updateCollectionBtn = document.getElementById('update-collection-btn');
+      const updateStatus = document.getElementById('update-status');
       
-      if (!libraryId || !localCollectionId) {
-        previewContent.textContent = "Ainda não há nada para pré-visualizar.\nSelecione uma biblioteca externa e uma coleção local.";
-        updateButton.disabled = true;
-        return;
-      }
+      // Elementos da aba List Libraries
+      const libraryList = document.getElementById('library-list');
+      const refreshButton = document.getElementById('refresh-button');
+      const errorContainer = document.getElementById('error-container');
+      const infoContainer = document.getElementById('info-container');
       
-      // Solicitar uma prévia das substituições
-      previewContent.textContent = "Carregando prévia das correspondências...";
-      
-      parent.postMessage({ 
-        pluginMessage: { 
-          type: 'preVisualizarSubstituicao', 
-          libraryId: libraryId,
-          localCollectionId: localCollectionId
-        } 
-      }, '*');
-    }
-    
-    // Evento para o botão de recarregar
-    refreshButton.addEventListener('click', () => {
-      componentsContainer.innerHTML = '<p class="no-components">Procurando bibliotecas...</p>';
-      librarySelect.innerHTML = '<option value="">Carregando bibliotecas...</option>';
-      hideError();
-      showInfo("");
-      showCollectionsLoading();
-      parent.postMessage({ pluginMessage: { type: 'recarregar' } }, '*');
-    });
-
-    // Evento para o seletor de bibliotecas
-    librarySelect.addEventListener('change', () => {
-      const selectedLibraryId = librarySelect.value;
-      
-      if (!selectedLibraryId) {
-        showCollectionsLoading();
-        return;
-      }
-      
-      // Limpar e mostrar loading
-      clearCollectionsList();
-      showCollectionsLoading();
-      collectionsLoading.textContent = "Carregando coleções...";
-      
-      // Solicitar coleções da biblioteca selecionada
-      parent.postMessage({ 
-        pluginMessage: { 
-          type: 'carregarColecoes', 
-          libraryId: selectedLibraryId
-        } 
-      }, '*');
-    });
-    
-    // Evento para o seletor de bibliotecas da aba Update Variables
-    librarySelectUpdate.addEventListener('change', updatePreview);
-    
-    // Evento para o seletor de coleções locais
-    localCollectionSelect.addEventListener('change', updatePreview);
-    
-    // Evento para o botão de atualizar
-    updateButton.addEventListener('click', () => {
-      const libraryId = librarySelectUpdate.value;
-      const localCollectionId = localCollectionSelect.value;
-      
-      if (!libraryId || !localCollectionId) {
-        showErrorUpdate("Selecione uma biblioteca externa e uma coleção local");
-        return;
-      }
-      
-      // Verificar e enviar os dados para o plugin
-      hideErrorUpdate();
-      showInfoUpdate("Iniciando substituição de variáveis...");
-      updateButton.disabled = true;
-      
-      // Enviar solicitação para substituir as variáveis
-      parent.postMessage({ 
-        pluginMessage: { 
-          type: 'substituirVariaveis',
-          libraryId: libraryId,
-          localCollectionId: localCollectionId
-        } 
-      }, '*');
-    });
-    
-    // Escuta as mensagens enviadas pelo código do plugin
-    window.onmessage = async (event) => {
-      try {
-        const message = event.data.pluginMessage;
-        
-        if (!message) {
-          showError("Mensagem inválida recebida do plugin");
-          return;
-        }
-        
-        // Tratamento de erros
-        if (message.type === 'error') {
-          showError(message.message);
-          showErrorUpdate(message.message);
-          return;
-        }
-        
-        // Recebendo as bibliotecas
-        if (message.type === 'libraries-data') {
-          const libraries = message.libraries || [];
-          showInfo(message.message || "");
-          
-          // Limpar e preencher o select com as bibliotecas (ambas as abas)
-          librarySelect.innerHTML = '';
-          librarySelectUpdate.innerHTML = '';
-          
-          // Adicionar opção padrão
-          const defaultOption = document.createElement('option');
-          defaultOption.value = '';
-          defaultOption.textContent = libraries.length > 0 
-            ? 'Selecione uma biblioteca...' 
-            : 'Nenhuma biblioteca disponível';
-          librarySelect.appendChild(defaultOption);
-          
-          const defaultOptionUpdate = defaultOption.cloneNode(true);
-          librarySelectUpdate.appendChild(defaultOptionUpdate);
-          
-          // Adicionar opções para cada biblioteca
-          libraries.forEach(library => {
-            // Para a aba List Libs
-            const option = document.createElement('option');
-            option.value = library.id;
-            option.textContent = library.name;
-            librarySelect.appendChild(option);
-            
-            // Para a aba Update Variables
-            const optionUpdate = option.cloneNode(true);
-            librarySelectUpdate.appendChild(optionUpdate);
-          });
-          
-          // Carregar coleções locais
-          parent.postMessage({ 
-            pluginMessage: { 
-              type: 'carregarColecoesLocais'
-            } 
-          }, '*');
-          
-          // Mostrar bibliotecas no container principal
-          componentsContainer.innerHTML = '';
-          hideError();
-          
-          if (!libraries || libraries.length === 0) {
-            componentsContainer.innerHTML = '<p class="no-components">Não foram encontradas bibliotecas neste arquivo</p>';
+      // Manipulador do select de biblioteca na aba Update Collections
+      if (libSelect) {
+        libSelect.addEventListener('change', () => {
+          const libraryId = libSelect.value;
+          if (!libraryId) {
+            collectionSelect.innerHTML = '<option value="">Selecione uma biblioteca primeiro</option>';
             return;
           }
           
-          libraries.forEach((library) => {
-            if (!library) return; // Pula bibliotecas inválidas
-            
-            const libraryElement = document.createElement('div');
-            libraryElement.className = 'component-item';
-            
-            // Adicionar etiqueta do tipo de biblioteca
-            const labelElement = document.createElement('span');
-            labelElement.className = 'library-label';
-            labelElement.textContent = library.type || 'Biblioteca';
-            libraryElement.appendChild(labelElement);
-            
-            // Nome da biblioteca
-            const nameElement = document.createElement('div');
-            nameElement.className = 'component-name';
-            nameElement.textContent = library.name || 'Biblioteca sem nome';
-            libraryElement.appendChild(nameElement);
-            
-            // ID da biblioteca
-            const idElement = document.createElement('div');
-            idElement.className = 'component-id';
-            idElement.textContent = `ID: ${library.id || 'Desconhecido'}`;
-            libraryElement.appendChild(idElement);
-            
-            // Tipo da biblioteca
-            if (library.library) {
-              const typeElement = document.createElement('div');
-              typeElement.className = 'library-name';
-              typeElement.textContent = library.library;
-              libraryElement.appendChild(typeElement);
-            }
-            
-            componentsContainer.appendChild(libraryElement);
-          });
-        }
-        
-        // Recebendo as coleções locais
-        if (message.type === 'local-collections-data') {
-          const collections = message.collections || [];
+          collectionSelect.innerHTML = '<option value="">Carregando coleções...</option>';
           
-          // Atualizar o select de coleções locais
-          localCollectionSelect.innerHTML = '';
+          parent.postMessage({ 
+            pluginMessage: { 
+              type: 'get-collections', 
+              libraryId 
+            } 
+          }, '*');
+        });
+      }
+      
+      // Manipulador do botão de atualizar coleções
+      if (updateCollectionBtn) {
+        updateCollectionBtn.addEventListener('click', () => {
+          const libraryId = libSelect.value;
+          const collectionId = collectionSelect.value;
           
-          // Adicionar opção padrão
-          const defaultOption = document.createElement('option');
-          defaultOption.value = '';
-          defaultOption.textContent = collections.length > 0 
-            ? 'Selecione uma coleção local...' 
-            : 'Nenhuma coleção local disponível';
-          localCollectionSelect.appendChild(defaultOption);
+          if (!libraryId || !collectionId) {
+            updateStatus.textContent = 'Selecione uma biblioteca e uma coleção primeiro.';
+            return;
+          }
           
-          // Adicionar opções para cada coleção
-          collections.forEach(collection => {
-            const option = document.createElement('option');
-            option.value = collection.id;
-            option.textContent = collection.name;
-            localCollectionSelect.appendChild(option);
-          });
+          updateStatus.textContent = 'Processando substituição de variáveis...';
           
-          // Habilitar ou desabilitar o select de coleções
-          localCollectionSelect.disabled = collections.length === 0;
+          parent.postMessage({ 
+            pluginMessage: { 
+              type: 'update-collections', 
+              libraryId,
+              collectionId
+            } 
+          }, '*');
+        });
+      }
+      
+      // Manipulador do botão de recarregar na aba List Libraries
+      if (refreshButton) {
+        refreshButton.addEventListener('click', () => {
+          errorContainer.style.display = 'none';
+          infoContainer.style.display = 'none';
+          libraryList.innerHTML = '<li class="loading">Carregando bibliotecas...</li>';
           
-          // Atualizar a prévia
-          updatePreview();
-        }
-        
-        // Recebendo prévia de substituição
-        if (message.type === 'preview-substituicao') {
-          updateButton.disabled = !message.hasMatches;
-          
-          if (message.hasMatches) {
-            let previewText = "Variáveis que serão substituídas:\n\n";
+          parent.postMessage({ 
+            pluginMessage: { 
+              type: 'get-libraries' 
+            } 
+          }, '*');
+        });
+      }
+      
+      // Carregar bibliotecas inicialmente
+      parent.postMessage({ 
+        pluginMessage: { 
+          type: 'get-libraries' 
+        } 
+      }, '*');
+    }
+
+    // Manipular mensagens recebidas do código do plugin
+    window.onmessage = (event) => {
+      const message = event.data.pluginMessage;
+      
+      if (!message) return;
+      
+      // Elementos que vamos precisar
+      const libSelect = document.getElementById('lib-select');
+      const collectionSelect = document.getElementById('collection-select');
+      const updateStatus = document.getElementById('update-status');
+      const libraryList = document.getElementById('library-list');
+      const errorContainer = document.getElementById('error-container');
+      const infoContainer = document.getElementById('info-container');
+      
+      switch (message.type) {
+        case 'libraries-loaded':
+          // Atualizar o select de bibliotecas na aba Update Collections
+          if (libSelect) {
+            const options = message.libraries.map((lib) => 
+              `<option value="${lib.id}">${lib.name}</option>`
+            ).join('');
             
-            if (message.matches && Array.isArray(message.matches)) {
-              message.matches.forEach((match, index) => {
-                if (index < 10) { // Limitar a exibição para não sobrecarregar
-                  previewText += `- Local: "${match.localName}" → "${match.libraryName}" (${match.mode}, ${match.valueType})\n`;
-                }
-              });
-              
-              if (message.matches.length > 10) {
-                previewText += `\n... e mais ${message.matches.length - 10} correspondências.`;
-              }
-              
-              previewText += `\n\nTotal: ${message.matches.length} variáveis serão substituídas.`;
+            libSelect.innerHTML = '<option value="">Selecione uma biblioteca</option>' + options;
+          }
+          
+          // Atualizar a lista de bibliotecas na aba List Libraries
+          if (libraryList) {
+            displayLibraries(message.libraries, libraryList);
+          }
+          break;
+          
+        case 'collections-loaded':
+          // Atualizar o select de coleções na aba Update Collections
+          if (collectionSelect) {
+            const options = message.collections.map((collection) =>
+              `<option value="${collection.id}">${collection.name}</option>`
+            ).join('');
+            
+            collectionSelect.innerHTML = '<option value="">Selecione uma coleção</option>' + options;
+          }
+          break;
+          
+        case 'collections-for-display-loaded':
+          // Manipular a exibição de coleções na aba List Libraries
+          const collectionsContainer = document.getElementById(`collections-${message.libraryId}`);
+          if (collectionsContainer) {
+            if (message.collections.length === 0) {
+              collectionsContainer.innerHTML = '<p>Nenhuma coleção encontrada nesta biblioteca.</p>';
             } else {
-              previewText += "Correspondências encontradas, mas detalhes não disponíveis.";
+              let collectionsHtml = '<ul class="collections-list">';
+              message.collections.forEach((collection) => {
+                collectionsHtml += `<li>${collection.name}</li>`;
+              });
+              collectionsHtml += '</ul>';
+              collectionsContainer.innerHTML = collectionsHtml;
             }
-            
-            previewContent.textContent = previewText;
-          } else {
-            previewContent.textContent = "Não foram encontradas correspondências entre a coleção local e a biblioteca selecionada.";
           }
-        }
-        
-        // Recebendo resultado de substituição de variáveis
-        if (message.type === 'substituicao-result') {
-          updateButton.disabled = false;
+          break;
           
-          if (message.success) {
-            showInfoUpdate(message.message || "Variáveis substituídas com sucesso!");
-          } else {
-            showErrorUpdate(message.message || "Erro ao substituir variáveis");
+        case 'update-collections-result':
+          // Exibir resultado da atualização de coleções
+          if (updateStatus) {
+            updateStatus.textContent = message.success 
+              ? `Sucesso! ${message.updatedCount} variáveis foram substituídas.` 
+              : `Erro: ${message.error}`;
           }
-        }
-      } catch (error) {
-        console.error("Erro ao processar mensagem:", error);
-        showError("Erro ao processar dados: " + (error.message || "erro desconhecido"));
+          break;
+          
+        case 'error':
+          // Exibir mensagens de erro gerais
+          console.error('Erro recebido:', message.error);
+          
+          // Determinar onde exibir o erro com base no contexto
+          if (message.context === 'update-collections') {
+            if (updateStatus) {
+              updateStatus.textContent = `Erro: ${message.error}`;
+            }
+          } else {
+            // Usar o container de erro geral na aba List Libraries
+            if (errorContainer) {
+              errorContainer.style.display = 'block';
+              errorContainer.textContent = message.error;
+            }
+          }
+          break;
       }
     };
-    
-    // Informa ao plugin que a UI está pronta
-    parent.postMessage({ pluginMessage: { type: 'ui-ready' } }, '*');
+
+    // Função para exibir a lista de bibliotecas
+    function displayLibraries(libraries, libraryList) {
+      if (!libraryList) return;
+      
+      if (libraries.length === 0) {
+        libraryList.innerHTML = '<li class="empty-list">Nenhuma biblioteca encontrada.</li>';
+        return;
+      }
+      
+      let html = '';
+      libraries.forEach(library => {
+        html += `
+          <li class="library-item">
+            <div class="library-header">
+              <h3>${library.name}</h3>
+            </div>
+            <button class="view-collections-btn" data-library-id="${library.id}">
+              Ver Coleções
+            </button>
+            <div class="collections-container" id="collections-${library.id}" style="display: none;"></div>
+          </li>
+        `;
+      });
+      
+      libraryList.innerHTML = html;
+      
+      // Adicionar handlers para os botões de ver coleções
+      document.querySelectorAll('.view-collections-btn').forEach(button => {
+        button.addEventListener('click', (e) => {
+          const btn = e.currentTarget;
+          const libraryId = btn.getAttribute('data-library-id');
+          
+          if (!libraryId) {
+            console.error('Atributo data-library-id não encontrado');
+            return;
+          }
+          
+          const collectionsContainer = document.getElementById(`collections-${libraryId}`);
+          
+          if (collectionsContainer) {
+            if (collectionsContainer.style.display === 'none') {
+              // Se ainda não carregou as coleções, solicitar
+              if (collectionsContainer.innerHTML === '') {
+                collectionsContainer.innerHTML = '<p>Carregando coleções...</p>';
+                
+                parent.postMessage({ 
+                  pluginMessage: { 
+                    type: 'get-collections-for-display', 
+                    libraryId 
+                  } 
+                }, '*');
+              }
+              
+              collectionsContainer.style.display = 'block';
+              btn.textContent = 'Esconder Coleções';
+            } else {
+              collectionsContainer.style.display = 'none';
+              btn.textContent = 'Ver Coleções';
+            }
+          }
+        });
+      });
+    }
   </script>
 </body>
 </html> 
