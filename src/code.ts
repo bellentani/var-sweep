@@ -1548,45 +1548,6 @@ async function substituirVariaveisEmColecao(matches: Array<{
       throw new Error("Não foi possível obter as coleções de variáveis da biblioteca");
     }
     
-    // Função para comparar valores de variáveis
-    function valoresIguais(valor1: any, valor2: any): boolean {
-      // Se ambos forem undefined ou null, são considerados iguais
-      if (!valor1 && !valor2) return true;
-      if (!valor1 || !valor2) return false;
-      
-      // Se for tipo COLOR, compara os componentes RGB
-      if (typeof valor1 === 'object' && typeof valor2 === 'object' && 
-          valor1.type === 'COLOR' && valor2.type === 'COLOR') {
-        return (
-          valor1.r === valor2.r &&
-          valor1.g === valor2.g &&
-          valor1.b === valor2.b &&
-          (valor1.a === valor2.a || // Compara alpha se disponível
-           (valor1.a === undefined && valor2.a === undefined)) // Ou se ambos não tiverem alpha
-        );
-      }
-      
-      // Se for tipo FLOAT, compara o valor numérico
-      if (typeof valor1 === 'object' && typeof valor2 === 'object' && 
-          valor1.type === 'FLOAT' && valor2.type === 'FLOAT') {
-        return valor1.value === valor2.value;
-      }
-      
-      // Se for tipo STRING, compara o valor de texto
-      if (typeof valor1 === 'object' && typeof valor2 === 'object' && 
-          valor1.type === 'STRING' && valor2.type === 'STRING') {
-        return valor1.value === valor2.value;
-      }
-      
-      // Se for tipo BOOLEAN, compara o valor booleano
-      if (typeof valor1 === 'object' && typeof valor2 === 'object' && 
-          valor1.type === 'BOOLEAN' && valor2.type === 'BOOLEAN') {
-        return valor1.value === valor2.value;
-      }
-      
-      return false; // Tipos diferentes não são considerados iguais
-    }
-    
     // Função para formatar valor para logs
     const formatarValor = (valor: any): string => {
       if (!valor) return "undefined";
@@ -1644,7 +1605,7 @@ async function substituirVariaveisEmColecao(matches: Array<{
             console.log(`Processando modo: ${modo.name} (ID: ${modo.modeId})`);
             console.log(`Valor original: ${formatarValor(valorAtual)}`);
             
-            // Vamos processar mesmo se for uma referência, para poder substituí-la se necessário
+            // Determinar se o valor atual é uma referência
             let isReference = false;
             let currentReferenceId = null;
             if (valorAtual && typeof valorAtual === 'object' && 
@@ -1654,94 +1615,101 @@ async function substituirVariaveisEmColecao(matches: Array<{
               console.log(`Valor atual é uma referência para ID: ${currentReferenceId}`);
             }
             
-            // Agora precisamos buscar em todas as variáveis da biblioteca
-            let variavelCorrespondente = null;
+            // Abordagem diferente: em vez de buscar por valor, vamos buscar por nome
+            // Estamos interessados na variável da biblioteca correspondente ao match atual
+            let variavelBiblioteca = null;
             
-            // Para cada coleção na biblioteca
-            for (const collection of variableCollections) {
-              if (variavelCorrespondente) break; // Já encontramos, podemos parar
-              
-              try {
-                // @ts-ignore
-                const variablesInCollection = await figma.teamLibrary.getVariablesInLibraryCollectionAsync(collection.key);
+            try {
+              // Encontrar a variável da biblioteca pelo nome definido no match
+              for (const collection of variableCollections) {
+                if (variavelBiblioteca) break;
                 
-                if (!variablesInCollection || !Array.isArray(variablesInCollection)) {
-                  continue;
-                }
-                
-                // Para cada variável nesta coleção
-                for (const libVar of variablesInCollection) {
-                  if (!libVar) continue;
+                try {
+                  // @ts-ignore
+                  const variablesInCollection = await figma.teamLibrary.getVariablesInLibraryCollectionAsync(collection.key);
                   
-                  const libVarValuesByMode = (libVar as any).valuesByMode;
-                  if (!libVarValuesByMode) continue;
-                  
-                  // Para cada modo desta variável
-                  for (const libModoId in libVarValuesByMode) {
-                    const libValor = libVarValuesByMode[libModoId];
-                    
-                    // Verificar se o valor corresponde
-                    if (valoresIguais(valorAtual, libValor)) {
-                      variavelCorrespondente = {
-                        variable: libVar,
-                        modeId: libModoId,
-                        value: libValor
-                      };
-                      console.log(`Encontrada correspondência: ${libVar.name}, modo: ${libModoId}`);
-                      break;
-                    }
+                  if (!variablesInCollection || !Array.isArray(variablesInCollection)) {
+                    continue;
                   }
                   
-                  if (variavelCorrespondente) break; // Encontramos correspondência, sair do loop
+                  // Procurar pela variável com o nome exato que queremos
+                  const foundVar = variablesInCollection.find((v: any) => v.name === match.libraryName);
+                  if (foundVar) {
+                    variavelBiblioteca = foundVar;
+                    console.log(`Encontrada variável na biblioteca com nome ${match.libraryName}`);
+                    break;
+                  }
+                } catch (err) {
+                  console.warn(`Erro ao buscar variáveis na coleção ${collection.name}:`, err);
                 }
-              } catch (err) {
-                console.warn(`Erro ao processar coleção ${collection.name}:`, err);
               }
-            }
-            
-            // Se encontramos uma variável correspondente, aplicamos a referência
-            if (variavelCorrespondente) {
-              try {
-                console.log(`Encontrada correspondência na biblioteca: ${variavelCorrespondente.variable.name}`);
+              
+              // Se encontramos a variável da biblioteca
+              if (variavelBiblioteca) {
+                console.log(`Aplicando referência para a variável ${variavelBiblioteca.name} da biblioteca`);
                 
                 // Criar a referência
                 const referencia = {
                   type: "VARIABLE_ALIAS" as const,
-                  id: variavelCorrespondente.variable.key
+                  id: variavelBiblioteca.key
                 };
                 
                 // Verificar se já é a mesma referência
-                if (isReference && currentReferenceId === variavelCorrespondente.variable.key) {
+                if (isReference && currentReferenceId === variavelBiblioteca.key) {
                   console.log(`Já é uma referência para a mesma variável, não é necessário alterar`);
                 } else {
-                  console.log(`Aplicando nova referência para variável ${variavelCorrespondente.variable.name}`);
+                  console.log(`Aplicando nova referência para variável ${variavelBiblioteca.name} (ID: ${variavelBiblioteca.key})`);
+                  
                   // Fazer backup do valor atual
                   const valorBackup = localVar.valuesByMode[modo.modeId];
                   
                   try {
-                    // Aplicar a referência
+                    // Aplicar a referência diretamente
                     localVar.setValueForMode(modo.modeId, referencia);
                     variavelAlterada = true;
-                    console.log(`Modo ${modo.name} atualizado com sucesso para ${variavelCorrespondente.variable.name}`);
+                    console.log(`Modo ${modo.name} atualizado com sucesso para ${variavelBiblioteca.name}`);
                   } catch (err) {
-                    console.warn(`Erro ao aplicar referência: ${err}`);
+                    console.warn(`Erro ao aplicar referência direta: ${err}`);
                     
-                    // Restaurar o valor original
+                    // Tentar abordagem alternativa: importar a variável primeiro
                     try {
-                      localVar.setValueForMode(modo.modeId, valorBackup);
-                    } catch (restoreErr) {
-                      console.error(`Erro ao restaurar valor original: ${restoreErr}`);
+                      console.log(`Tentando importar variável ${variavelBiblioteca.name} antes de referenciar`);
+                      // @ts-ignore
+                      const importedVar = await figma.variables.importVariableByKeyAsync(variavelBiblioteca.key);
+                      
+                      if (importedVar) {
+                        // Agora criar referência para a variável importada
+                        const referenciaImportada = {
+                          type: "VARIABLE_ALIAS" as const,
+                          id: importedVar.id
+                        };
+                        
+                        localVar.setValueForMode(modo.modeId, referenciaImportada);
+                        variavelAlterada = true;
+                        console.log(`Modo ${modo.name} atualizado com sucesso via importação para ${importedVar.name}`);
+                      } else {
+                        throw new Error("Falha ao importar variável");
+                      }
+                    } catch (importErr) {
+                      console.warn(`Erro ao importar e referenciar: ${importErr}`);
+                      
+                      // Restaurar o valor original
+                      try {
+                        localVar.setValueForMode(modo.modeId, valorBackup);
+                      } catch (restoreErr) {
+                        console.error(`Erro ao restaurar valor original: ${restoreErr}`);
+                      }
+                      
+                      variaveisComErro++;
                     }
-                    
-                    variaveisComErro++;
                   }
                 }
-              } catch (err) {
-                console.warn(`Erro ao criar referência: ${err}`);
-                variaveisComErro++;
+              } else {
+                console.warn(`Não foi encontrada variável na biblioteca com nome ${match.libraryName}`);
               }
-            } else {
-              console.log(`Não foi encontrada correspondência para o valor ${formatarValor(valorAtual)}`);
+            } catch (err) {
+              console.warn(`Erro ao buscar variável da biblioteca: ${err}`);
+              variaveisComErro++;
             }
           } catch (modoErr) {
             console.warn(`Erro ao processar modo ${modo.name}: ${modoErr}`);
