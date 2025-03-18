@@ -727,6 +727,127 @@ async function obterTodasBibliotecas(): Promise<Map<string, BibliotecaInfo>> {
   return bibliotecasMap;
 }
 
+// Função para atualizar os prefixos das variáveis em uma coleção
+async function atualizarVariaveis(
+  libraryId: string,
+  collectionId: string,
+  oldPrefixes: string[],
+  newPrefix: string
+): Promise<void> {
+  try {
+    console.log(`Iniciando atualização de variáveis na coleção ${collectionId}`);
+    console.log(`Prefixos antigos: ${oldPrefixes.join(', ')}`);
+    console.log(`Novo prefixo: ${newPrefix}`);
+    
+    // Verificações iniciais
+    if (!oldPrefixes.length || !newPrefix) {
+      throw new Error("Prefixos inválidos");
+    }
+    
+    // Buscar a biblioteca e coleção
+    const bibliotecasMap = await obterTodasBibliotecas();
+    const bibliotecas = Array.from(bibliotecasMap.values());
+    const bibliotecaSelecionada = bibliotecas.find(bib => bib.id === libraryId) as BibliotecaInfo | undefined;
+    
+    if (!bibliotecaSelecionada) {
+      throw new Error(`Biblioteca com ID ${libraryId} não encontrada`);
+    }
+    
+    // Buscar as coleções de variáveis da biblioteca
+    try {
+      // @ts-ignore - API pode não estar nas tipagens
+      const variableCollections = await figma.teamLibrary.getAvailableLibraryVariableCollectionsAsync();
+      
+      if (!variableCollections || !Array.isArray(variableCollections)) {
+        throw new Error("Não foi possível obter as coleções de variáveis");
+      }
+      
+      // Encontrar a coleção específica
+      const collection = variableCollections.find((collection: any) => {
+        return collection.key === collectionId || collection.id === collectionId;
+      }) as any;
+      
+      if (!collection) {
+        throw new Error(`Coleção com ID ${collectionId} não encontrada`);
+      }
+      
+      console.log(`Coleção encontrada: ${collection.name}`);
+      
+      // Obter variáveis da coleção
+      // @ts-ignore
+      const variables = await figma.teamLibrary.getVariablesInLibraryCollectionAsync(collection.key);
+      
+      if (!variables || !Array.isArray(variables)) {
+        throw new Error("Não foi possível obter as variáveis da coleção");
+      }
+      
+      console.log(`Encontradas ${variables.length} variáveis na coleção`);
+      
+      // Contar variáveis que serão alteradas
+      let variaveis_alteradas = 0;
+      let variaveis_processadas = 0;
+      
+      // Iterar sobre as variáveis e atualizar os nomes
+      for (const variable of variables) {
+        try {
+          variaveis_processadas++;
+          
+          // Verificar se a variável tem um nome que começa com algum dos prefixos antigos
+          const oldName = variable.name;
+          let newName = oldName;
+          let prefixEncontrado = false;
+          
+          for (const prefix of oldPrefixes) {
+            if (oldName.startsWith(prefix)) {
+              // Substitui apenas o prefixo, mantendo o resto do nome
+              newName = newPrefix + oldName.substring(prefix.length);
+              prefixEncontrado = true;
+              break;
+            }
+          }
+          
+          // Se encontrou um prefixo para substituir
+          if (prefixEncontrado && newName !== oldName) {
+            console.log(`Renomeando variável: ${oldName} -> ${newName}`);
+            
+            // Tentar atualizar a variável
+            // @ts-ignore
+            await figma.teamLibrary.updateVariableAsync(variable.key, {
+              name: newName
+            });
+            
+            variaveis_alteradas++;
+          }
+        } catch (varError) {
+          console.warn(`Erro ao processar variável: ${varError}`);
+        }
+      }
+      
+      console.log(`Processamento concluído. ${variaveis_alteradas} de ${variaveis_processadas} variáveis foram atualizadas.`);
+      
+      // Enviar resultado para a UI
+      figma.ui.postMessage({
+        type: 'update-result',
+        success: true,
+        message: `Processamento concluído! ${variaveis_alteradas} de ${variaveis_processadas} variáveis foram atualizadas.`
+      });
+      
+    } catch (collectionError) {
+      console.error("Erro ao processar coleção:", collectionError);
+      throw new Error(`Erro ao processar coleção: ${String(collectionError)}`);
+    }
+    
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error("Erro ao atualizar variáveis:", errorMessage);
+    figma.ui.postMessage({
+      type: 'update-result',
+      success: false,
+      message: "Erro ao atualizar variáveis: " + errorMessage
+    });
+  }
+}
+
 // Quando o UI envia mensagens
 figma.ui.onmessage = (msg) => {
   console.log("Mensagem recebida:", msg);
@@ -746,6 +867,17 @@ figma.ui.onmessage = (msg) => {
   if (msg.type === 'carregarColecoes' && msg.libraryId) {
     console.log(`Solicitando coleções da biblioteca: ${msg.libraryId}`);
     carregarColecoesDaBiblioteca(msg.libraryId);
+  }
+  
+  // Atualizar variáveis
+  if (msg.type === 'atualizarVariaveis') {
+    console.log("Solicitando atualização de variáveis:", msg);
+    atualizarVariaveis(
+      msg.libraryId,
+      msg.collectionId,
+      msg.oldPrefix, 
+      msg.newPrefix
+    );
   }
   
   // Fecha o plugin se solicitado

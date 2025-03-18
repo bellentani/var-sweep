@@ -4,8 +4,13 @@
   <style>
     body {
       font-family: 'Inter', sans-serif;
-      margin: 20px;
+      margin: 0;
+      padding: 0;
       color: #333;
+    }
+    
+    .container {
+      padding: 20px;
     }
     
     h2 {
@@ -13,21 +18,7 @@
       margin-bottom: 12px;
     }
     
-    .library-selector {
-      width: 100%;
-      padding: 8px;
-      margin-bottom: 16px;
-      border-radius: 4px;
-      border: 1px solid #ccc;
-    }
-    
-    .collections-container {
-      max-height: 300px;
-      overflow-y: auto;
-      margin-bottom: 16px;
-    }
-    
-    .collection-item {
+    .component-item {
       padding: 12px;
       border-radius: 6px;
       background-color: #f5f5f5;
@@ -44,12 +35,12 @@
       color: #0284c7;
     }
     
-    .collection-name {
+    .component-name {
       font-weight: 600;
       margin-bottom: 4px;
     }
     
-    .collection-id {
+    .component-id {
       font-size: 12px;
       color: #666;
       margin-bottom: 4px;
@@ -65,10 +56,9 @@
       margin-top: 4px;
     }
     
-    .no-collections {
+    .no-components {
       color: #888;
       font-style: italic;
-      padding: 12px;
     }
     
     .error-message {
@@ -105,88 +95,458 @@
     .action-button:hover {
       background-color: #0057b3;
     }
+
+    .library-select {
+      width: 100%;
+      padding: 8px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      margin-bottom: 16px;
+      font-size: 14px;
+    }
+
+    .collections-container {
+      margin-top: 16px;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 12px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .collection-item {
+      padding: 8px;
+      border-radius: 4px;
+      margin-bottom: 6px;
+      background-color: #f9fafb;
+    }
+
+    .collection-name {
+      font-weight: 500;
+      font-size: 13px;
+    }
+
+    .collection-type {
+      font-size: 11px;
+      color: #6b7280;
+      margin-top: 2px;
+    }
+
+    .section-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-top: 20px;
+      margin-bottom: 10px;
+      color: #374151;
+    }
+
+    .loading {
+      text-align: center;
+      color: #6b7280;
+      font-style: italic;
+      padding: 12px;
+    }
+
+    .hidden {
+      display: none;
+    }
+    
+    /* Estilos para as abas */
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid #e5e7eb;
+      background-color: #f3f4f6;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    
+    .tab {
+      padding: 12px 20px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.3s ease;
+      text-align: center;
+      flex: 1;
+    }
+    
+    .tab.active {
+      border-bottom-color: #0070e0;
+      color: #0070e0;
+      background-color: #fff;
+    }
+    
+    .tab-content {
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    /* Estilos para a aba Update Variables */
+    .variable-form {
+      margin-top: 16px;
+    }
+    
+    .form-group {
+      margin-bottom: 16px;
+    }
+    
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 6px;
+      color: #374151;
+    }
+    
+    .form-input, .form-select {
+      width: 100%;
+      padding: 8px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+    
+    .form-select {
+      background-color: white;
+    }
+    
+    .form-help {
+      font-size: 11px;
+      color: #6b7280;
+      margin-top: 4px;
+    }
+    
+    .variable-preview {
+      background-color: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 12px;
+      margin-top: 16px;
+    }
+    
+    .preview-title {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #374151;
+    }
+    
+    .preview-content {
+      font-size: 12px;
+      color: #4b5563;
+      font-family: 'Roboto Mono', monospace;
+      white-space: pre-wrap;
+    }
   </style>
 </head>
 <body>
-  <h2>Bibliotecas de Variáveis</h2>
-  <div id="error-container" style="display: none;" class="error-message"></div>
-  <div id="info-container" style="display: none;" class="info-message"></div>
-  
-  <!-- Seletor de bibliotecas -->
-  <select id="library-selector" class="library-selector">
-    <option value="">Selecione uma biblioteca</option>
-  </select>
-  
-  <!-- Container para as coleções -->
-  <div id="collections-container" class="collections-container">
-    <p class="no-collections">Selecione uma biblioteca para ver suas coleções</p>
+  <!-- Abas de navegação -->
+  <div class="tabs">
+    <div class="tab active" data-tab="update-variables">Update Variables</div>
+    <div class="tab" data-tab="list-libs">List Libraries</div>
   </div>
   
-  <button id="refresh-button" class="action-button">Recarregar</button>
+  <!-- Conteúdo da Aba Update Variables -->
+  <div id="update-variables" class="tab-content active container">
+    <h2>Atualizar Variáveis</h2>
+    <div id="error-container-update" style="display: none;" class="error-message"></div>
+    <div id="info-container-update" style="display: none;" class="info-message"></div>
+    
+    <div class="variable-form">
+      <div class="form-group">
+        <label class="form-label">Selecione a biblioteca:</label>
+        <select id="library-select-update" class="form-select">
+          <option value="">Carregando bibliotecas...</option>
+        </select>
+        <p class="form-help">Selecione a biblioteca onde deseja atualizar as variáveis</p>
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label">Selecione a coleção:</label>
+        <select id="collection-select" class="form-select" disabled>
+          <option value="">Selecione uma biblioteca primeiro</option>
+        </select>
+        <p class="form-help">Selecione a coleção de variáveis que deseja atualizar</p>
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label">Prefixos a serem substituídos:</label>
+        <input type="text" id="old-prefix" class="form-input" placeholder="ex: ds-" />
+        <p class="form-help">Digite o prefixo atual que deseja substituir (separados por vírgula se for mais de um)</p>
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label">Novo prefixo:</label>
+        <input type="text" id="new-prefix" class="form-input" placeholder="ex: ui-" />
+        <p class="form-help">Digite o novo prefixo que substituirá o(s) antigo(s)</p>
+      </div>
+      
+      <div class="variable-preview">
+        <div class="preview-title">Pré-visualização:</div>
+        <div id="preview-content" class="preview-content">
+          Ainda não há nada para pré-visualizar.
+          Digite os prefixos acima e selecione uma biblioteca e coleção.
+        </div>
+      </div>
+      
+      <button id="update-button" class="action-button" disabled>Atualizar Variáveis</button>
+    </div>
+  </div>
+  
+  <!-- Conteúdo da Aba List Libs (funcionalidade original) -->
+  <div id="list-libs" class="tab-content container">
+    <h2>Biblioteca Sweep</h2>
+    <div id="error-container" style="display: none;" class="error-message"></div>
+    <div id="info-container" style="display: none;" class="info-message"></div>
+
+    <!-- Novo seletor de bibliotecas -->
+    <div class="section-title">Selecione uma biblioteca:</div>
+    <select id="library-select" class="library-select">
+      <option value="">Carregando bibliotecas...</option>
+    </select>
+
+    <!-- Container para exibir as coleções da biblioteca selecionada -->
+    <div class="section-title">Coleções da biblioteca:</div>
+    <div id="collections-container" class="collections-container">
+      <div id="collections-loading" class="loading">Selecione uma biblioteca para ver suas coleções</div>
+      <div id="collections-list" class="hidden"></div>
+      <div id="collections-empty" class="no-components hidden">Nenhuma coleção encontrada nesta biblioteca</div>
+    </div>
+
+    <!-- Container original para exibir todas as bibliotecas -->
+    <div class="section-title">Todas as bibliotecas:</div>
+    <div id="components-container">
+      <p class="no-components">Procurando bibliotecas...</p>
+    </div>
+    
+    <button id="refresh-button" class="action-button">Recarregar</button>
+  </div>
 
   <script>
-    // Elementos do DOM
-    const librarySelector = document.getElementById('library-selector');
-    const collectionsContainer = document.getElementById('collections-container');
+    // Elementos do DOM para ambas as abas
+    const tabs = document.querySelectorAll('.tab');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    // Elementos da aba List Libs
+    const componentsContainer = document.getElementById('components-container');
     const errorContainer = document.getElementById('error-container');
     const infoContainer = document.getElementById('info-container');
     const refreshButton = document.getElementById('refresh-button');
+    const librarySelect = document.getElementById('library-select');
+    const collectionsContainer = document.getElementById('collections-container');
+    const collectionsLoading = document.getElementById('collections-loading');
+    const collectionsList = document.getElementById('collections-list');
+    const collectionsEmpty = document.getElementById('collections-empty');
     
-    // Armazena os dados das bibliotecas
-    let libraries = [];
-    let collections = {};
+    // Elementos da aba Update Variables
+    const librarySelectUpdate = document.getElementById('library-select-update');
+    const collectionSelect = document.getElementById('collection-select');
+    const oldPrefixInput = document.getElementById('old-prefix');
+    const newPrefixInput = document.getElementById('new-prefix');
+    const previewContent = document.getElementById('preview-content');
+    const updateButton = document.getElementById('update-button');
+    const errorContainerUpdate = document.getElementById('error-container-update');
+    const infoContainerUpdate = document.getElementById('info-container-update');
     
-    // Função para mostrar erro
+    // Função para alternar entre abas
+    function switchTab(tabId) {
+      // Remover classe ativa de todas as abas
+      tabs.forEach(tab => tab.classList.remove('active'));
+      tabContents.forEach(content => content.classList.remove('active'));
+      
+      // Adicionar classe ativa à aba selecionada
+      document.querySelector(`.tab[data-tab="${tabId}"]`).classList.add('active');
+      document.getElementById(tabId).classList.add('active');
+    }
+    
+    // Adicionar evento de clique às abas
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        const tabId = tab.getAttribute('data-tab');
+        switchTab(tabId);
+      });
+    });
+    
+    // Função para mostrar erro na aba List Libs
     function showError(message) {
       errorContainer.textContent = message || "Ocorreu um erro desconhecido";
       errorContainer.style.display = "block";
     }
     
-    // Função para esconder erro
+    // Função para esconder erro na aba List Libs
     function hideError() {
       errorContainer.style.display = "none";
     }
     
-    // Função para mostrar informação
+    // Função para mostrar informação na aba List Libs
     function showInfo(message) {
       infoContainer.textContent = message || "";
       infoContainer.style.display = message ? "block" : "none";
     }
     
-    // Evento para o botão de recarregar
-    refreshButton.addEventListener('click', () => {
-      collectionsContainer.innerHTML = '<p class="no-collections">Procurando bibliotecas...</p>';
-      librarySelector.innerHTML = '<option value="">Selecione uma biblioteca</option>';
-      hideError();
-      showInfo("");
-      parent.postMessage({ pluginMessage: { type: 'recarregar' } }, '*');
-    });
+    // Função para mostrar erro na aba Update Variables
+    function showErrorUpdate(message) {
+      errorContainerUpdate.textContent = message || "Ocorreu um erro desconhecido";
+      errorContainerUpdate.style.display = "block";
+    }
     
-    // Função para mostrar as coleções da biblioteca selecionada
-    librarySelector.addEventListener('change', function() {
-      const selectedLibrary = this.value;
-      displayCollections(selectedLibrary);
-    });
+    // Função para esconder erro na aba Update Variables
+    function hideErrorUpdate() {
+      errorContainerUpdate.style.display = "none";
+    }
     
-    // Função para exibir as coleções de uma biblioteca
-    function displayCollections(libraryId) {
-      collectionsContainer.innerHTML = '';
+    // Função para mostrar informação na aba Update Variables
+    function showInfoUpdate(message) {
+      infoContainerUpdate.textContent = message || "";
+      infoContainerUpdate.style.display = message ? "block" : "none";
+    }
+
+    // Função para mostrar o loading das coleções
+    function showCollectionsLoading() {
+      collectionsLoading.classList.remove('hidden');
+      collectionsList.classList.add('hidden');
+      collectionsEmpty.classList.add('hidden');
+    }
+
+    // Função para mostrar a lista vazia
+    function showCollectionsEmpty() {
+      collectionsLoading.classList.add('hidden');
+      collectionsList.classList.add('hidden');
+      collectionsEmpty.classList.remove('hidden');
+    }
+
+    // Função para mostrar a lista de coleções
+    function showCollectionsList() {
+      collectionsLoading.classList.add('hidden');
+      collectionsList.classList.remove('hidden');
+      collectionsEmpty.classList.add('hidden');
+    }
+
+    // Função para limpar a lista de coleções
+    function clearCollectionsList() {
+      while (collectionsList.firstChild) {
+        collectionsList.removeChild(collectionsList.firstChild);
+      }
+    }
+    
+    // Função para atualizar a prévia de substituição de prefixos
+    function updatePreview() {
+      const oldPrefix = oldPrefixInput.value.trim();
+      const newPrefix = newPrefixInput.value.trim();
+      const collectionValue = collectionSelect.value;
       
-      if (!libraryId) {
-        collectionsContainer.innerHTML = '<p class="no-collections">Selecione uma biblioteca para ver suas coleções</p>';
+      if (!oldPrefix || !newPrefix || !collectionValue) {
+        previewContent.textContent = "Ainda não há nada para pré-visualizar.\nDigite os prefixos acima e selecione uma biblioteca e coleção.";
+        updateButton.disabled = true;
         return;
       }
       
-      // Solicita as coleções desta biblioteca
+      // Formatar a prévia
+      const oldPrefixes = oldPrefix.split(',').map(p => p.trim()).filter(p => p);
+      const prefixesText = oldPrefixes.map(prefix => 
+        `"${prefix}variable-name" -> "${newPrefix}variable-name"`
+      ).join('\n');
+      
+      previewContent.textContent = `Substituições que serão feitas:\n${prefixesText}\n\nNa coleção: ${collectionSelect.options[collectionSelect.selectedIndex].text}`;
+      updateButton.disabled = false;
+    }
+    
+    // Evento para o botão de recarregar
+    refreshButton.addEventListener('click', () => {
+      componentsContainer.innerHTML = '<p class="no-components">Procurando bibliotecas...</p>';
+      librarySelect.innerHTML = '<option value="">Carregando bibliotecas...</option>';
+      hideError();
+      showInfo("");
+      showCollectionsLoading();
+      parent.postMessage({ pluginMessage: { type: 'recarregar' } }, '*');
+    });
+
+    // Evento para o seletor de bibliotecas
+    librarySelect.addEventListener('change', () => {
+      const selectedLibraryId = librarySelect.value;
+      
+      if (!selectedLibraryId) {
+        showCollectionsLoading();
+        return;
+      }
+      
+      // Limpar e mostrar loading
+      clearCollectionsList();
+      showCollectionsLoading();
+      collectionsLoading.textContent = "Carregando coleções...";
+      
+      // Solicitar coleções da biblioteca selecionada
       parent.postMessage({ 
         pluginMessage: { 
-          type: 'obterColecoes', 
-          libraryId: libraryId 
+          type: 'carregarColecoes', 
+          libraryId: selectedLibraryId
         } 
       }, '*');
+    });
+    
+    // Evento para o seletor de bibliotecas da aba Update Variables
+    librarySelectUpdate.addEventListener('change', () => {
+      const selectedLibraryId = librarySelectUpdate.value;
       
-      collectionsContainer.innerHTML = '<p class="no-collections">Carregando coleções da biblioteca...</p>';
-    }
+      if (!selectedLibraryId) {
+        collectionSelect.disabled = true;
+        collectionSelect.innerHTML = '<option value="">Selecione uma biblioteca primeiro</option>';
+        updatePreview();
+        return;
+      }
+      
+      // Atualizar o seletor de coleções
+      collectionSelect.disabled = true;
+      collectionSelect.innerHTML = '<option value="">Carregando coleções...</option>';
+      
+      // Solicitar coleções da biblioteca selecionada
+      parent.postMessage({ 
+        pluginMessage: { 
+          type: 'carregarColecoes', 
+          libraryId: selectedLibraryId
+        } 
+      }, '*');
+    });
+    
+    // Eventos para os campos de prefixo
+    oldPrefixInput.addEventListener('input', updatePreview);
+    newPrefixInput.addEventListener('input', updatePreview);
+    collectionSelect.addEventListener('change', updatePreview);
+    
+    // Evento para o botão de atualizar
+    updateButton.addEventListener('click', () => {
+      const oldPrefix = oldPrefixInput.value.trim();
+      const newPrefix = newPrefixInput.value.trim();
+      const collectionId = collectionSelect.value;
+      const libraryId = librarySelectUpdate.value;
+      
+      if (!oldPrefix || !newPrefix || !collectionId || !libraryId) {
+        showErrorUpdate("Preencha todos os campos necessários");
+        return;
+      }
+      
+      // Verificar e enviar os dados para o plugin
+      hideErrorUpdate();
+      showInfoUpdate("Iniciando atualização de variáveis...");
+      updateButton.disabled = true;
+      
+      // Enviar solicitação para atualizar as variáveis
+      parent.postMessage({ 
+        pluginMessage: { 
+          type: 'atualizarVariaveis',
+          libraryId: libraryId,
+          collectionId: collectionId,
+          oldPrefix: oldPrefix.split(',').map(p => p.trim()).filter(p => p),
+          newPrefix: newPrefix
+        } 
+      }, '*');
+    });
     
     // Escuta as mensagens enviadas pelo código do plugin
     window.onmessage = async (event) => {
@@ -201,73 +561,158 @@
         // Tratamento de erros
         if (message.type === 'error') {
           showError(message.message);
+          showErrorUpdate(message.message);
           return;
         }
         
-        // Recebimento da lista de bibliotecas
+        // Recebendo as bibliotecas
         if (message.type === 'libraries-data') {
-          libraries = message.libraries || [];
+          const libraries = message.libraries || [];
           showInfo(message.message || "");
           
-          // Limpa o seletor e adiciona a opção padrão
-          librarySelector.innerHTML = '<option value="">Selecione uma biblioteca</option>';
+          // Limpar e preencher o select com as bibliotecas (ambas as abas)
+          librarySelect.innerHTML = '';
+          librarySelectUpdate.innerHTML = '';
+          
+          // Adicionar opção padrão
+          const defaultOption = document.createElement('option');
+          defaultOption.value = '';
+          defaultOption.textContent = libraries.length > 0 
+            ? 'Selecione uma biblioteca...' 
+            : 'Nenhuma biblioteca disponível';
+          librarySelect.appendChild(defaultOption);
+          
+          const defaultOptionUpdate = defaultOption.cloneNode(true);
+          librarySelectUpdate.appendChild(defaultOptionUpdate);
+          
+          // Adicionar opções para cada biblioteca
+          libraries.forEach(library => {
+            // Para a aba List Libs
+            const option = document.createElement('option');
+            option.value = library.id;
+            option.textContent = library.name;
+            librarySelect.appendChild(option);
+            
+            // Para a aba Update Variables
+            const optionUpdate = option.cloneNode(true);
+            librarySelectUpdate.appendChild(optionUpdate);
+          });
+          
+          // Mostrar bibliotecas no container principal
+          componentsContainer.innerHTML = '';
           hideError();
           
           if (!libraries || libraries.length === 0) {
-            collectionsContainer.innerHTML = '<p class="no-collections">Não foram encontradas bibliotecas de variáveis conectadas a este documento</p>';
+            componentsContainer.innerHTML = '<p class="no-components">Não foram encontradas bibliotecas neste arquivo</p>';
             return;
           }
           
-          // Adiciona as bibliotecas no seletor
           libraries.forEach((library) => {
             if (!library) return; // Pula bibliotecas inválidas
             
-            // Só adiciona bibliotecas remotas de variáveis
-            if (library.type === 'Variáveis' && library.isRemote) {
-              const option = document.createElement('option');
-              option.value = library.id;
-              option.textContent = library.name;
-              librarySelector.appendChild(option);
+            const libraryElement = document.createElement('div');
+            libraryElement.className = 'component-item';
+            
+            // Adicionar etiqueta do tipo de biblioteca
+            const labelElement = document.createElement('span');
+            labelElement.className = 'library-label';
+            labelElement.textContent = library.type || 'Biblioteca';
+            libraryElement.appendChild(labelElement);
+            
+            // Nome da biblioteca
+            const nameElement = document.createElement('div');
+            nameElement.className = 'component-name';
+            nameElement.textContent = library.name || 'Biblioteca sem nome';
+            libraryElement.appendChild(nameElement);
+            
+            // ID da biblioteca
+            const idElement = document.createElement('div');
+            idElement.className = 'component-id';
+            idElement.textContent = `ID: ${library.id || 'Desconhecido'}`;
+            libraryElement.appendChild(idElement);
+            
+            // Tipo da biblioteca
+            if (library.library) {
+              const typeElement = document.createElement('div');
+              typeElement.className = 'library-name';
+              typeElement.textContent = library.library;
+              libraryElement.appendChild(typeElement);
             }
+            
+            componentsContainer.appendChild(libraryElement);
           });
-          
-          if (librarySelector.options.length <= 1) {
-            collectionsContainer.innerHTML = '<p class="no-collections">Não foram encontradas bibliotecas remotas de variáveis neste documento. Conecte uma biblioteca externa para utilizar.</p>';
-          }
         }
         
-        // Recebimento das coleções de uma biblioteca
+        // Recebendo as coleções de uma biblioteca
         if (message.type === 'collections-data') {
-          const collectionsData = message.collections || [];
+          const collections = message.collections || [];
           
-          collectionsContainer.innerHTML = '';
+          // Para a aba List Libs
+          clearCollectionsList();
           
-          if (!collectionsData || collectionsData.length === 0) {
-            collectionsContainer.innerHTML = '<p class="no-collections">Esta biblioteca não possui coleções de variáveis</p>';
-            return;
+          if (collections.length === 0) {
+            showCollectionsEmpty();
+          } else {
+            // Mostrar as coleções
+            collections.forEach(collection => {
+              const collectionElement = document.createElement('div');
+              collectionElement.className = 'collection-item';
+              
+              const nameElement = document.createElement('div');
+              nameElement.className = 'collection-name';
+              nameElement.textContent = collection.name;
+              collectionElement.appendChild(nameElement);
+              
+              if (collection.type) {
+                const typeElement = document.createElement('div');
+                typeElement.className = 'collection-type';
+                typeElement.textContent = collection.type;
+                collectionElement.appendChild(typeElement);
+              }
+              
+              collectionsList.appendChild(collectionElement);
+            });
+            
+            showCollectionsList();
           }
           
-          // Exibe as coleções
-          collectionsData.forEach((collection) => {
-            const collectionElement = document.createElement('div');
-            collectionElement.className = 'collection-item';
-            
-            // Nome da coleção
-            const nameElement = document.createElement('div');
-            nameElement.className = 'collection-name';
-            nameElement.textContent = collection.name || 'Coleção sem nome';
-            collectionElement.appendChild(nameElement);
-            
-            // Informações adicionais (se disponíveis)
-            if (collection.variableIds && collection.variableIds.length) {
-              const infoElement = document.createElement('div');
-              infoElement.className = 'collection-id';
-              infoElement.textContent = `${collection.variableIds.length} variáveis`;
-              collectionElement.appendChild(infoElement);
-            }
-            
-            collectionsContainer.appendChild(collectionElement);
+          // Para a aba Update Variables
+          collectionSelect.innerHTML = '';
+          
+          // Adicionar opção padrão
+          const defaultOption = document.createElement('option');
+          defaultOption.value = '';
+          defaultOption.textContent = collections.length > 0 
+            ? 'Selecione uma coleção...' 
+            : 'Nenhuma coleção disponível';
+          collectionSelect.appendChild(defaultOption);
+          
+          // Adicionar opções para cada coleção (apenas coleções de variáveis)
+          const varCollections = collections.filter(c => c.type && c.type.includes('Variáveis'));
+          
+          varCollections.forEach(collection => {
+            const option = document.createElement('option');
+            option.value = collection.id;
+            option.textContent = collection.name;
+            collectionSelect.appendChild(option);
           });
+          
+          // Habilitar ou desabilitar o select de coleções
+          collectionSelect.disabled = varCollections.length === 0;
+          
+          // Atualizar a prévia
+          updatePreview();
+        }
+        
+        // Recebendo resultado de atualização de variáveis
+        if (message.type === 'update-result') {
+          updateButton.disabled = false;
+          
+          if (message.success) {
+            showInfoUpdate(message.message || "Variáveis atualizadas com sucesso!");
+          } else {
+            showErrorUpdate(message.message || "Erro ao atualizar variáveis");
+          }
         }
       } catch (error) {
         console.error("Erro ao processar mensagem:", error);
