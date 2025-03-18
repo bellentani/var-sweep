@@ -639,6 +639,103 @@
       background-color: #f9fafb;
       border-radius: 6px;
     }
+
+    .preview-header {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    .matches-count {
+      font-size: 14px;
+      margin-bottom: 16px;
+      color: #666;
+    }
+
+    .matches-container {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .match-item {
+      background-color: #f5f5f5;
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .variavel {
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 12px;
+      color: #333;
+    }
+
+    .modes-container {
+      background-color: #ffffff;
+      border-radius: 6px;
+      padding: 12px;
+      margin-top: 8px;
+    }
+
+    .modes-title {
+      font-weight: 600;
+      font-size: 13px;
+      margin-bottom: 8px;
+      color: #333;
+    }
+
+    .modes-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .mode-row {
+      display: flex;
+      align-items: center;
+      background-color: #f9f9f9;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .mode-name {
+      background-color: #666;
+      color: white;
+      padding: 4px 8px;
+      font-size: 12px;
+      font-weight: 500;
+      min-width: 80px;
+    }
+
+    .mode-value {
+      padding: 4px 8px;
+      font-size: 12px;
+      font-family: monospace;
+      color: #333;
+      flex-grow: 1;
+    }
+
+    .matches-pagination {
+      margin-top: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+    }
+
+    .pagination-button {
+      background-color: #f0f0f0;
+      border: none;
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .pagination-button:hover {
+      background-color: #e0e0e0;
+    }
   </style>
 </head>
 <body>
@@ -1275,8 +1372,7 @@
               window.paginationState = {
                 currentPage: 1,
                 itemsPerPage: 30,
-                showingAll: false,
-                filter: '',
+                showingAll: false
               };
               
               // Atualizar a exibição usando a função de paginação
@@ -1487,21 +1583,10 @@
       }
 
       // Função para formatar e mostrar as correspondências com paginação
-      function formatMatchesList(matches, page = 1, itemsPerPage = 30, filter = '') {
-        // Filtrar as correspondências se houver um termo de busca
-        let filteredMatches = matches;
-        if (filter && filter.trim() !== '') {
-          const filterLower = filter.toLowerCase();
-          filteredMatches = matches.filter(match => 
-            match.localName.toLowerCase().includes(filterLower) || 
-            match.libraryName.toLowerCase().includes(filterLower) ||
-            (match.valueType && match.valueType.toLowerCase().includes(filterLower))
-          );
-        }
-        
+      function formatMatchesList(matches, page = 1, itemsPerPage = 30) {
         // Agrupar correspondências por nome de variável local
         const groupedMatches = {};
-        filteredMatches.forEach(match => {
+        matches.forEach(match => {
           if (!groupedMatches[match.localName]) {
             groupedMatches[match.localName] = [];
           }
@@ -1531,29 +1616,19 @@
         const currentItems = groupedArray.slice(startIndex, endIndex);
         
         // Construir HTML
-        let html = `<div class="matches-count">Encontradas ${totalItems} correspondências</div>`;
-        
-        // Adicionar campo de busca
-        html += `
-          <div class="matches-filter">
-            <input type="text" placeholder="Filtrar correspondências..." 
-              id="matches-filter-input" value="${filter}">
-          </div>
-        `;
+        let html = `<div class="preview-header">Preview</div>`;
+        html += `<div class="matches-count">Encontradas ${totalItems} correspondências</div>`;
         
         // Conteúdo principal
         html += '<div class="matches-container">';
         
         if (currentItems.length === 0) {
-          html += '<p>Nenhuma correspondência encontrada com o filtro aplicado.</p>';
+          html += '<p>Nenhuma correspondência encontrada.</p>';
         } else {
           currentItems.forEach(group => {
             html += `
               <div class="match-item">
-                <div class="match-header">
-                  <div class="match-local">Variável <strong>${group.name}</strong></div>
-                  <div class="match-library">Biblioteca: <strong>${group.matches[0].libraryName}</strong></div>
-                </div>
+                <div class="variavel">${group.name}</div>
                 
                 <div class="modes-container">
                   <div class="modes-title">Modes</div>
@@ -1572,7 +1647,6 @@
               });
             } else {
               // Fallback para exibir pelo menos o tipo da variável se não houver informações de modo
-              const matchType = group.matches[0].valueType || 'Desconhecido';
               html += `
                 <div class="mode-row">
                   <span class="mode-name">modeName</span>
@@ -1595,14 +1669,13 @@
         
         html += '</div>';
         
-        // Informações de paginação
+        // Informações de paginação simplificadas
         if (totalPages > 1) {
           html += `
             <div class="matches-pagination">
               <span>Página ${page} de ${totalPages}</span>
-              ${page > 1 ? '<button class="pagination-button" id="prev-page">Anterior</button>' : ''}
-              ${page < totalPages ? '<button class="pagination-button" id="next-page">Próxima</button>' : ''}
-              ${totalPages > 2 ? '<button class="pagination-button" id="show-more">Ver Mais 30</button>' : ''}
+              ${page > 1 ? '<button class="pagination-button" id="prev-page">Próxima</button>' : ''}
+              <button class="pagination-button" id="show-more">Ver Mais 30</button>
               <button class="pagination-button" id="show-all">Ver Todas</button>
             </div>
           `;
@@ -1615,8 +1688,7 @@
       window.paginationState = {
         currentPage: 1,
         itemsPerPage: 30,
-        showingAll: false,
-        filter: '',
+        showingAll: false
       };
 
       // Adicionar função para configurar os eventos da paginação
@@ -1626,15 +1698,6 @@
         if (prevButton) {
           prevButton.addEventListener('click', () => {
             window.paginationState.currentPage--;
-            updateMatchesDisplay();
-          });
-        }
-        
-        // Botão Ver Próxima
-        const nextButton = document.getElementById('next-page');
-        if (nextButton) {
-          nextButton.addEventListener('click', () => {
-            window.paginationState.currentPage++;
             updateMatchesDisplay();
           });
         }
@@ -1656,16 +1719,6 @@
             updateMatchesDisplay();
           });
         }
-        
-        // Campo de filtro
-        const filterInput = document.getElementById('matches-filter-input');
-        if (filterInput) {
-          filterInput.addEventListener('input', (e) => {
-            window.paginationState.filter = e.target.value;
-            window.paginationState.currentPage = 1; // Voltar para a primeira página ao filtrar
-            updateMatchesDisplay();
-          });
-        }
       }
 
       // Função para atualizar a exibição de correspondências
@@ -1680,15 +1733,13 @@
           previewContent.innerHTML = formatMatchesList(
             window.matchesData, 
             1, 
-            window.matchesData.length,
-            window.paginationState.filter
+            window.matchesData.length
           );
         } else {
           previewContent.innerHTML = formatMatchesList(
             window.matchesData, 
             window.paginationState.currentPage,
-            window.paginationState.itemsPerPage,
-            window.paginationState.filter
+            window.paginationState.itemsPerPage
           );
         }
         
