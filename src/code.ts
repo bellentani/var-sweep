@@ -5,6 +5,7 @@ interface BibliotecaInfo {
   id: string;
   name: string;
   type: string;
+  isRemote: boolean; // Indicador se é uma biblioteca remota ou local
 }
 
 // Estrutura para coleções de variáveis
@@ -80,153 +81,64 @@ async function carregarBibliotecas(): Promise<BibliotecaInfo[]> {
   const bibliotecasMap = new Map<string, BibliotecaInfo>();
   
   try {
-    console.log("MÉTODO 1: Obtendo coleções de variáveis");
+    console.log("MÉTODO 1: Obtendo bibliotecas remotas de variáveis");
     try {
-      // Primeiro tenta obter bibliotecas a partir de coleções de variáveis
+      // Primeiro tenta obter bibliotecas conectadas
       const variableCollections = await figma.variables.getLocalVariableCollectionsAsync();
-      console.log(`Encontradas ${variableCollections.length} coleções de variáveis locais`);
+      console.log(`Encontradas ${variableCollections.length} coleções de variáveis`);
       
+      // Criar um mapa para agrupar coleções por biblioteca
+      const bibliotecasRemotasMap = new Map<string, string[]>();
+      
+      // Primeiro identificar todas as bibliotecas remotas nas coleções
       for (const collection of variableCollections) {
         // Use type assertion para acessar propriedades não documentadas
         const extendedCollection = collection as unknown as VariableCollectionExtended;
-        const key = extendedCollection.libraryName || collection.name;
         
-        if (extendedCollection.remote && extendedCollection.libraryName) {
-          console.log(`Adicionando biblioteca remota: ${extendedCollection.libraryName}`);
+        // Somente adiciona coleções de bibliotecas remotas (não locais)
+        if (extendedCollection.remote && extendedCollection.libraryName && extendedCollection.libraryId) {
+          const bibliotecaId = extendedCollection.libraryId;
+          const bibliotecaName = extendedCollection.libraryName;
           
-          if (!bibliotecasMap.has(key)) {
-            bibliotecasMap.set(key, {
-              id: extendedCollection.libraryId || collection.id,
-              name: extendedCollection.libraryName,
-              type: 'Variáveis'
+          // Só adiciona se ainda não existir no Map
+          if (!bibliotecasMap.has(bibliotecaId)) {
+            console.log(`Adicionando biblioteca remota: ${bibliotecaName} (ID: ${bibliotecaId})`);
+            
+            bibliotecasMap.set(bibliotecaId, {
+              id: bibliotecaId,
+              name: bibliotecaName,
+              type: 'Variáveis',
+              isRemote: true
             });
+            
+            // Inicializa o array de coleções para esta biblioteca
+            if (!bibliotecasRemotasMap.has(bibliotecaId)) {
+              bibliotecasRemotasMap.set(bibliotecaId, []);
+            }
           }
-        } else {
-          console.log(`Adicionando biblioteca local: ${collection.name}`);
           
-          if (!bibliotecasMap.has(key)) {
-            bibliotecasMap.set(key, {
-              id: collection.id,
-              name: collection.name,
-              type: 'Variáveis'
-            });
-          }
+          // Adiciona a coleção à lista desta biblioteca
+          const colecoes = bibliotecasRemotasMap.get(bibliotecaId) || [];
+          colecoes.push(collection.id);
+          bibliotecasRemotasMap.set(bibliotecaId, colecoes);
         }
       }
-    } catch (error) {
-      console.error("Erro ao obter coleções de variáveis:", error);
-    }
-    
-    // MÉTODO 1.5: Tentar usar getAvailableLibrariesAsync, com verificação de segurança
-    try {
-      console.log("MÉTODO 1.5: Verificando se getAvailableLibrariesAsync existe");
       
-      if (figma.teamLibrary && 'getAvailableLibrariesAsync' in figma.teamLibrary) {
-        console.log("Método getAvailableLibrariesAsync encontrado, tentando usar");
-        // @ts-ignore - Esta API não está completamente tipada
-        const librariesResult = await figma.teamLibrary.getAvailableLibrariesAsync();
-        
-        console.log(`Obtidas ${librariesResult.length} bibliotecas via getAvailableLibrariesAsync`);
-        console.log("Estrutura da primeira biblioteca:", serializarComSeguranca(librariesResult[0]));
-        
-        for (const lib of librariesResult) {
-          let libraryName = '';
-          let libraryId = '';
-          
-          // Tenta extrair o nome da biblioteca de diferentes propriedades
-          if (lib.name) {
-            libraryName = lib.name;
-          } else if (lib.libraryName) { 
-            libraryName = lib.libraryName;
-          } else if (lib.title) {
-            libraryName = lib.title;
-          } else {
-            libraryName = 'Biblioteca ' + (lib.id || 'Desconhecida');
-          }
-          
-          // Tenta extrair o ID da biblioteca
-          libraryId = lib.id || lib.libraryId || '';
-          
-          // Só adiciona se ainda não existir uma biblioteca com este nome
-          if (libraryId && !bibliotecasMap.has(libraryName)) {
-            console.log(`Adicionando biblioteca de componentes: ${libraryName}`);
-            bibliotecasMap.set(libraryName, {
-              id: libraryId,
-              name: libraryName,
-              type: 'Componentes'
-            });
-          }
-        }
-      } else {
-        console.log("Método getAvailableLibrariesAsync não encontrado");
-      }
+      // Log para depuração das bibliotecas remotas encontradas
+      console.log(`Encontradas ${bibliotecasMap.size} bibliotecas remotas de variáveis`);
+      bibliotecasRemotasMap.forEach((colecoes, bibliotecaId) => {
+        console.log(`Biblioteca ${bibliotecaId} tem ${colecoes.length} coleções associadas`);
+      });
+      
     } catch (error) {
-      console.error("Erro ao usar getAvailableLibrariesAsync:", error);
+      console.error("Erro ao obter coleções de variáveis de bibliotecas remotas:", error);
     }
     
-    console.log("MÉTODO 2: Verificando estilos locais para detectar bibliotecas");
-    try {
-      // Verifica estilos locais
-      for (const styleType of ['PAINT', 'TEXT', 'EFFECT', 'GRID']) {
-        // @ts-ignore - styleType é válido
-        const styles = await figma.getLocalPaintStylesAsync();
-        
-        for (const style of styles) {
-          // Use type assertion para acessar propriedades não documentadas
-          const extendedStyle = style as unknown as PaintStyleExtended;
-          
-          if (extendedStyle.remote && extendedStyle.libraryName) {
-            const key = extendedStyle.libraryName;
-            
-            if (!bibliotecasMap.has(key)) {
-              console.log(`Adicionando biblioteca de estilos: ${extendedStyle.libraryName}`);
-              bibliotecasMap.set(key, {
-                id: extendedStyle.libraryId || '',
-                name: extendedStyle.libraryName,
-                type: 'Estilos'
-              });
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Erro ao verificar estilos locais:", error);
-    }
-    
-    console.log("MÉTODO 3: Procurando por instâncias de componentes");
-    try {
-      // Procura por instâncias de componentes
-      for (const page of figma.root.children) {
-        console.log(`Verificando página: ${page.name}`);
-        
-        const instanceNodes = page.findAll(node => node.type === 'INSTANCE');
-        console.log(`Encontradas ${instanceNodes.length} instâncias de componentes`);
-        
-        for (const instance of instanceNodes) {
-          // @ts-ignore
-          if (instance.mainComponent && instance.mainComponent.remote) {
-            // @ts-ignore
-            const libraryName = instance.mainComponent.libraryName;
-            // @ts-ignore
-            const libraryId = instance.mainComponent.libraryId;
-            
-            if (libraryName && !bibliotecasMap.has(libraryName)) {
-              console.log(`Adicionando biblioteca de componentes: ${libraryName}`);
-              bibliotecasMap.set(libraryName, {
-                id: libraryId || '',
-                name: libraryName,
-                type: 'Componentes'
-              });
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Erro ao procurar por instâncias de componentes:", error);
-    }
-    
-    console.log(`Total de bibliotecas encontradas: ${bibliotecasMap.size}`);
+    console.log(`Total de bibliotecas remotas encontradas: ${bibliotecasMap.size}`);
     const bibliotecasArray = Array.from(bibliotecasMap.values());
+    
+    // Ordena as bibliotecas por nome para melhor usabilidade
+    bibliotecasArray.sort((a, b) => a.name.localeCompare(b.name));
     
     return bibliotecasArray;
   } catch (error) {
@@ -237,35 +149,49 @@ async function carregarBibliotecas(): Promise<BibliotecaInfo[]> {
 
 // Função para obter as coleções de variáveis de uma biblioteca específica
 async function obterColecoesDeVariaveis(libraryId: string): Promise<ColecaoVariaveis[]> {
-  console.log(`Obtendo coleções da biblioteca ${libraryId}`);
+  console.log(`Obtendo coleções da biblioteca remota ${libraryId}`);
   const colecoes: ColecaoVariaveis[] = [];
   
   try {
-    // Obter todas as coleções de variáveis e filtrar pelo libraryId
+    // Obter todas as coleções de variáveis locais
     const variableCollections = await figma.variables.getLocalVariableCollectionsAsync();
     
+    // Filtrar apenas coleções que são dessa biblioteca remota
     for (const collection of variableCollections) {
-      // Verifica se a coleção pertence à biblioteca solicitada
       // Use type assertion para acessar propriedades não documentadas
       const extendedCollection = collection as unknown as VariableCollectionExtended;
-      const collectionLibraryId = extendedCollection.libraryId || collection.id;
       
-      if (collectionLibraryId === libraryId) {
-        console.log(`Encontrada coleção: ${collection.name}`);
+      // Verifica se a coleção pertence à biblioteca solicitada (remota)
+      if (extendedCollection.remote && extendedCollection.libraryId === libraryId) {
+        console.log(`Encontrada coleção remota: ${collection.name}`);
         
-        // Obter as variáveis dessa coleção
-        // @ts-ignore - O tipo correto é string
-        const variables = await figma.variables.getLocalVariablesAsync(collection.id);
-        
-        colecoes.push({
-          id: collection.id,
-          name: collection.name,
-          variableIds: variables.map(v => v.id)
-        });
+        try {
+          // Obter as variáveis dessa coleção
+          // @ts-ignore - O tipo correto é string
+          const variables = await figma.variables.getLocalVariablesAsync(collection.id);
+          
+          colecoes.push({
+            id: collection.id,
+            name: collection.name,
+            variableIds: variables.map(v => v.id)
+          });
+        } catch (variableError) {
+          console.error(`Erro ao obter variáveis da coleção ${collection.name}:`, variableError);
+          // Ainda adiciona a coleção, mesmo sem as variáveis
+          colecoes.push({
+            id: collection.id,
+            name: collection.name,
+            variableIds: []
+          });
+        }
       }
     }
     
-    console.log(`Total de coleções encontradas: ${colecoes.length}`);
+    console.log(`Total de coleções encontradas para a biblioteca ${libraryId}: ${colecoes.length}`);
+    
+    // Ordenar coleções por nome
+    colecoes.sort((a, b) => a.name.localeCompare(b.name));
+    
     return colecoes;
   } catch (error: any) {
     console.error(`Erro ao obter coleções da biblioteca ${libraryId}:`, error);
@@ -277,9 +203,6 @@ async function obterColecoesDeVariaveis(libraryId: string): Promise<ColecaoVaria
 figma.showUI(__html__, { width: 450, height: 500 });
 console.log("UI exibida");
 
-// Esta é a função principal executada quando o plugin inicia
-figma.showUI(__html__, { width: 400, height: 500 });
-
 // Manipula mensagens da UI
 figma.ui.onmessage = async (msg) => {
   if (msg.type === 'recarregar' || msg.type === 'ui-ready') {
@@ -287,15 +210,15 @@ figma.ui.onmessage = async (msg) => {
     
     try {
       const bibliotecas = await carregarBibliotecas();
-      console.log(`Carregadas ${bibliotecas.length} bibliotecas`);
+      console.log(`Carregadas ${bibliotecas.length} bibliotecas remotas de variáveis`);
       
       // Envia as bibliotecas para a UI
       figma.ui.postMessage({
         type: 'libraries-data',
         libraries: bibliotecas,
         message: bibliotecas.length === 0 ? 
-          "Não foram encontradas bibliotecas conectadas a este documento." : 
-          `Encontradas ${bibliotecas.length} bibliotecas conectadas.`
+          "Não foram encontradas bibliotecas de variáveis conectadas a este documento." : 
+          `Encontradas ${bibliotecas.length} bibliotecas de variáveis.`
       });
     } catch (error: any) {
       console.error("Erro ao recarregar bibliotecas:", error);

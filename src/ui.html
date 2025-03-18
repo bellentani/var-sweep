@@ -185,7 +185,7 @@
         } 
       }, '*');
       
-      collectionsContainer.innerHTML = '<p class="no-collections">Carregando coleções...</p>';
+      collectionsContainer.innerHTML = '<p class="no-collections">Carregando coleções da biblioteca...</p>';
     }
     
     // Escuta as mensagens enviadas pelo código do plugin
@@ -214,7 +214,7 @@
           hideError();
           
           if (!libraries || libraries.length === 0) {
-            collectionsContainer.innerHTML = '<p class="no-collections">Não foram encontradas bibliotecas neste arquivo</p>';
+            collectionsContainer.innerHTML = '<p class="no-collections">Não foram encontradas bibliotecas de variáveis conectadas a este documento</p>';
             return;
           }
           
@@ -222,8 +222,8 @@
           libraries.forEach((library) => {
             if (!library) return; // Pula bibliotecas inválidas
             
-            // Só adiciona bibliotecas de variáveis
-            if (library.type === 'Variáveis') {
+            // Só adiciona bibliotecas remotas de variáveis
+            if (library.type === 'Variáveis' && library.isRemote) {
               const option = document.createElement('option');
               option.value = library.id;
               option.textContent = library.name;
@@ -232,7 +232,7 @@
           });
           
           if (librarySelector.options.length <= 1) {
-            collectionsContainer.innerHTML = '<p class="no-collections">Não foram encontradas bibliotecas de variáveis neste arquivo</p>';
+            collectionsContainer.innerHTML = '<p class="no-collections">Não foram encontradas bibliotecas remotas de variáveis neste documento. Conecte uma biblioteca externa para utilizar.</p>';
           }
         }
         
