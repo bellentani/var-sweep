@@ -1380,7 +1380,7 @@ async function substituirVariaveis(
             // Outros tipos podem ser adicionados conforme necessário
           }
         } catch (modeError) {
-          console.warn(`Erro ao processar modo ${mode.name} para variável ${localVar.name}:`, modeError);
+          console.warn(`Erro ao processar modo ${mode.name} da variável ${localVar.name}:`, modeError);
         }
       }
     }
@@ -1478,59 +1478,469 @@ async function substituirVariaveis(
   }
 }
 
-// Quando o UI envia mensagens
-figma.ui.onmessage = (msg) => {
-  console.log("Mensagem recebida:", msg);
-  
-  if (msg.type === 'ui-ready') {
-    console.log("UI está pronta, carregando bibliotecas...");
-    carregarBibliotecas();
+// Função para atualizar variáveis nos nós com base nas variáveis da biblioteca
+async function updateVariablesInNodes(libraryId: string, collectionId: string, scope: string): Promise<string> {
+  try {
+    console.log(`Atualizando variáveis nos nós com base na biblioteca ${libraryId}, coleção ${collectionId}, escopo: ${scope}`);
+    
+    // Obter variáveis da biblioteca
+    const libraryVariables = await figma.variables.getVariablesAsync(libraryId);
+    
+    // Filtrar variáveis da coleção específica
+    const libraryCollections = await figma.variables.getVariableCollectionsAsync(libraryId);
+    const targetCollection = libraryCollections.find((c: VariableCollection) => c.key === collectionId);
+    
+    if (!targetCollection) {
+      return `Erro: Não foi possível encontrar a coleção ${collectionId} na biblioteca ${libraryId}`;
+    }
+    
+    const collectionVariables = libraryVariables.filter(v => v.variableCollectionId === targetCollection.id);
+    
+    // Se não há variáveis na coleção, retornar erro
+    if (collectionVariables.length === 0) {
+      return `Erro: A coleção ${targetCollection.name} não possui variáveis`;
+    }
+    
+    console.log(`Encontradas ${collectionVariables.length} variáveis na coleção "${targetCollection.name}"`);
+    
+    // Definir nós a serem processados com base no escopo
+    let nodesToProcess: SceneNode[] = [];
+    
+    if (scope === 'selection') {
+      // Usar apenas os nós selecionados
+      nodesToProcess = figma.currentPage.selection;
+      if (nodesToProcess.length === 0) {
+        return "Nenhum nó selecionado. Selecione pelo menos um nó para atualizar.";
+      }
+      console.log(`Processando ${nodesToProcess.length} nós selecionados`);
+    } else if (scope === 'page') {
+      // Usar todos os nós da página atual
+      nodesToProcess = figma.currentPage.children;
+      console.log(`Processando página: ${figma.currentPage.name} com ${nodesToProcess.length} nós`);
+    } else if (scope === 'document') {
+      // Usar todos os nós de todas as páginas
+      nodesToProcess = [];
+      for (const page of figma.root.children) {
+        nodesToProcess = nodesToProcess.concat(page.children);
+      }
+      console.log(`Processando documento inteiro com ${nodesToProcess.length} nós`);
+    } else {
+      return `Erro: Escopo desconhecido: ${scope}`;
+    }
+    
+    // Estatísticas
+    let nodesProcessed = 0;
+    let variablesReplaced = 0;
+    let errors = 0;
+    
+    // Processar os nós recursivamente
+    async function processNode(node: BaseNode) {
+      try {
+        nodesProcessed++;
+        
+        // Verificar variáveis de preenchimento (fill)
+        if ('fills' in node && node.fills) {
+          for (let i = 0; i < node.fills.length; i++) {
+            const fill = node.fills[i];
+            
+            // Verificar se o preenchimento usa variável
+            if (fill.type === 'SOLID' && fill.color && node.fillStyleId && typeof node.fillStyleId === 'string') {
+              // Tentar encontrar uma variável na biblioteca com o mesmo valor
+              const variableMatch = await findMatchingVariable(fill.color, collectionVariables);
+              
+              if (variableMatch) {
+                // Importar a variável da biblioteca
+                try {
+                  const importedVar = await figma.variables.importVariableByKeyAsync(variableMatch.key);
+                  
+                  if (importedVar) {
+                    // Aplicar a variável ao nó
+                    await node.setBoundVariable('fillStyleId', importedVar);
+                    variablesReplaced++;
+                    console.log(`Substituída variável de preenchimento no nó "${node.name}"`);
+                  }
+                } catch (error) {
+                  console.warn(`Erro ao importar ou aplicar variável: ${error}`);
+                  errors++;
+                }
+              }
+            }
+          }
+        }
+        
+        // Verificar variáveis de traço (stroke)
+        if ('strokes' in node && node.strokes) {
+          for (let i = 0; i < node.strokes.length; i++) {
+            const stroke = node.strokes[i];
+            
+            // Verificar se o traço usa variável
+            if (stroke.type === 'SOLID' && stroke.color && node.strokeStyleId && typeof node.strokeStyleId === 'string') {
+              // Tentar encontrar uma variável na biblioteca com o mesmo valor
+              const variableMatch = await findMatchingVariable(stroke.color, collectionVariables);
+              
+              if (variableMatch) {
+                // Importar a variável da biblioteca
+                try {
+                  const importedVar = await figma.variables.importVariableByKeyAsync(variableMatch.key);
+                  
+                  if (importedVar) {
+                    // Aplicar a variável ao nó
+                    await node.setBoundVariable('strokeStyleId', importedVar);
+                    variablesReplaced++;
+                    console.log(`Substituída variável de traço no nó "${node.name}"`);
+                  }
+                } catch (error) {
+                  console.warn(`Erro ao importar ou aplicar variável: ${error}`);
+                  errors++;
+                }
+              }
+            }
+          }
+        }
+        
+        // Verificar variáveis de efeito (effect)
+        if ('effects' in node && node.effects) {
+          for (let i = 0; i < node.effects.length; i++) {
+            const effect = node.effects[i];
+            
+            // Verificar se o efeito usa variável
+            if (node.effectStyleId && typeof node.effectStyleId === 'string') {
+              // Aqui precisaríamos de lógica adicional para detectar os valores de cor nos efeitos
+              // Esta parte é complexa e dependeria da estrutura específica dos efeitos
+            }
+          }
+        }
+        
+        // Processar filhos recursivamente
+        if ('children' in node) {
+          for (const child of node.children) {
+            await processNode(child);
+          }
+        }
+      } catch (nodeError) {
+        console.warn(`Erro ao processar nó ${node.name}:`, nodeError);
+        errors++;
+      }
+    }
+    
+    // Função auxiliar para encontrar variável correspondente por valor
+    async function findMatchingVariable(color: RGB, variables: Variable[]) {
+      for (const variable of variables) {
+        // Obter os valores da variável para todos os modos
+        for (const modeId of targetCollection.modes.map(m => m.modeId)) {
+          const value = variable.valuesByMode[modeId];
+          
+          // Verificar se o valor é uma cor sólida
+          if (value && typeof value === 'object' && 'r' in value && 'g' in value && 'b' in value) {
+            // Comparar os componentes de cor
+            if (
+              Math.abs(value.r - color.r) < 0.01 &&
+              Math.abs(value.g - color.g) < 0.01 &&
+              Math.abs(value.b - color.b) < 0.01
+            ) {
+              return variable;
+            }
+          }
+        }
+      }
+      return null;
+    }
+    
+    // Iniciar o processamento dos nós
+    for (const node of nodesToProcess) {
+      await processNode(node);
+    }
+    
+    // Retornar estatísticas
+    return `Processamento concluído: ${nodesProcessed} nós processados, ${variablesReplaced} variáveis substituídas, ${errors} erros encontrados.`;
+  } catch (error) {
+    console.error('Erro ao atualizar variáveis nos nós:', error);
+    return `Erro ao atualizar variáveis nos nós: ${error.message}`;
   }
-  
-  // Recarregar bibliotecas
-  if (msg.type === 'recarregar') {
-    console.log("Recarregando bibliotecas...");
-    carregarBibliotecas();
+}
+
+// Função para buscar correspondências entre variáveis locais e da biblioteca
+async function findEquivalentVariables(localCollectionId: string, libraryId: string) {
+  try {
+    console.log(`Buscando correspondências entre a coleção local ${localCollectionId} e a biblioteca ${libraryId}...`);
+
+    // Obter a coleção local
+    const localCollections = await figma.variables.getLocalVariableCollectionsAsync();
+    const localCollection = localCollections.find(c => c.id === localCollectionId);
+
+    if (!localCollection) {
+      throw new Error(`Coleção local com ID ${localCollectionId} não encontrada`);
+    }
+
+    // Obter as variáveis locais
+    const localVariables = await figma.variables.getLocalVariablesAsync();
+    const localCollectionVariables = localVariables.filter(v => v.variableCollectionId === localCollectionId);
+
+    // Obter as variáveis da biblioteca
+    const libraryVariables = await figma.variables.getVariablesAsync(libraryId);
+
+    // Lista para armazenar as correspondências encontradas
+    const matches = [];
+    const matchesByVar = new Map();
+
+    // Para cada variável local, procurar correspondências na biblioteca
+    for (const localVar of localCollectionVariables) {
+      console.log(`Analisando variável local: ${localVar.name} (${localVar.resolvedType})`);
+      const localVarMatches = [];
+
+      // Analisar cada modo da variável local
+      for (const mode of localCollection.modes) {
+        const localValue = localVar.valuesByMode[mode.modeId];
+        
+        // Se não há valor para este modo, pular
+        if (!localValue) continue;
+
+        console.log(`Analisando modo ${mode.name} com valor:`, localValue);
+
+        // Procurar uma variável na biblioteca com o mesmo valor
+        for (const libraryVar of libraryVariables) {
+          // Verificar cada modo da variável da biblioteca
+          for (const libModeId in libraryVar.valuesByMode) {
+            const libraryValue = libraryVar.valuesByMode[libModeId];
+            
+            // Se os tipos de valor são diferentes, pular
+            if (typeof localValue !== typeof libraryValue) continue;
+
+            // Comparar os valores
+            let isMatch = false;
+
+            // Comparação para diferentes tipos de valor
+            if (typeof localValue === 'object' && localValue !== null) {
+              if ('r' in localValue && 'r' in libraryValue) {
+                // Compara cores RGB
+                isMatch = (
+                  Math.abs(localValue.r - libraryValue.r) < 0.01 &&
+                  Math.abs(localValue.g - libraryValue.g) < 0.01 &&
+                  Math.abs(localValue.b - libraryValue.b) < 0.01
+                );
+                if ('a' in localValue && 'a' in libraryValue) {
+                  isMatch = isMatch && Math.abs(localValue.a - libraryValue.a) < 0.01;
+                }
+              }
+            } else if (typeof localValue === 'number' && typeof libraryValue === 'number') {
+              // Compara números
+              isMatch = Math.abs(localValue - libraryValue) < 0.01;
+            } else if (typeof localValue === 'string' && typeof libraryValue === 'string') {
+              // Compara strings
+              isMatch = localValue === libraryValue;
+            } else if (typeof localValue === 'boolean' && typeof libraryValue === 'boolean') {
+              // Compara booleanos
+              isMatch = localValue === libraryValue;
+            }
+
+            if (isMatch) {
+              console.log(`Correspondência encontrada: ${libraryVar.name} (modo ${libModeId})`);
+              
+              // Adicionar à lista de correspondências
+              const match = {
+                localVar: localVar,
+                localId: localVar.id,
+                localName: localVar.name,
+                localVarKey: localVar.key,
+                modeId: mode.modeId,
+                modeName: mode.name,
+                libraryId: libraryId,
+                libraryVarId: libraryVar.id,
+                libraryVarKey: libraryVar.key,
+                libraryName: libraryVar.name,
+                valueType: typeof localValue === 'object' ? 'color' : typeof localValue
+              };
+
+              matches.push(match);
+              localVarMatches.push(match);
+            }
+          }
+        }
+      }
+
+      // Se encontrou correspondências para esta variável local, adicionar ao mapa
+      if (localVarMatches.length > 0) {
+        matchesByVar.set(localVar.id, localVarMatches);
+      }
+    }
+
+    return { matches, matchesByVar, hasMatches: matches.length > 0 };
+  } catch (error) {
+    console.error('Erro ao buscar correspondências:', error);
+    throw error;
   }
-  
-  // Carregar coleções de uma biblioteca específica
-  if (msg.type === 'carregarColecoes' && msg.libraryId) {
-    console.log(`Solicitando coleções da biblioteca: ${msg.libraryId}`);
-    carregarColecoesDaBiblioteca(msg.libraryId);
+}
+
+// Função para substituir variáveis locais por variáveis da biblioteca
+async function substituirVariaveis(localCollectionId: string, libraryId: string) {
+  try {
+    console.log(`Substituindo variáveis da coleção local ${localCollectionId} por variáveis da biblioteca ${libraryId}...`);
+
+    // Encontrar as correspondências
+    const { matchesByVar, hasMatches } = await findEquivalentVariables(localCollectionId, libraryId);
+
+    if (!hasMatches) {
+      console.log('Nenhuma correspondência encontrada para substituição');
+      return { success: false, message: 'Nenhuma correspondência encontrada para substituição' };
+    }
+
+    console.log(`Encontradas correspondências para ${matchesByVar.size} variáveis locais`);
+
+    // Obter a coleção local
+    const localCollections = await figma.variables.getLocalVariableCollectionsAsync();
+    const localCollection = localCollections.find(c => c.id === localCollectionId);
+
+    if (!localCollection) {
+      throw new Error(`Coleção local com ID ${localCollectionId} não encontrada`);
+    }
+
+    // Obter as variáveis da biblioteca
+    const libraryVariables = await figma.variables.getVariablesAsync(libraryId);
+
+    // Contadores para estatísticas
+    let substituidas = 0;
+    let erros = 0;
+
+    // Para cada variável local que tem pelo menos uma correspondência
+    for (const [localVarId, matches] of matchesByVar.entries()) {
+      try {
+        if (matches.length === 0) continue;
+        
+        const localVar = matches[0].localVar; // Todas as correspondências têm a mesma variável local
+        const localVarName = localVar.name;
+        console.log(`Processando variável local: "${localVarName}" (ID: ${localVar.id})`);
+        
+        // Verificar todos os modos da variável
+        for (const mode of localCollection.modes) {
+          // Verificar se há uma correspondência específica para este modo
+          const modeMatch = matches.find(m => m.modeId === mode.modeId);
+          
+          if (modeMatch) {
+            try {
+              // Em vez de buscar por nome, usamos diretamente a variável da biblioteca correspondente
+              // que já foi identificada pela correspondência de valores
+              const libraryVarKey = modeMatch.libraryVarKey;
+              
+              console.log(`Tentando substituir variável local "${localVarName}" pelo key da biblioteca: ${libraryVarKey}`);
+              
+              // Tenta importar a variável da biblioteca primeiro
+              try {
+                console.log(`Importando variável da biblioteca com key: ${libraryVarKey}`);
+                
+                const importedVar = await figma.variables.importVariableByKeyAsync(libraryVarKey);
+                
+                if (!importedVar) {
+                  throw new Error(`Não foi possível importar a variável com key ${libraryVarKey}`);
+                }
+                
+                console.log(`Variável importada com sucesso. ID local: ${importedVar.id}, Nome: ${importedVar.name}`);
+                
+                // Agora usamos o ID da variável importada para a referência
+                await localVar.setValueForMode(mode.modeId, {
+                  type: 'VARIABLE_ALIAS',
+                  id: importedVar.id
+                });
+                
+                substituidas++;
+                console.log(`Modo ${mode.name} da variável ${localVar.name} substituído com sucesso pela variável ${importedVar.name} (ID: ${importedVar.id})`);
+              } catch (importError) {
+                console.warn(`Erro ao importar e substituir variável: ${importError}`);
+                erros++;
+              }
+            } catch (modeError) {
+              console.warn(`Erro ao processar modo ${mode.name} da variável ${localVar.name}:`, modeError);
+              erros++;
+            }
+          }
+        }
+      } catch (varError) {
+        console.warn(`Erro ao processar variável ${localVarId}:`, varError);
+        erros++;
+      }
+    }
+
+    // Retornar estatísticas
+    return { 
+      success: substituidas > 0, 
+      message: `Substituição concluída: ${substituidas} variáveis substituídas, ${erros} erros encontrados.` 
+    };
+  } catch (error) {
+    console.error('Erro ao substituir variáveis:', error);
+    return { success: false, message: `Erro ao substituir variáveis: ${error.message}` };
   }
-  
-  // Carregar coleções locais
-  if (msg.type === 'carregarColecoesLocais') {
-    console.log("Solicitando coleções locais de variáveis");
-    carregarColecoesLocais();
-  }
-  
-  // Pré-visualizar substituição de variáveis
-  if (msg.type === 'preVisualizarSubstituicao') {
-    console.log("Solicitando prévia de substituição:", msg);
-    preVisualizarSubstituicao(msg.libraryId, msg.localCollectionId);
-  }
-  
-  // Substituir variáveis
-  if (msg.type === 'substituirVariaveis') {
-    console.log("Solicitando substituição de variáveis:", msg);
-    substituirVariaveis(msg.libraryId, msg.localCollectionId);
-  }
-  
-  // Atualizar variáveis (função antiga, mantida por compatibilidade)
-  if (msg.type === 'atualizarVariaveis') {
-    console.log("Solicitando atualização de variáveis (função legada):", msg);
-    atualizarVariaveis(
-      msg.libraryId,
-      msg.collectionId,
-      msg.oldPrefix, 
-      msg.newPrefix
-    );
-  }
-  
-  // Fecha o plugin se solicitado
-  if (msg.type === 'fechar') {
-    console.log("Fechando plugin");
-    figma.closePlugin();
+}
+
+// Evento para receber mensagens da UI
+figma.ui.onmessage = async (msg) => {
+  try {
+    console.log('Recebida mensagem:', msg.type);
+
+    if (msg.type === 'ui-ready') {
+      console.log("UI está pronta, carregando bibliotecas...");
+      carregarBibliotecas();
+    }
+    
+    // Recarregar bibliotecas
+    if (msg.type === 'recarregar') {
+      console.log("Recarregando bibliotecas...");
+      carregarBibliotecas();
+    }
+    
+    // Carregar coleções de uma biblioteca específica
+    if (msg.type === 'carregarColecoes' && msg.libraryId) {
+      console.log(`Solicitando coleções da biblioteca: ${msg.libraryId}`);
+      carregarColecoesDaBiblioteca(msg.libraryId);
+    }
+    
+    // Carregar coleções locais
+    if (msg.type === 'carregarColecoesLocais') {
+      console.log("Solicitando coleções locais de variáveis");
+      carregarColecoesLocais();
+    }
+    
+    // Pré-visualizar substituição de variáveis
+    if (msg.type === 'preVisualizarSubstituicao') {
+      console.log("Solicitando prévia de substituição:", msg);
+      preVisualizarSubstituicao(msg.libraryId, msg.localCollectionId);
+    }
+    
+    // Substituir variáveis
+    if (msg.type === 'substituirVariaveis') {
+      console.log("Solicitando substituição de variáveis:", msg);
+      substituirVariaveis(msg.libraryId, msg.localCollectionId);
+    }
+    
+    // Atualizar variáveis (função antiga, mantida por compatibilidade)
+    if (msg.type === 'atualizarVariaveis') {
+      console.log("Solicitando atualização de variáveis (função legada):", msg);
+      atualizarVariaveis(
+        msg.libraryId,
+        msg.collectionId,
+        msg.oldPrefix, 
+        msg.newPrefix
+      );
+    }
+    
+    // Atualizar variáveis nos nós
+    if (msg.type === 'update-variables-in-nodes') {
+      console.log("Solicitando atualização de variáveis nos nós:", msg);
+      updateVariablesInNodes(
+        msg.libraryId,
+        msg.collectionId,
+        msg.scope
+      );
+    }
+    
+    // Fecha o plugin se solicitado
+    if (msg.type === 'fechar') {
+      console.log("Fechando plugin");
+      figma.closePlugin();
+    }
+  } catch (error) {
+    console.error('Erro ao processar mensagem:', error);
+    figma.ui.postMessage({
+      type: 'error',
+      message: `Erro ao processar mensagem: ${error.message}`
+    });
   }
 }; 
