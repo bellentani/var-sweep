@@ -1224,6 +1224,7 @@ async function substituirVariaveis(
     // Estrutura para mapear variáveis locais para variáveis da biblioteca com base nos valores
     interface ValueMatch {
       localVarId: string;
+      localVar: Variable;
       libraryVarKey: string;
       modeId: string;
     }
@@ -1263,6 +1264,7 @@ async function substituirVariaveis(
                   // Usar a primeira correspondência encontrada
                   valueMatches.push({
                     localVarId: localVar.id,
+                    localVar: localVar,
                     libraryVarKey: matchingLibraryVars[0].key,
                     modeId: mode.modeId
                   });
@@ -1299,6 +1301,7 @@ async function substituirVariaveis(
                     if (localRgb === libRgb) {
                       valueMatches.push({
                         localVarId: localVar.id,
+                        localVar: localVar,
                         libraryVarKey: libVar.key,
                         modeId: mode.modeId
                       });
@@ -1331,6 +1334,7 @@ async function substituirVariaveis(
                       libValue.value === localFloat) {
                     valueMatches.push({
                       localVarId: localVar.id,
+                      localVar: localVar,
                       libraryVarKey: libVar.key,
                       modeId: mode.modeId
                     });
@@ -1362,6 +1366,7 @@ async function substituirVariaveis(
                       libValue.value === localString) {
                     valueMatches.push({
                       localVarId: localVar.id,
+                      localVar: localVar,
                       libraryVarKey: libVar.key,
                       modeId: mode.modeId
                     });
@@ -1386,72 +1391,44 @@ async function substituirVariaveis(
     let substituidas = 0;
     let erros = 0;
     
-    // Para cada variável local que tem pelo menos um modo com correspondência
-    const uniqueLocalVarIds = [...new Set(valueMatches.map(m => m.localVarId))];
+    // Agrupar as correspondências por variável local
+    const matchesByVar = new Map<string, ValueMatch[]>();
     
-    for (const localVarId of uniqueLocalVarIds) {
-      const localVar = figma.variables.getVariableById(localVarId);
-      if (!localVar) continue;
-      
+    for (const match of valueMatches) {
+      if (!matchesByVar.has(match.localVarId)) {
+        matchesByVar.set(match.localVarId, []);
+      }
+      matchesByVar.get(match.localVarId)?.push(match);
+    }
+    
+    // Para cada variável local que tem pelo menos uma correspondência
+    for (const [localVarId, matches] of matchesByVar.entries()) {
       try {
-        // Agrupar as correspondências por modo para esta variável
-        const matchesByMode = valueMatches.filter(m => m.localVarId === localVarId);
+        if (matches.length === 0) continue;
         
-        // Agora substituímos as referências a esta variável nos nós que a utilizam
-        // Para cada objeto na página que pode usar a variável
-        const nodesUsingVar: Array<{ node: BaseNode, properties: string[] }> = [];
+        const localVar = matches[0].localVar; // Todas as correspondências têm a mesma variável local
+        const libraryVarKey = matches[0].libraryVarKey; // Usamos a primeira correspondência
         
-        // Buscar todos os nós que usam esta variável
-        figma.root.children.forEach(page => {
-          const nodes = page.findAll();
+        console.log(`Substituindo variável local "${localVar.name}" pela variável da biblioteca com key "${libraryVarKey}"`);
+        
+        // Verificar todos os modos da variável
+        for (const mode of localCollection.modes) {
+          // Verificar se há uma correspondência específica para este modo
+          const modeMatch = matches.find(m => m.modeId === mode.modeId);
           
-          for (const node of nodes) {
-            const boundVariables = node.boundVariables;
-            
-            if (boundVariables) {
-              // Verificar quais propriedades usam a variável
-              const propertiesUsingVar: string[] = [];
-              
-              for (const [property, binding] of Object.entries(boundVariables)) {
-                // Se for uma referência direta a uma variável
-                if (!Array.isArray(binding) && binding.id === localVarId) {
-                  propertiesUsingVar.push(property);
-                }
-              }
-              
-              // Se o nó usa a variável, adicionamos à lista
-              if (propertiesUsingVar.length > 0) {
-                nodesUsingVar.push({
-                  node,
-                  properties: propertiesUsingVar
-                });
-              }
-            }
-          }
-        });
-        
-        console.log(`Encontrados ${nodesUsingVar.length} nós usando a variável ${localVar.name}`);
-        
-        // Para cada nó que usa a variável
-        for (const { node, properties } of nodesUsingVar) {
-          for (const property of properties) {
+          if (modeMatch) {
             try {
-              // Substituir pela primeira correspondência encontrada
-              // Na maioria dos casos, queremos manter a consistência
-              if (matchesByMode.length > 0) {
-                const primaryMatch = matchesByMode[0];
-                
-                // Substituir a variável
-                // @ts-ignore
-                await node.setBoundVariable(property, {
-                  type: "VARIABLE_ALIAS",
-                  id: primaryMatch.libraryVarKey
-                });
-                
-                substituidas++;
-              }
-            } catch (propError) {
-              console.warn(`Erro ao substituir variável ${localVar.name} na propriedade ${property}:`, propError);
+              // Substituir o valor deste modo por uma referência à variável da biblioteca
+              // @ts-ignore - API específica do Figma
+              await localVar.setValueForMode(mode.modeId, {
+                type: 'VARIABLE_ALIAS',
+                id: modeMatch.libraryVarKey
+              });
+              
+              substituidas++;
+              console.log(`Modo ${mode.name} da variável ${localVar.name} substituído com sucesso`);
+            } catch (modeError) {
+              console.warn(`Erro ao substituir modo ${mode.name} da variável ${localVar.name}:`, modeError);
               erros++;
             }
           }
@@ -1462,13 +1439,13 @@ async function substituirVariaveis(
       }
     }
     
-    console.log(`Substituição concluída. ${substituidas} referências à variáveis substituídas com ${erros} erros.`);
+    console.log(`Substituição concluída. ${substituidas} modos de variáveis substituídos com ${erros} erros.`);
     
     // Enviar resultado para a UI
     figma.ui.postMessage({
       type: 'substituicao-result',
       success: true,
-      message: `Substituição concluída! ${substituidas} referências à variáveis foram substituídas por referências à biblioteca.${erros > 0 ? ` (${erros} erros ocorreram durante o processo)` : ''}`
+      message: `Substituição concluída! ${substituidas} modos de variáveis foram conectados às variáveis da biblioteca.${erros > 0 ? ` (${erros} erros ocorreram durante o processo)` : ''}`
     });
     
   } catch (error) {
