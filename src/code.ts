@@ -77,6 +77,13 @@ async function carregarBibliotecas(): Promise<void> {
         if (apiResult && Array.isArray(apiResult)) {
           console.log(`Encontradas ${apiResult.length} bibliotecas via API`);
           
+          // Mostrar estrutura completa para diagnóstico
+          try {
+            console.log("Estrutura completa do objeto retornado:", serializarSeguro(apiResult));
+          } catch (e) {
+            console.log("Não foi possível serializar o objeto completo");
+          }
+          
           // Evitamos loops forEach que podem causar problemas
           for (let i = 0; i < apiResult.length; i++) {
             try {
@@ -92,27 +99,70 @@ async function carregarBibliotecas(): Promise<void> {
                 // Usando any para evitar erros de tipagem
                 const result = apiResult[i] as any;
                 
+                // Logs com todas as propriedades do objeto para diagnóstico
+                console.log(`Propriedades do objeto ${i}:`, Object.keys(result));
+                
                 // Logs seguros para depuração
                 const objStr = serializarSeguro(result);
-                console.log(`Biblioteca ${i+1}:`, objStr.substring(0, 500)); // Limitar tamanho do log
+                console.log(`Biblioteca ${i+1}:`, objStr); // Mostrar objeto completo
                 
-                // Tentar diferentes propriedades para nome
+                // Extrair o nome da biblioteca corretamente baseado na estrutura real
                 if (typeof result === 'object' && result !== null) {
-                  // Tenta obter o nome de várias formas possíveis
-                  if (typeof result.name === 'string') {
-                    name = result.name;
-                  } else if (result.library && typeof result.library.name === 'string') {
-                    name = result.library.name;
-                  } else if (result.libraryName && typeof result.libraryName === 'string') {
+                  // Prioridade para propriedades específicas que podem conter o nome da biblioteca
+                  if (result.library && typeof result.library === 'object') {
+                    if (typeof result.library.name === 'string') {
+                      name = result.library.name;
+                      console.log(`Nome obtido de library.name: ${name}`);
+                    }
+                  }
+                  
+                  // Se ainda não encontrou nome, tenta outras propriedades
+                  if (!name && typeof result.libraryName === 'string') {
                     name = result.libraryName;
-                  } else {
-                    name = `Biblioteca ${i+1}`;
+                    console.log(`Nome obtido de libraryName: ${name}`);
+                  }
+                  
+                  // Se ainda não encontrou, tenta usar a propriedade key, que contém o nome como prefixo em algumas bibliotecas
+                  if (!name && typeof result.key === 'string' && result.key.includes(':')) {
+                    const parts = result.key.split(':');
+                    if (parts.length > 0) {
+                      name = parts[0];
+                      console.log(`Nome obtido de key: ${name}`);
+                    }
+                  }
+                  
+                  // Se ainda não encontrou, verifica name diretamente
+                  if (!name && typeof result.name === 'string') {
+                    name = result.name;
+                    console.log(`Nome obtido de name: ${name}`);
+                  }
+                  
+                  // Se ainda não tiver nome, usa um valor padrão melhor
+                  if (!name) {
+                    // Tenta extrair o nome de qualquer propriedade que parece ser um nome
+                    for (const prop of ['fileName', 'title', 'id', 'key']) {
+                      if (typeof result[prop] === 'string' && result[prop].length > 0) {
+                        name = result[prop];
+                        console.log(`Nome obtido de propriedade alternativa ${prop}: ${name}`);
+                        break;
+                      }
+                    }
+                    
+                    // Último recurso
+                    if (!name) {
+                      name = `Biblioteca ${i+1}`;
+                      console.log(`Usando nome padrão: ${name}`);
+                    }
                   }
                   
                   // Determina o tipo baseado nas propriedades disponíveis
-                  if (result.variableCollection) {
+                  if (result.variableCollection || 
+                      (result.name && typeof result.name === 'string' && 
+                       result.name.toLowerCase().includes('variável'))) {
                     type = "Variáveis";
-                  } else if (result.componentSet || result.component) {
+                  } else if (result.componentSet || result.component || 
+                           (result.name && typeof result.name === 'string' && 
+                            result.name.toLowerCase().includes('componente'))) {
                     type = "Componentes";
                   } else {
                     // Verifica nomes de propriedades específicas
