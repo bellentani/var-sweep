@@ -1417,74 +1417,23 @@ async function substituirVariaveis(
           
           if (modeMatch) {
             try {
-              // Encontrar a variável da biblioteca pelo nome
-              const matchingLibVars = libraryVariables.filter(v => {
-                // Remover prefixos da biblioteca se existirem
-                let libVarName = v.name;
-                if (libVarName.includes('/')) {
-                  libVarName = libVarName.split('/').pop() || '';
-                }
-                
-                // Verificar se o nome da variável local combina com o da biblioteca
-                // (ignorando prefixos do caminho)
-                let cleanLocalName = localVarName;
-                if (cleanLocalName.includes('/')) {
-                  cleanLocalName = cleanLocalName.split('/').pop() || '';
-                }
-                
-                return libVarName.toLowerCase() === cleanLocalName.toLowerCase();
-              });
+              // Em vez de buscar por nome, usamos diretamente a variável da biblioteca correspondente
+              // que já foi identificada pela correspondência de valores
+              const libraryVarKey = modeMatch.libraryVarKey;
               
-              // Se não encontrou pelo nome exato, tenta pelo nome sem prefixos
-              if (matchingLibVars.length === 0) {
-                console.log(`Não foi encontrada variável com nome exato "${localVarName}", tentando busca alternativa...`);
-                
-                // Extrair o nome base sem prefixos
-                let baseLocalName = localVarName;
-                // Remove prefixos comuns como "bg/" ou "text/"
-                const prefixMatch = localVarName.match(/^([^\/]+\/)/);
-                if (prefixMatch && prefixMatch[1]) {
-                  baseLocalName = localVarName.substring(prefixMatch[1].length);
-                }
-                
-                // Busca pelo nome base
-                const alternativeMatches = libraryVariables.filter(v => {
-                  let libVarName = v.name;
-                  // Remove prefixos da biblioteca
-                  if (libVarName.includes('/')) {
-                    libVarName = libVarName.split('/').pop() || '';
-                  }
-                  
-                  // Verifica se o nome base corresponde
-                  return libVarName.toLowerCase() === baseLocalName.toLowerCase();
-                });
-                
-                if (alternativeMatches.length > 0) {
-                  console.log(`Encontradas ${alternativeMatches.length} variáveis com nome base "${baseLocalName}"`);
-                  matchingLibVars.push(...alternativeMatches);
-                }
-              }
-              
-              if (matchingLibVars.length === 0) {
-                console.warn(`Nenhuma variável da biblioteca encontrada com nome semelhante a "${localVarName}"`);
-                erros++;
-                continue;
-              }
-              
-              console.log(`Encontradas ${matchingLibVars.length} variáveis na biblioteca com nome semelhante. Usando a primeira.`);
-              const libVar = matchingLibVars[0];
+              console.log(`Tentando substituir variável local "${localVarName}" pelo key da biblioteca: ${libraryVarKey}`);
               
               // Tenta importar a variável da biblioteca primeiro
               try {
-                console.log(`Importando variável da biblioteca: ${libVar.name} (key: ${libVar.key})`);
+                console.log(`Importando variável da biblioteca com key: ${libraryVarKey}`);
                 
-                const importedVar = await figma.variables.importVariableByKeyAsync(libVar.key);
+                const importedVar = await figma.variables.importVariableByKeyAsync(libraryVarKey);
                 
                 if (!importedVar) {
-                  throw new Error(`Não foi possível importar a variável ${libVar.name}`);
+                  throw new Error(`Não foi possível importar a variável com key ${libraryVarKey}`);
                 }
                 
-                console.log(`Variável importada com sucesso. ID local: ${importedVar.id}`);
+                console.log(`Variável importada com sucesso. ID local: ${importedVar.id}, Nome: ${importedVar.name}`);
                 
                 // Agora usamos o ID da variável importada para a referência
                 await localVar.setValueForMode(mode.modeId, {
@@ -1493,7 +1442,7 @@ async function substituirVariaveis(
                 });
                 
                 substituidas++;
-                console.log(`Modo ${mode.name} da variável ${localVar.name} substituído com sucesso`);
+                console.log(`Modo ${mode.name} da variável ${localVar.name} substituído com sucesso pela variável ${importedVar.name} (ID: ${importedVar.id})`);
               } catch (importError) {
                 console.warn(`Erro ao importar e substituir variável: ${importError}`);
                 erros++;
