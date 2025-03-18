@@ -907,16 +907,16 @@
         loadingPreviewVar.style.display = 'block';
         
         // Enviar mensagem para substituir variáveis
-        parent.postMessage({
-          pluginMessage: {
-            type: 'substituirVariaveis',
-            libraryId: libraryId,
+      parent.postMessage({ 
+        pluginMessage: { 
+          type: 'substituirVariaveis',
+          libraryId: libraryId,
             scope: scope,
             variables: foundVariables
-          }
-        }, '*');
-      });
-      
+        } 
+      }, '*');
+    });
+    
       // Função para atualizar a prévia quando a biblioteca é selecionada
       function updatePreviewVar() {
         const libraryId = librarySelectVar.value;
@@ -1094,7 +1094,7 @@
       });
 
       // Manipulador de mensagens do plugin
-      window.onmessage = async (event) => {
+    window.onmessage = async (event) => {
         const message = event.data.pluginMessage;
         console.log('Mensagem recebida:', message);
 
