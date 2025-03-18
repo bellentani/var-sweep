@@ -13,7 +13,21 @@
       margin-bottom: 12px;
     }
     
-    .component-item {
+    .library-selector {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 16px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+    
+    .collections-container {
+      max-height: 300px;
+      overflow-y: auto;
+      margin-bottom: 16px;
+    }
+    
+    .collection-item {
       padding: 12px;
       border-radius: 6px;
       background-color: #f5f5f5;
@@ -30,12 +44,12 @@
       color: #0284c7;
     }
     
-    .component-name {
+    .collection-name {
       font-weight: 600;
       margin-bottom: 4px;
     }
     
-    .component-id {
+    .collection-id {
       font-size: 12px;
       color: #666;
       margin-bottom: 4px;
@@ -51,9 +65,10 @@
       margin-top: 4px;
     }
     
-    .no-components {
+    .no-collections {
       color: #888;
       font-style: italic;
+      padding: 12px;
     }
     
     .error-message {
@@ -93,21 +108,33 @@
   </style>
 </head>
 <body>
-  <h2>Componentes de Bibliotecas</h2>
+  <h2>Bibliotecas de Variáveis</h2>
   <div id="error-container" style="display: none;" class="error-message"></div>
   <div id="info-container" style="display: none;" class="info-message"></div>
-  <div id="components-container">
-    <p class="no-components">Procurando componentes de bibliotecas...</p>
+  
+  <!-- Seletor de bibliotecas -->
+  <select id="library-selector" class="library-selector">
+    <option value="">Selecione uma biblioteca</option>
+  </select>
+  
+  <!-- Container para as coleções -->
+  <div id="collections-container" class="collections-container">
+    <p class="no-collections">Selecione uma biblioteca para ver suas coleções</p>
   </div>
   
   <button id="refresh-button" class="action-button">Recarregar</button>
 
   <script>
     // Elementos do DOM
-    const componentsContainer = document.getElementById('components-container');
+    const librarySelector = document.getElementById('library-selector');
+    const collectionsContainer = document.getElementById('collections-container');
     const errorContainer = document.getElementById('error-container');
     const infoContainer = document.getElementById('info-container');
     const refreshButton = document.getElementById('refresh-button');
+    
+    // Armazena os dados das bibliotecas
+    let libraries = [];
+    let collections = {};
     
     // Função para mostrar erro
     function showError(message) {
@@ -128,11 +155,38 @@
     
     // Evento para o botão de recarregar
     refreshButton.addEventListener('click', () => {
-      componentsContainer.innerHTML = '<p class="no-components">Procurando componentes de bibliotecas...</p>';
+      collectionsContainer.innerHTML = '<p class="no-collections">Procurando bibliotecas...</p>';
+      librarySelector.innerHTML = '<option value="">Selecione uma biblioteca</option>';
       hideError();
       showInfo("");
       parent.postMessage({ pluginMessage: { type: 'recarregar' } }, '*');
     });
+    
+    // Função para mostrar as coleções da biblioteca selecionada
+    librarySelector.addEventListener('change', function() {
+      const selectedLibrary = this.value;
+      displayCollections(selectedLibrary);
+    });
+    
+    // Função para exibir as coleções de uma biblioteca
+    function displayCollections(libraryId) {
+      collectionsContainer.innerHTML = '';
+      
+      if (!libraryId) {
+        collectionsContainer.innerHTML = '<p class="no-collections">Selecione uma biblioteca para ver suas coleções</p>';
+        return;
+      }
+      
+      // Solicita as coleções desta biblioteca
+      parent.postMessage({ 
+        pluginMessage: { 
+          type: 'obterColecoes', 
+          libraryId: libraryId 
+        } 
+      }, '*');
+      
+      collectionsContainer.innerHTML = '<p class="no-collections">Carregando coleções...</p>';
+    }
     
     // Escuta as mensagens enviadas pelo código do plugin
     window.onmessage = async (event) => {
@@ -150,51 +204,69 @@
           return;
         }
         
+        // Recebimento da lista de bibliotecas
         if (message.type === 'libraries-data') {
-          const libraries = message.libraries || [];
+          libraries = message.libraries || [];
           showInfo(message.message || "");
           
-          componentsContainer.innerHTML = '';
+          // Limpa o seletor e adiciona a opção padrão
+          librarySelector.innerHTML = '<option value="">Selecione uma biblioteca</option>';
           hideError();
           
           if (!libraries || libraries.length === 0) {
-            componentsContainer.innerHTML = '<p class="no-components">Não foram encontrados componentes de bibliotecas neste arquivo</p>';
+            collectionsContainer.innerHTML = '<p class="no-collections">Não foram encontradas bibliotecas neste arquivo</p>';
             return;
           }
           
-          libraries.forEach((component) => {
-            if (!component) return; // Pula componentes inválidos
+          // Adiciona as bibliotecas no seletor
+          libraries.forEach((library) => {
+            if (!library) return; // Pula bibliotecas inválidas
             
-            const componentElement = document.createElement('div');
-            componentElement.className = 'component-item';
+            // Só adiciona bibliotecas de variáveis
+            if (library.type === 'Variáveis') {
+              const option = document.createElement('option');
+              option.value = library.id;
+              option.textContent = library.name;
+              librarySelector.appendChild(option);
+            }
+          });
+          
+          if (librarySelector.options.length <= 1) {
+            collectionsContainer.innerHTML = '<p class="no-collections">Não foram encontradas bibliotecas de variáveis neste arquivo</p>';
+          }
+        }
+        
+        // Recebimento das coleções de uma biblioteca
+        if (message.type === 'collections-data') {
+          const collectionsData = message.collections || [];
+          
+          collectionsContainer.innerHTML = '';
+          
+          if (!collectionsData || collectionsData.length === 0) {
+            collectionsContainer.innerHTML = '<p class="no-collections">Esta biblioteca não possui coleções de variáveis</p>';
+            return;
+          }
+          
+          // Exibe as coleções
+          collectionsData.forEach((collection) => {
+            const collectionElement = document.createElement('div');
+            collectionElement.className = 'collection-item';
             
-            // Adicionar etiqueta de componente
-            const labelElement = document.createElement('span');
-            labelElement.className = 'library-label';
-            labelElement.textContent = 'Componente de Biblioteca';
-            componentElement.appendChild(labelElement);
-            
-            // Nome do componente
+            // Nome da coleção
             const nameElement = document.createElement('div');
-            nameElement.className = 'component-name';
-            nameElement.textContent = component.name || 'Componente sem nome';
-            componentElement.appendChild(nameElement);
+            nameElement.className = 'collection-name';
+            nameElement.textContent = collection.name || 'Coleção sem nome';
+            collectionElement.appendChild(nameElement);
             
-            // ID do componente
-            const idElement = document.createElement('div');
-            idElement.className = 'component-id';
-            idElement.textContent = `ID: ${component.id || 'Desconhecido'}`;
-            componentElement.appendChild(idElement);
-            
-            // Nome da biblioteca (se disponível)
-            if (component.library) {
-              const libraryElement = document.createElement('div');
-              libraryElement.className = 'library-name';
-              libraryElement.textContent = component.library;
-              componentElement.appendChild(libraryElement);
+            // Informações adicionais (se disponíveis)
+            if (collection.variableIds && collection.variableIds.length) {
+              const infoElement = document.createElement('div');
+              infoElement.className = 'collection-id';
+              infoElement.textContent = `${collection.variableIds.length} variáveis`;
+              collectionElement.appendChild(infoElement);
             }
             
-            componentsContainer.appendChild(componentElement);
+            collectionsContainer.appendChild(collectionElement);
           });
         }
       } catch (error) {
