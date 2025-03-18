@@ -1418,15 +1418,53 @@ async function substituirVariaveis(
           
           if (modeMatch) {
             try {
-              // Substituir o valor deste modo por uma referência à variável da biblioteca
-              // @ts-ignore - API específica do Figma
-              await localVar.setValueForMode(mode.modeId, {
-                type: 'VARIABLE_ALIAS',
-                id: modeMatch.libraryVarKey
-              });
+              // Verificar se a variável da biblioteca existe antes de tentar usá-la
+              const libVarExists = libraryVariables.some(v => v.key === modeMatch.libraryVarKey);
               
-              substituidas++;
-              console.log(`Modo ${mode.name} da variável ${localVar.name} substituído com sucesso`);
+              if (!libVarExists) {
+                console.warn(`Variável da biblioteca com key ${modeMatch.libraryVarKey} não encontrada.`);
+                erros++;
+                continue;
+              }
+              
+              console.log(`Tentando substituir modo ${mode.name} da variável ${localVar.name} (ID: ${localVar.id}) pela variável da biblioteca com key ${modeMatch.libraryVarKey}`);
+              
+              // Tentar o formato completo para referência de variável de biblioteca
+              try {
+                // Formato explícito para variáveis de biblioteca
+                await localVar.setValueForMode(mode.modeId, {
+                  type: 'VARIABLE_ALIAS',
+                  id: modeMatch.libraryVarKey
+                });
+                
+                substituidas++;
+                console.log(`Modo ${mode.name} da variável ${localVar.name} substituído com sucesso usando formato completo`);
+              } catch (completeFormatError) {
+                console.warn(`Erro ao usar formato completo: ${completeFormatError}`);
+                
+                // Tentar formato alternativo
+                try {
+                  // API específica do Figma - formato alternativo
+                  await figma.variables.importVariableByKeyAsync(modeMatch.libraryVarKey)
+                    .then(async (importedVar) => {
+                      if (importedVar) {
+                        // Agora usamos a variável importada
+                        await localVar.setValueForMode(mode.modeId, {
+                          type: 'VARIABLE_ALIAS',
+                          id: importedVar.id
+                        });
+                        
+                        substituidas++;
+                        console.log(`Modo ${mode.name} da variável ${localVar.name} substituído com sucesso usando importação`);
+                      } else {
+                        throw new Error("A variável importada é nula");
+                      }
+                    });
+                } catch (importError) {
+                  console.warn(`Erro ao importar variável: ${importError}`);
+                  erros++;
+                }
+              }
             } catch (modeError) {
               console.warn(`Erro ao substituir modo ${mode.name} da variável ${localVar.name}:`, modeError);
               erros++;
