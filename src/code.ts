@@ -1478,6 +1478,199 @@ async function substituirVariaveis(
   }
 }
 
+// Função para substituir variáveis em nós com base no escopo selecionado
+async function substituirVariaveisEmNos(libraryId: string, escopo: 'selecao' | 'pagina' | 'documento'): Promise<void> {
+  try {
+    console.log(`Iniciando substituição de variáveis em nós com escopo: ${escopo}`);
+    
+    // Carregar variáveis da biblioteca
+    const bibliotecas = await obterTodasBibliotecas();
+    const biblioteca = bibliotecas.get(libraryId);
+    
+    if (!biblioteca) {
+      throw new Error("Biblioteca não encontrada");
+    }
+    
+    console.log(`Biblioteca selecionada: ${biblioteca.name}`);
+    
+    // Obter as variáveis da biblioteca
+    const todasVariaveis = await figma.variables.getLocalVariablesAsync();
+    // Use apenas as variáveis que são remotas
+    const importedVariables = todasVariaveis.filter(v => {
+      return v.remote && v.name.includes(biblioteca.name);
+    });
+    
+    if (importedVariables.length === 0) {
+      throw new Error(`Não foram encontradas variáveis importadas da biblioteca "${biblioteca.name}"`);
+    }
+    
+    console.log(`Encontradas ${importedVariables.length} variáveis importadas`);
+    
+    // Definir nós a serem processados com base no escopo
+    let nodosAlvo: readonly SceneNode[] = [];
+    
+    switch (escopo) {
+      case 'selecao':
+        nodosAlvo = figma.currentPage.selection;
+        console.log(`Processando ${nodosAlvo.length} nós da seleção atual`);
+        break;
+        
+      case 'pagina':
+        nodosAlvo = figma.currentPage.children;
+        console.log(`Processando ${nodosAlvo.length} nós da página atual: ${figma.currentPage.name}`);
+        break;
+        
+      case 'documento':
+        // Para documento inteiro, processa página por página
+        let todosNos: SceneNode[] = [];
+        for (const page of figma.root.children) {
+          todosNos = [...todosNos, ...page.children];
+        }
+        nodosAlvo = todosNos;
+        console.log(`Processando ${nodosAlvo.length} nós de todo o documento`);
+        break;
+    }
+    
+    if (nodosAlvo.length === 0) {
+      throw new Error(`Nenhum nó encontrado no escopo "${escopo}"`);
+    }
+    
+    // Processar nós recursivamente para substituir variáveis
+    let totalNos = 0;
+    let totalVariaveisSubstituidas = 0;
+    let erros = 0;
+    
+    // Função recursiva para processar um nó e todos os seus filhos
+    async function processarNoRecursivamente(no: SceneNode): Promise<void> {
+      try {
+        totalNos++;
+        
+        // Verificar se o nó tem propriedades que podem ter variáveis
+        const bindables = (no as any).boundVariables;
+        
+        if (bindables) {
+          for (const [property, binding] of Object.entries(bindables)) {
+            // Se for uma referência a variável local, tenta encontrar equivalente da biblioteca
+            if (binding && (binding as any).id) {
+              try {
+                const localVarId = (binding as any).id;
+                const localVar = await figma.variables.getVariableByIdAsync(localVarId);
+                
+                if (localVar && !localVar.remote) {
+                  // É uma variável local, procurar equivalente na biblioteca
+                  console.log(`Processando variável ${localVar.name} no nó ${no.name}`);
+                  
+                  // Obter o valor atual da variável para o modo ativo
+                  const varCollection = await figma.variables.getVariableCollectionByIdAsync(localVar.variableCollectionId);
+                  
+                  if (!varCollection || varCollection.modes.length === 0) {
+                    console.warn(`Coleção não encontrada para a variável ${localVar.name}`);
+                    continue;
+                  }
+                  
+                  // Usar o primeiro modo disponível
+                  const currentMode = varCollection.modes[0];
+                  const currentValue = localVar.valuesByMode[currentMode.modeId];
+                  
+                  if (!currentValue) {
+                    console.warn(`Valor não encontrado para o modo ${currentMode.modeId} na variável ${localVar.name}`);
+                    continue;
+                  }
+                  
+                  // Procurar variável equivalente na biblioteca
+                  const matchingLibraryVar = importedVariables.find(libVar => {
+                    // Obter a coleção da variável da biblioteca
+                    const libCollection = figma.variables.getVariableCollectionById(libVar.variableCollectionId);
+                    if (!libCollection || libCollection.modes.length === 0) return false;
+                    
+                    // Usar o primeiro modo disponível
+                    const libMode = libCollection.modes[0];
+                    const libValue = libVar.valuesByMode[libMode.modeId];
+                    if (!libValue) return false;
+                    
+                    // Comparar valores
+                    // Para os tipos que podem ter a propriedade 'type'
+                    if (typeof currentValue === 'object' && currentValue !== null && 
+                        typeof libValue === 'object' && libValue !== null) {
+                      
+                      // Para variáveis de cor
+                      if ('r' in currentValue && 'r' in libValue) {
+                        return JSON.stringify(currentValue) === JSON.stringify(libValue);
+                      }
+                      
+                      // Para outros tipos de objeto
+                      return false;
+                    } 
+                    // Para valores primitivos (string, número, etc.)
+                    else {
+                      return currentValue === libValue;
+                    }
+                  });
+                  
+                  if (matchingLibraryVar) {
+                    // Encontrou variável equivalente, substituir a referência
+                    console.log(`Encontrada variável equivalente na biblioteca: ${matchingLibraryVar.name}`);
+                    
+                    try {
+                      // Substituir a referência
+                      (no as any).setBoundVariable(property, matchingLibraryVar);
+                      totalVariaveisSubstituidas++;
+                      console.log(`Variável substituída com sucesso no nó ${no.name}, propriedade ${property}`);
+                    } catch (subError) {
+                      console.warn(`Erro ao substituir variável no nó ${no.name}:`, subError);
+                      erros++;
+                    }
+                  } else {
+                    console.log(`Não foi encontrada variável equivalente para ${localVar.name} na biblioteca`);
+                  }
+                }
+              } catch (varError) {
+                console.warn(`Erro ao processar binding de variável:`, varError);
+                erros++;
+              }
+            }
+          }
+        }
+        
+        // Processar filhos recursivamente
+        if ('children' in no && Array.isArray(no.children)) {
+          for (const filho of no.children) {
+            await processarNoRecursivamente(filho);
+          }
+        }
+      } catch (noError) {
+        console.warn(`Erro ao processar nó:`, noError);
+        erros++;
+      }
+    }
+    
+    // Iniciar processamento recursivo
+    for (const no of nodosAlvo) {
+      await processarNoRecursivamente(no);
+    }
+    
+    // Enviar resultados
+    figma.ui.postMessage({
+      type: 'substituicao-nodes-result',
+      success: true,
+      message: `Substituição concluída. Processados ${totalNos} nós, com ${totalVariaveisSubstituidas} variáveis substituídas${erros > 0 ? ` e ${erros} erros` : ''}.`,
+      nodesProcessed: totalNos,
+      varsReplaced: totalVariaveisSubstituidas,
+      errors: erros
+    });
+    
+    console.log(`Substituição concluída. Processados ${totalNos} nós, com ${totalVariaveisSubstituidas} variáveis substituídas e ${erros} erros.`);
+  } catch (error) {
+    console.error("Erro ao substituir variáveis em nós:", error);
+    
+    figma.ui.postMessage({
+      type: 'substituicao-nodes-result',
+      success: false,
+      message: `Erro ao substituir variáveis: ${error instanceof Error ? error.message : 'erro desconhecido'}`
+    });
+  }
+}
+
 // Quando o UI envia mensagens
 figma.ui.onmessage = (msg) => {
   console.log("Mensagem recebida:", msg);
@@ -1526,6 +1719,12 @@ figma.ui.onmessage = (msg) => {
       msg.oldPrefix, 
       msg.newPrefix
     );
+  }
+  
+  // Substituir variáveis em nós com base no escopo selecionado
+  if (msg.type === 'substituirVariaveisEmNos') {
+    console.log("Solicitando substituição de variáveis em nós:", msg);
+    substituirVariaveisEmNos(msg.libraryId, msg.escopo);
   }
   
   // Fecha o plugin se solicitado

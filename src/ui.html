@@ -607,6 +607,7 @@
     // Evento para o botão de atualizar na nova Aba Update Variables
     updateNodesButton.addEventListener('click', () => {
       const libraryId = librarySelectUpdateNodes.value;
+      const escopoSelecionado = document.querySelector('input[name="escopo"]:checked').value;
       
       if (!libraryId) {
         showErrorUpdateNodes("Selecione uma biblioteca externa");
@@ -615,14 +616,15 @@
       
       // Verificar e enviar os dados para o plugin
       hideErrorUpdateNodes();
-      showInfoUpdateNodes("Iniciando substituição de variáveis...");
+      showInfoUpdateNodes(`Iniciando substituição de variáveis no escopo: ${escopoSelecionado}...`);
       updateNodesButton.disabled = true;
       
       // Enviar solicitação para substituir as variáveis
       parent.postMessage({ 
         pluginMessage: { 
-          type: 'substituirVariaveis',
-          libraryId: libraryId
+          type: 'substituirVariaveisEmNos',
+          libraryId: libraryId,
+          escopo: escopoSelecionado
         } 
       }, '*');
     });
@@ -824,6 +826,17 @@
             showInfoUpdate(message.message || "Variáveis substituídas com sucesso!");
           } else {
             showErrorUpdate(message.message || "Erro ao substituir variáveis");
+          }
+        }
+        
+        // Recebendo resultado de substituição de variáveis em nós
+        if (message.type === 'substituicao-nodes-result') {
+          updateNodesButton.disabled = false;
+          
+          if (message.success) {
+            showInfoUpdateNodes(message.message || "Variáveis nos nós substituídas com sucesso!");
+          } else {
+            showErrorUpdateNodes(message.message || "Erro ao substituir variáveis nos nós");
           }
         }
       } catch (error) {
