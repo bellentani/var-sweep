@@ -107,6 +107,122 @@ async function carregarBibliotecas(): Promise<void> {
       console.warn("Erro ao buscar bibliotecas de variáveis:", err);
     }
     
+    // MÉTODO 1.5: Nova tentativa com getAvailableLibrariesAsync (pode não existir em todas versões da API)
+    try {
+      console.log("1.5. Tentando novamente com getAvailableLibrariesAsync...");
+      
+      // Verificar se a função existe antes de tentar chamá-la
+      // @ts-ignore
+      const hasGetLibraries = typeof figma.teamLibrary?.getAvailableLibrariesAsync === 'function';
+      
+      if (hasGetLibraries) {
+        console.log("Função getAvailableLibrariesAsync disponível, tentando usar...");
+        try {
+          // @ts-ignore
+          const libraries = await figma.teamLibrary.getAvailableLibrariesAsync();
+          
+          if (libraries && Array.isArray(libraries)) {
+            console.log(`Encontradas ${libraries.length} bibliotecas via getAvailableLibrariesAsync`);
+            console.log("Estrutura:", serializarSeguro(libraries));
+            
+            // Percorre as bibliotecas
+            for (let i = 0; i < libraries.length; i++) {
+              try {
+                const lib = libraries[i] as any;
+                
+                if (typeof lib === 'object' && lib !== null) {
+                  // Tenta extrair o nome da forma mais segura possível
+                  let bibliotecaName = "";
+                  
+                  // Tenta várias propriedades para encontrar o nome
+                  if (typeof lib.name === 'string') {
+                    bibliotecaName = lib.name.trim();
+                  } else if (lib.library && typeof lib.library.name === 'string') {
+                    bibliotecaName = lib.library.name.trim();
+                  } else if (typeof lib.id === 'string' || typeof lib.key === 'string') {
+                    bibliotecaName = (lib.id || lib.key).trim();
+                  }
+                  
+                  // Se encontramos um nome, adicionamos à lista
+                  if (bibliotecaName && !bibliotecasMap.has(bibliotecaName)) {
+                    const bibliotecaId = lib.id || lib.key || `lib-comp-${Date.now()}-${i}`;
+                    
+                    bibliotecasMap.set(bibliotecaName, {
+                      id: bibliotecaId,
+                      name: bibliotecaName,
+                      library: "Biblioteca de Componentes",
+                      type: "Componentes"
+                    });
+                    
+                    console.log(`Adicionada biblioteca via getAvailableLibrariesAsync: ${bibliotecaName}`);
+                  }
+                }
+              } catch (itemErr) {
+                console.warn(`Erro ao processar biblioteca ${i}:`, itemErr);
+              }
+            }
+          }
+        } catch (funcErr) {
+          console.warn("Erro ao chamar getAvailableLibrariesAsync:", funcErr);
+        }
+      } else {
+        console.log("Função getAvailableLibrariesAsync não está disponível na API");
+        
+        // Tentar outras abordagens
+        // @ts-ignore
+        if (typeof figma.libraries === 'object' && figma.libraries) {
+          console.log("Objeto figma.libraries disponível, tentando acessar...");
+          
+          try {
+            // @ts-ignore
+            console.log("Conteúdo de figma.libraries:", serializarSeguro(figma.libraries));
+            
+            // @ts-ignore
+            const libs = figma.libraries;
+            if (Array.isArray(libs)) {
+              for (let i = 0; i < libs.length; i++) {
+                const lib = libs[i];
+                if (lib && typeof lib.name === 'string') {
+                  const bibliotecaName = lib.name.trim();
+                  
+                  if (bibliotecaName && !bibliotecasMap.has(bibliotecaName)) {
+                    const bibliotecaId = lib.id || `lib-direct-${Date.now()}-${i}`;
+                    
+                    bibliotecasMap.set(bibliotecaName, {
+                      id: bibliotecaId,
+                      name: bibliotecaName,
+                      library: "Biblioteca",
+                      type: "Componentes"
+                    });
+                    
+                    console.log(`Adicionada biblioteca diretamente: ${bibliotecaName}`);
+                  }
+                }
+              }
+            } else if (typeof libs === 'object') {
+              // Talvez seja um objeto com propriedades
+              Object.keys(libs).forEach(key => {
+                if (!bibliotecasMap.has(key) && key.length > 0) {
+                  bibliotecasMap.set(key, {
+                    id: `lib-key-${Date.now()}-${key}`,
+                    name: key,
+                    library: "Biblioteca",
+                    type: "Componentes"
+                  });
+                  
+                  console.log(`Adicionada biblioteca via chave: ${key}`);
+                }
+              });
+            }
+          } catch (libsErr) {
+            console.warn("Erro ao acessar figma.libraries:", libsErr);
+          }
+        }
+      }
+    } catch (methodErr) {
+      console.warn("Erro ao tentar método alternativo para bibliotecas:", methodErr);
+    }
+    
     // MÉTODO 2: Tentar detectar bibliotecas usando métodos alternativos
     try {
       console.log("2. Tentando métodos alternativos para detectar bibliotecas de componentes...");
