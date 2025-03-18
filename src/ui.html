@@ -254,48 +254,36 @@
   
   <!-- Conteúdo da Aba Update Variables -->
   <div id="update-variables" class="tab-content active container">
-    <h2>Atualizar Variáveis</h2>
+    <h2>Substituir Variáveis</h2>
     <div id="error-container-update" style="display: none;" class="error-message"></div>
     <div id="info-container-update" style="display: none;" class="info-message"></div>
     
     <div class="variable-form">
       <div class="form-group">
-        <label class="form-label">Selecione a biblioteca:</label>
+        <label class="form-label">Biblioteca de referência:</label>
         <select id="library-select-update" class="form-select">
           <option value="">Carregando bibliotecas...</option>
         </select>
-        <p class="form-help">Selecione a biblioteca onde deseja atualizar as variáveis</p>
+        <p class="form-help">Selecione a biblioteca externa com as variáveis que deseja usar como referência</p>
       </div>
       
       <div class="form-group">
-        <label class="form-label">Selecione a coleção:</label>
-        <select id="collection-select" class="form-select" disabled>
-          <option value="">Selecione uma biblioteca primeiro</option>
+        <label class="form-label">Coleção local:</label>
+        <select id="local-collection-select" class="form-select">
+          <option value="">Carregando coleções locais...</option>
         </select>
-        <p class="form-help">Selecione a coleção de variáveis que deseja atualizar</p>
-      </div>
-      
-      <div class="form-group">
-        <label class="form-label">Prefixos a serem substituídos:</label>
-        <input type="text" id="old-prefix" class="form-input" placeholder="ex: ds-" />
-        <p class="form-help">Digite o prefixo atual que deseja substituir (separados por vírgula se for mais de um)</p>
-      </div>
-      
-      <div class="form-group">
-        <label class="form-label">Novo prefixo:</label>
-        <input type="text" id="new-prefix" class="form-input" placeholder="ex: ui-" />
-        <p class="form-help">Digite o novo prefixo que substituirá o(s) antigo(s)</p>
+        <p class="form-help">Selecione a coleção local cujas variáveis serão substituídas</p>
       </div>
       
       <div class="variable-preview">
         <div class="preview-title">Pré-visualização:</div>
         <div id="preview-content" class="preview-content">
           Ainda não há nada para pré-visualizar.
-          Digite os prefixos acima e selecione uma biblioteca e coleção.
+          Selecione uma biblioteca externa e uma coleção local para ver as correspondências.
         </div>
       </div>
       
-      <button id="update-button" class="action-button" disabled>Atualizar Variáveis</button>
+      <button id="update-button" class="action-button" disabled>Substituir Variáveis</button>
     </div>
   </div>
   
@@ -346,9 +334,7 @@
     
     // Elementos da aba Update Variables
     const librarySelectUpdate = document.getElementById('library-select-update');
-    const collectionSelect = document.getElementById('collection-select');
-    const oldPrefixInput = document.getElementById('old-prefix');
-    const newPrefixInput = document.getElementById('new-prefix');
+    const localCollectionSelect = document.getElementById('local-collection-select');
     const previewContent = document.getElementById('preview-content');
     const updateButton = document.getElementById('update-button');
     const errorContainerUpdate = document.getElementById('error-container-update');
@@ -435,26 +421,27 @@
       }
     }
     
-    // Função para atualizar a prévia de substituição de prefixos
+    // Função para atualizar a prévia de substituição de variáveis
     function updatePreview() {
-      const oldPrefix = oldPrefixInput.value.trim();
-      const newPrefix = newPrefixInput.value.trim();
-      const collectionValue = collectionSelect.value;
+      const libraryId = librarySelectUpdate.value;
+      const localCollectionId = localCollectionSelect.value;
       
-      if (!oldPrefix || !newPrefix || !collectionValue) {
-        previewContent.textContent = "Ainda não há nada para pré-visualizar.\nDigite os prefixos acima e selecione uma biblioteca e coleção.";
+      if (!libraryId || !localCollectionId) {
+        previewContent.textContent = "Ainda não há nada para pré-visualizar.\nSelecione uma biblioteca externa e uma coleção local.";
         updateButton.disabled = true;
         return;
       }
       
-      // Formatar a prévia
-      const oldPrefixes = oldPrefix.split(',').map(p => p.trim()).filter(p => p);
-      const prefixesText = oldPrefixes.map(prefix => 
-        `"${prefix}variable-name" -> "${newPrefix}variable-name"`
-      ).join('\n');
+      // Solicitar uma prévia das substituições
+      previewContent.textContent = "Carregando prévia das correspondências...";
       
-      previewContent.textContent = `Substituições que serão feitas:\n${prefixesText}\n\nNa coleção: ${collectionSelect.options[collectionSelect.selectedIndex].text}`;
-      updateButton.disabled = false;
+      parent.postMessage({ 
+        pluginMessage: { 
+          type: 'preVisualizarSubstituicao', 
+          libraryId: libraryId,
+          localCollectionId: localCollectionId
+        } 
+      }, '*');
     }
     
     // Evento para o botão de recarregar
@@ -491,59 +478,32 @@
     });
     
     // Evento para o seletor de bibliotecas da aba Update Variables
-    librarySelectUpdate.addEventListener('change', () => {
-      const selectedLibraryId = librarySelectUpdate.value;
-      
-      if (!selectedLibraryId) {
-        collectionSelect.disabled = true;
-        collectionSelect.innerHTML = '<option value="">Selecione uma biblioteca primeiro</option>';
-        updatePreview();
-        return;
-      }
-      
-      // Atualizar o seletor de coleções
-      collectionSelect.disabled = true;
-      collectionSelect.innerHTML = '<option value="">Carregando coleções...</option>';
-      
-      // Solicitar coleções da biblioteca selecionada
-      parent.postMessage({ 
-        pluginMessage: { 
-          type: 'carregarColecoes', 
-          libraryId: selectedLibraryId
-        } 
-      }, '*');
-    });
+    librarySelectUpdate.addEventListener('change', updatePreview);
     
-    // Eventos para os campos de prefixo
-    oldPrefixInput.addEventListener('input', updatePreview);
-    newPrefixInput.addEventListener('input', updatePreview);
-    collectionSelect.addEventListener('change', updatePreview);
+    // Evento para o seletor de coleções locais
+    localCollectionSelect.addEventListener('change', updatePreview);
     
     // Evento para o botão de atualizar
     updateButton.addEventListener('click', () => {
-      const oldPrefix = oldPrefixInput.value.trim();
-      const newPrefix = newPrefixInput.value.trim();
-      const collectionId = collectionSelect.value;
       const libraryId = librarySelectUpdate.value;
+      const localCollectionId = localCollectionSelect.value;
       
-      if (!oldPrefix || !newPrefix || !collectionId || !libraryId) {
-        showErrorUpdate("Preencha todos os campos necessários");
+      if (!libraryId || !localCollectionId) {
+        showErrorUpdate("Selecione uma biblioteca externa e uma coleção local");
         return;
       }
       
       // Verificar e enviar os dados para o plugin
       hideErrorUpdate();
-      showInfoUpdate("Iniciando atualização de variáveis...");
+      showInfoUpdate("Iniciando substituição de variáveis...");
       updateButton.disabled = true;
       
-      // Enviar solicitação para atualizar as variáveis
+      // Enviar solicitação para substituir as variáveis
       parent.postMessage({ 
         pluginMessage: { 
-          type: 'atualizarVariaveis',
+          type: 'substituirVariaveis',
           libraryId: libraryId,
-          collectionId: collectionId,
-          oldPrefix: oldPrefix.split(',').map(p => p.trim()).filter(p => p),
-          newPrefix: newPrefix
+          localCollectionId: localCollectionId
         } 
       }, '*');
     });
@@ -598,6 +558,13 @@
             librarySelectUpdate.appendChild(optionUpdate);
           });
           
+          // Carregar coleções locais
+          parent.postMessage({ 
+            pluginMessage: { 
+              type: 'carregarColecoesLocais'
+            } 
+          }, '*');
+          
           // Mostrar bibliotecas no container principal
           componentsContainer.innerHTML = '';
           hideError();
@@ -643,75 +610,73 @@
           });
         }
         
-        // Recebendo as coleções de uma biblioteca
-        if (message.type === 'collections-data') {
+        // Recebendo as coleções locais
+        if (message.type === 'local-collections-data') {
           const collections = message.collections || [];
           
-          // Para a aba List Libs
-          clearCollectionsList();
-          
-          if (collections.length === 0) {
-            showCollectionsEmpty();
-          } else {
-            // Mostrar as coleções
-            collections.forEach(collection => {
-              const collectionElement = document.createElement('div');
-              collectionElement.className = 'collection-item';
-              
-              const nameElement = document.createElement('div');
-              nameElement.className = 'collection-name';
-              nameElement.textContent = collection.name;
-              collectionElement.appendChild(nameElement);
-              
-              if (collection.type) {
-                const typeElement = document.createElement('div');
-                typeElement.className = 'collection-type';
-                typeElement.textContent = collection.type;
-                collectionElement.appendChild(typeElement);
-              }
-              
-              collectionsList.appendChild(collectionElement);
-            });
-            
-            showCollectionsList();
-          }
-          
-          // Para a aba Update Variables
-          collectionSelect.innerHTML = '';
+          // Atualizar o select de coleções locais
+          localCollectionSelect.innerHTML = '';
           
           // Adicionar opção padrão
           const defaultOption = document.createElement('option');
           defaultOption.value = '';
           defaultOption.textContent = collections.length > 0 
-            ? 'Selecione uma coleção...' 
-            : 'Nenhuma coleção disponível';
-          collectionSelect.appendChild(defaultOption);
+            ? 'Selecione uma coleção local...' 
+            : 'Nenhuma coleção local disponível';
+          localCollectionSelect.appendChild(defaultOption);
           
-          // Adicionar opções para cada coleção (apenas coleções de variáveis)
-          const varCollections = collections.filter(c => c.type && c.type.includes('Variáveis'));
-          
-          varCollections.forEach(collection => {
+          // Adicionar opções para cada coleção
+          collections.forEach(collection => {
             const option = document.createElement('option');
             option.value = collection.id;
             option.textContent = collection.name;
-            collectionSelect.appendChild(option);
+            localCollectionSelect.appendChild(option);
           });
           
           // Habilitar ou desabilitar o select de coleções
-          collectionSelect.disabled = varCollections.length === 0;
+          localCollectionSelect.disabled = collections.length === 0;
           
           // Atualizar a prévia
           updatePreview();
         }
         
-        // Recebendo resultado de atualização de variáveis
-        if (message.type === 'update-result') {
+        // Recebendo prévia de substituição
+        if (message.type === 'preview-substituicao') {
+          updateButton.disabled = !message.hasMatches;
+          
+          if (message.hasMatches) {
+            let previewText = "Variáveis que serão substituídas:\n\n";
+            
+            if (message.matches && Array.isArray(message.matches)) {
+              message.matches.forEach((match, index) => {
+                if (index < 10) { // Limitar a exibição para não sobrecarregar
+                  previewText += `- Local: "${match.localName}" → "${match.libraryName}"\n`;
+                }
+              });
+              
+              if (message.matches.length > 10) {
+                previewText += `\n... e mais ${message.matches.length - 10} correspondências.`;
+              }
+              
+              previewText += `\n\nTotal: ${message.matches.length} variáveis serão substituídas.`;
+            } else {
+              previewText += "Correspondências encontradas, mas detalhes não disponíveis.";
+            }
+            
+            previewContent.textContent = previewText;
+          } else {
+            previewContent.textContent = "Não foram encontradas correspondências entre a coleção local e a biblioteca selecionada.";
+          }
+        }
+        
+        // Recebendo resultado de substituição de variáveis
+        if (message.type === 'substituicao-result') {
           updateButton.disabled = false;
           
           if (message.success) {
-            showInfoUpdate(message.message || "Variáveis atualizadas com sucesso!");
+            showInfoUpdate(message.message || "Variáveis substituídas com sucesso!");
           } else {
-            showErrorUpdate(message.message || "Erro ao atualizar variáveis");
+            showErrorUpdate(message.message || "Erro ao substituir variáveis");
           }
         }
       } catch (error) {

@@ -848,6 +848,316 @@ async function atualizarVariaveis(
   }
 }
 
+// Função para carregar coleções locais de variáveis
+async function carregarColecoesLocais(): Promise<void> {
+  try {
+    console.log("Carregando coleções locais de variáveis...");
+    const colecoes: ColecaoInfo[] = [];
+    
+    // Obter todas as coleções de variáveis locais
+    const localCollections = figma.variables.getLocalVariableCollections();
+    
+    if (localCollections && localCollections.length > 0) {
+      console.log(`Encontradas ${localCollections.length} coleções locais de variáveis`);
+      
+      // Processar cada coleção
+      localCollections.forEach((collection, index) => {
+        try {
+          colecoes.push({
+            id: collection.id,
+            name: collection.name,
+            type: "Variáveis Locais"
+          });
+          
+          console.log(`Adicionada coleção local: ${collection.name}`);
+        } catch (err) {
+          console.warn(`Erro ao processar coleção local ${index}:`, err);
+        }
+      });
+    }
+    
+    // Enviar coleções para a UI
+    figma.ui.postMessage({
+      type: 'local-collections-data',
+      collections: colecoes
+    });
+    
+  } catch (error) {
+    console.error("Erro ao carregar coleções locais:", error);
+    figma.ui.postMessage({
+      type: 'error',
+      message: "Ocorreu um erro ao carregar coleções locais: " + String(error)
+    });
+  }
+}
+
+// Função para gerar prévia da substituição de variáveis
+async function preVisualizarSubstituicao(
+  libraryId: string,
+  localCollectionId: string
+): Promise<void> {
+  try {
+    console.log(`Gerando prévia de substituição - Biblioteca: ${libraryId}, Coleção Local: ${localCollectionId}`);
+    
+    // Buscar a biblioteca selecionada
+    const bibliotecasMap = await obterTodasBibliotecas();
+    const bibliotecas = Array.from(bibliotecasMap.values());
+    const bibliotecaSelecionada = bibliotecas.find(bib => bib.id === libraryId) as BibliotecaInfo | undefined;
+    
+    if (!bibliotecaSelecionada) {
+      throw new Error(`Biblioteca com ID ${libraryId} não encontrada`);
+    }
+    
+    // Buscar a coleção local
+    const localCollection = figma.variables.getVariableCollectionById(localCollectionId);
+    
+    if (!localCollection) {
+      throw new Error(`Coleção local com ID ${localCollectionId} não encontrada`);
+    }
+    
+    console.log(`Biblioteca: ${bibliotecaSelecionada.name}, Coleção Local: ${localCollection.name}`);
+    
+    // Obter variáveis da biblioteca selecionada
+    // @ts-ignore
+    const variableCollections = await figma.teamLibrary.getAvailableLibraryVariableCollectionsAsync();
+    
+    if (!variableCollections || !Array.isArray(variableCollections)) {
+      throw new Error("Não foi possível obter as coleções de variáveis da biblioteca");
+    }
+    
+    // Encontrar coleções da biblioteca selecionada
+    const libraryCollections = variableCollections.filter((collection: any) => {
+      return collection.libraryName === bibliotecaSelecionada.name;
+    });
+    
+    if (!libraryCollections.length) {
+      throw new Error(`Não foram encontradas coleções de variáveis na biblioteca ${bibliotecaSelecionada.name}`);
+    }
+    
+    console.log(`Encontradas ${libraryCollections.length} coleções na biblioteca`);
+    
+    // Obter todas as variáveis da biblioteca
+    const libraryVariables: any[] = [];
+    
+    for (const collection of libraryCollections) {
+      try {
+        // @ts-ignore
+        const variables = await figma.teamLibrary.getVariablesInLibraryCollectionAsync(collection.key);
+        if (variables && Array.isArray(variables)) {
+          libraryVariables.push(...variables);
+        }
+      } catch (err) {
+        console.warn(`Erro ao obter variáveis da coleção ${collection.name}:`, err);
+      }
+    }
+    
+    console.log(`Obtidas ${libraryVariables.length} variáveis da biblioteca`);
+    
+    // Obter variáveis da coleção local
+    const localVariables = localCollection.variableIds.map((id: string) => 
+      figma.variables.getVariableById(id)
+    ).filter((v: any) => v !== null);
+    
+    console.log(`Encontradas ${localVariables.length} variáveis na coleção local`);
+    
+    // Mapear correspondências (variáveis com o mesmo nome)
+    const matches: Array<{localId: string, localName: string, libraryId: string, libraryName: string}> = [];
+    
+    for (const localVar of localVariables) {
+      if (!localVar) continue;
+      
+      // Procurar uma variável correspondente na biblioteca
+      const libraryVar = libraryVariables.find(v => v.name === localVar.name);
+      
+      if (libraryVar) {
+        matches.push({
+          localId: localVar.id,
+          localName: localVar.name,
+          libraryId: libraryVar.key,
+          libraryName: libraryVar.name
+        });
+      }
+    }
+    
+    console.log(`Encontradas ${matches.length} correspondências entre variáveis locais e da biblioteca`);
+    
+    // Enviar resultado para a UI
+    figma.ui.postMessage({
+      type: 'preview-substituicao',
+      hasMatches: matches.length > 0,
+      matches: matches,
+      totalMatches: matches.length
+    });
+    
+  } catch (error) {
+    console.error("Erro ao gerar prévia:", error);
+    figma.ui.postMessage({
+      type: 'preview-substituicao',
+      hasMatches: false,
+      error: String(error)
+    });
+  }
+}
+
+// Função para substituir variáveis locais por variáveis da biblioteca
+async function substituirVariaveis(
+  libraryId: string,
+  localCollectionId: string
+): Promise<void> {
+  try {
+    console.log(`Iniciando substituição de variáveis - Biblioteca: ${libraryId}, Coleção Local: ${localCollectionId}`);
+    
+    // Buscar a biblioteca selecionada
+    const bibliotecasMap = await obterTodasBibliotecas();
+    const bibliotecas = Array.from(bibliotecasMap.values());
+    const bibliotecaSelecionada = bibliotecas.find(bib => bib.id === libraryId) as BibliotecaInfo | undefined;
+    
+    if (!bibliotecaSelecionada) {
+      throw new Error(`Biblioteca com ID ${libraryId} não encontrada`);
+    }
+    
+    // Buscar a coleção local
+    const localCollection = figma.variables.getVariableCollectionById(localCollectionId);
+    
+    if (!localCollection) {
+      throw new Error(`Coleção local com ID ${localCollectionId} não encontrada`);
+    }
+    
+    console.log(`Biblioteca: ${bibliotecaSelecionada.name}, Coleção Local: ${localCollection.name}`);
+    
+    // Obter variáveis da biblioteca selecionada
+    // @ts-ignore
+    const variableCollections = await figma.teamLibrary.getAvailableLibraryVariableCollectionsAsync();
+    
+    if (!variableCollections || !Array.isArray(variableCollections)) {
+      throw new Error("Não foi possível obter as coleções de variáveis da biblioteca");
+    }
+    
+    // Encontrar coleções da biblioteca selecionada
+    const libraryCollections = variableCollections.filter((collection: any) => {
+      return collection.libraryName === bibliotecaSelecionada.name;
+    });
+    
+    if (!libraryCollections.length) {
+      throw new Error(`Não foram encontradas coleções de variáveis na biblioteca ${bibliotecaSelecionada.name}`);
+    }
+    
+    // Obter todas as variáveis da biblioteca
+    const libraryVariables: any[] = [];
+    
+    for (const collection of libraryCollections) {
+      try {
+        // @ts-ignore
+        const variables = await figma.teamLibrary.getVariablesInLibraryCollectionAsync(collection.key);
+        if (variables && Array.isArray(variables)) {
+          libraryVariables.push(...variables);
+        }
+      } catch (err) {
+        console.warn(`Erro ao obter variáveis da coleção ${collection.name}:`, err);
+      }
+    }
+    
+    // Obter variáveis da coleção local
+    const localVariables = localCollection.variableIds.map((id: string) => 
+      figma.variables.getVariableById(id)
+    ).filter((v: any) => v !== null);
+    
+    // Substituir variáveis locais pelas da biblioteca quando tiverem o mesmo nome
+    let substituidas = 0;
+    let erros = 0;
+    
+    // Primeiro loop para verificar e criar um mapa de correspondências
+    const matches = new Map();
+    
+    for (const localVar of localVariables) {
+      if (!localVar) continue;
+      
+      // Procurar uma variável correspondente na biblioteca
+      const libraryVar = libraryVariables.find(v => v.name === localVar.name);
+      
+      if (libraryVar) {
+        matches.set(localVar.id, libraryVar.key);
+      }
+    }
+    
+    // Para cada objeto na página, substituir as referências das variáveis locais por variáveis da biblioteca
+    await Promise.all(figma.root.children.map(async page => {
+      try {
+        console.log(`Processando página: ${page.name}`);
+        
+        // Obter todos os nós na página
+        const nodes = page.findAll();
+        
+        // Processar cada nó
+        for (const node of nodes) {
+          try {
+            // Obter as variáveis vinculadas a este nó
+            const boundVariables = node.boundVariables;
+            
+            if (boundVariables) {
+              // Para cada propriedade vinculada
+              for (const [property, binding] of Object.entries(boundVariables)) {
+                try {
+                  // Se for uma variável única
+                  if (!Array.isArray(binding)) {
+                    const localVarId = binding.id;
+                    
+                    // Verificar se temos uma correspondência
+                    if (matches.has(localVarId)) {
+                      const libraryVarKey = matches.get(localVarId);
+                      
+                      // Substituir a variável
+                      // @ts-ignore
+                      await node.setBoundVariable(property, {
+                        type: "VARIABLE_ALIAS",
+                        // @ts-ignore
+                        id: libraryVarKey
+                      });
+                      
+                      substituidas++;
+                    }
+                  }
+                  // Se for um array de variáveis
+                  else if (Array.isArray(binding)) {
+                    // Tratamento especial para arrays de variáveis
+                    // Será implementado conforme necessidade
+                  }
+                } catch (propError) {
+                  console.warn(`Erro ao processar propriedade ${property}:`, propError);
+                  erros++;
+                }
+              }
+            }
+          } catch (nodeError) {
+            console.warn(`Erro ao processar nó:`, nodeError);
+            erros++;
+          }
+        }
+      } catch (pageError) {
+        console.warn(`Erro ao processar página ${page.name}:`, pageError);
+        erros++;
+      }
+    }));
+    
+    console.log(`Substituição concluída. ${substituidas} variáveis substituídas com ${erros} erros.`);
+    
+    // Enviar resultado para a UI
+    figma.ui.postMessage({
+      type: 'substituicao-result',
+      success: true,
+      message: `Substituição concluída! ${substituidas} variáveis foram substituídas por referências da biblioteca.${erros > 0 ? ` (${erros} erros ocorreram durante o processo)` : ''}`
+    });
+    
+  } catch (error) {
+    console.error("Erro ao substituir variáveis:", error);
+    figma.ui.postMessage({
+      type: 'substituicao-result',
+      success: false,
+      message: "Erro ao substituir variáveis: " + String(error)
+    });
+  }
+}
+
 // Quando o UI envia mensagens
 figma.ui.onmessage = (msg) => {
   console.log("Mensagem recebida:", msg);
@@ -869,9 +1179,27 @@ figma.ui.onmessage = (msg) => {
     carregarColecoesDaBiblioteca(msg.libraryId);
   }
   
-  // Atualizar variáveis
+  // Carregar coleções locais
+  if (msg.type === 'carregarColecoesLocais') {
+    console.log("Solicitando coleções locais de variáveis");
+    carregarColecoesLocais();
+  }
+  
+  // Pré-visualizar substituição de variáveis
+  if (msg.type === 'preVisualizarSubstituicao') {
+    console.log("Solicitando prévia de substituição:", msg);
+    preVisualizarSubstituicao(msg.libraryId, msg.localCollectionId);
+  }
+  
+  // Substituir variáveis
+  if (msg.type === 'substituirVariaveis') {
+    console.log("Solicitando substituição de variáveis:", msg);
+    substituirVariaveis(msg.libraryId, msg.localCollectionId);
+  }
+  
+  // Atualizar variáveis (função antiga, mantida por compatibilidade)
   if (msg.type === 'atualizarVariaveis') {
-    console.log("Solicitando atualização de variáveis:", msg);
+    console.log("Solicitando atualização de variáveis (função legada):", msg);
     atualizarVariaveis(
       msg.libraryId,
       msg.collectionId,
