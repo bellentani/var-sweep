@@ -518,6 +518,69 @@
       color: #b45309;
       font-style: italic;
     }
+
+    /* Adicionando estilos para a visualização de correspondências */
+    .matches-pagination {
+      margin-top: 10px;
+      display: flex;
+      gap: 8px;
+    }
+    
+    .pagination-button {
+      background-color: #f0f0f0;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    
+    .pagination-button:hover {
+      background-color: #e0e0e0;
+    }
+    
+    .match-item {
+      padding: 8px;
+      border-bottom: 1px solid #eee;
+      margin-bottom: 0;
+    }
+    
+    .matches-container {
+      max-height: 300px;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      margin-top: 8px;
+    }
+    
+    .match-local {
+      font-size: 13px;
+      margin-bottom: 4px;
+    }
+    
+    .match-library {
+      font-size: 12px;
+      color: #666;
+    }
+    
+    .matches-count {
+      font-size: 14px;
+      font-weight: 500;
+      color: #333;
+      margin-bottom: 8px;
+    }
+    
+    .matches-filter {
+      margin-bottom: 10px;
+    }
+    
+    .matches-filter input {
+      width: 100%;
+      padding: 6px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 12px;
+    }
   </style>
 </head>
 <body>
@@ -1149,20 +1212,17 @@
               window.matchesData = message.matches;
               
               updateButton.disabled = false;
-              // Formatar e exibir as correspondências
-              let htmlContent = `<p class="info">Encontradas ${message.totalMatches} correspondências</p>`;
-              htmlContent += '<div class="variables-list">';
               
-              message.matches.forEach(match => {
-                const matchType = match.valueType || 'Variável';
-                htmlContent += `<div class="match-item">
-                  <div class="match-local">Variável local: <strong>${match.localName}</strong> (${matchType})</div>
-                  <div class="match-library">Biblioteca: <strong>${match.libraryName}</strong></div>
-                </div>`;
-              });
+              // Reiniciar estado da paginação
+              window.paginationState = {
+                currentPage: 1,
+                itemsPerPage: 30,
+                showingAll: false,
+                filter: '',
+              };
               
-              htmlContent += '</div>';
-              previewContent.innerHTML = htmlContent;
+              // Atualizar a exibição usando a função de paginação
+              updateMatchesDisplay();
             } else {
               // Limpar as correspondências armazenadas
               window.matchesData = [];
@@ -1366,6 +1426,162 @@
           // Adiciona o event listener ao novo botão
           newMore.querySelector('.load-more-button').addEventListener('click', handleLoadMoreClick);
         }
+      }
+
+      // Função para formatar e mostrar as correspondências com paginação
+      function formatMatchesList(matches, page = 1, itemsPerPage = 30, filter = '') {
+        // Filtrar as correspondências se houver um termo de busca
+        let filteredMatches = matches;
+        if (filter && filter.trim() !== '') {
+          const filterLower = filter.toLowerCase();
+          filteredMatches = matches.filter(match => 
+            match.localName.toLowerCase().includes(filterLower) || 
+            match.libraryName.toLowerCase().includes(filterLower) ||
+            (match.valueType && match.valueType.toLowerCase().includes(filterLower))
+          );
+        }
+        
+        // Calcular páginas e total
+        const totalItems = filteredMatches.length;
+        const totalPages = Math.ceil(totalItems / itemsPerPage);
+        
+        // Garantir que a página está dentro dos limites
+        page = Math.max(1, Math.min(page, totalPages));
+        
+        // Índices para seleção
+        const startIndex = (page - 1) * itemsPerPage;
+        const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
+        
+        // Selecionar itens da página atual
+        const currentItems = filteredMatches.slice(startIndex, endIndex);
+        
+        // Construir HTML
+        let html = `<div class="matches-count">Encontradas ${totalItems} correspondências</div>`;
+        
+        // Adicionar campo de busca
+        html += `
+          <div class="matches-filter">
+            <input type="text" placeholder="Filtrar correspondências..." 
+              id="matches-filter-input" value="${filter}">
+          </div>
+        `;
+        
+        // Conteúdo principal
+        html += '<div class="matches-container">';
+        
+        if (currentItems.length === 0) {
+          html += '<p>Nenhuma correspondência encontrada com o filtro aplicado.</p>';
+        } else {
+          currentItems.forEach(match => {
+            const matchType = match.valueType || 'Variável';
+            html += `<div class="match-item">
+              <div class="match-local">Variável local: <strong>${match.localName}</strong> (${matchType})</div>
+              <div class="match-library">Biblioteca: <strong>${match.libraryName}</strong></div>
+            </div>`;
+          });
+        }
+        
+        html += '</div>';
+        
+        // Informações de paginação
+        if (totalPages > 1) {
+          html += `
+            <div class="matches-pagination">
+              <span>Página ${page} de ${totalPages}</span>
+              ${page > 1 ? '<button class="pagination-button" id="prev-page">Anterior</button>' : ''}
+              ${page < totalPages ? '<button class="pagination-button" id="next-page">Próxima</button>' : ''}
+              ${totalPages > 2 ? '<button class="pagination-button" id="show-more">Ver Mais 30</button>' : ''}
+              <button class="pagination-button" id="show-all">Ver Todas</button>
+            </div>
+          `;
+        }
+        
+        return html;
+      }
+
+      // Inicializar variáveis de paginação
+      window.paginationState = {
+        currentPage: 1,
+        itemsPerPage: 30,
+        showingAll: false,
+        filter: '',
+      };
+
+      // Adicionar função para configurar os eventos da paginação
+      function setupPaginationEvents() {
+        // Botão Ver Anterior
+        const prevButton = document.getElementById('prev-page');
+        if (prevButton) {
+          prevButton.addEventListener('click', () => {
+            window.paginationState.currentPage--;
+            updateMatchesDisplay();
+          });
+        }
+        
+        // Botão Ver Próxima
+        const nextButton = document.getElementById('next-page');
+        if (nextButton) {
+          nextButton.addEventListener('click', () => {
+            window.paginationState.currentPage++;
+            updateMatchesDisplay();
+          });
+        }
+        
+        // Botão Ver Mais 30
+        const showMoreButton = document.getElementById('show-more');
+        if (showMoreButton) {
+          showMoreButton.addEventListener('click', () => {
+            window.paginationState.itemsPerPage += 30;
+            updateMatchesDisplay();
+          });
+        }
+        
+        // Botão Ver Todas
+        const showAllButton = document.getElementById('show-all');
+        if (showAllButton) {
+          showAllButton.addEventListener('click', () => {
+            window.paginationState.showingAll = true;
+            updateMatchesDisplay();
+          });
+        }
+        
+        // Campo de filtro
+        const filterInput = document.getElementById('matches-filter-input');
+        if (filterInput) {
+          filterInput.addEventListener('input', (e) => {
+            window.paginationState.filter = e.target.value;
+            window.paginationState.currentPage = 1; // Voltar para a primeira página ao filtrar
+            updateMatchesDisplay();
+          });
+        }
+      }
+
+      // Função para atualizar a exibição de correspondências
+      function updateMatchesDisplay() {
+        if (!window.matchesData || !Array.isArray(window.matchesData)) {
+          previewContent.innerHTML = '<p class="warning">Não há correspondências disponíveis</p>';
+          return;
+        }
+        
+        // Se estiver mostrando todas
+        if (window.paginationState.showingAll) {
+          previewContent.innerHTML = formatMatchesList(
+            window.matchesData, 
+            1, 
+            window.matchesData.length,
+            window.paginationState.filter
+          );
+        } else {
+          previewContent.innerHTML = formatMatchesList(
+            window.matchesData, 
+            window.paginationState.currentPage,
+            window.paginationState.itemsPerPage,
+            window.paginationState.filter
+          );
+        }
+        
+        // Configurar eventos após atualizar o conteúdo
+        setupPaginationEvents();
       }
     });
   </script>
