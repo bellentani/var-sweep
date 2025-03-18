@@ -593,15 +593,9 @@
         return;
       }
       
-      // Solicitar uma prévia das substituições
-      previewContentNodes.textContent = "Carregando prévia das correspondências...";
-      
-      parent.postMessage({ 
-        pluginMessage: { 
-          type: 'preVisualizarSubstituicao', 
-          libraryId: libraryId
-        } 
-      }, '*');
+      // Não precisamos de prévia, apenas habilitamos o botão
+      previewContentNodes.textContent = "Biblioteca selecionada. Clique no botão para iniciar a substituição de variáveis nos nós com base no escopo selecionado.";
+      updateNodesButton.disabled = false;
     });
     
     // Evento para o botão de atualizar na nova Aba Update Variables
