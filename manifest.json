@@ -1,0 +1,17 @@
+{
+  "name": "Biblioteca Sweep",
+  "id": "biblioteca-sweep",
+  "api": "1.0.0",
+  "main": "dist/code.js",
+  "ui": "dist/ui.html",
+  "editorType": ["figma"],
+  "permissions": [
+    "currentuser",
+    "teamlibrary",
+    "activeusers"
+  ],
+  "networkAccess": {
+    "allowedDomains": ["*"],
+    "reasoning": "Acessar detalhes de bibliotecas de equipe que podem estar hospedadas remotamente"
+  }
+} 
