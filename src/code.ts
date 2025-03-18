@@ -1241,7 +1241,7 @@ async function preVisualizarCorrespondencias(libraryId: string, localCollectionI
       }
     }
     
-    console.log(`Obtidas ${libraryVariables.length} variáveis da biblioteca`);
+    console.log(`Obtidas ${libraryVariables.length} variáveis da biblioteca para referência`);
     
     // Obter variáveis da coleção local
     const localVariables = localCollection.variableIds.map((id: string) => 
@@ -1301,116 +1301,199 @@ async function preVisualizarCorrespondencias(libraryId: string, localCollectionI
       localName: string, 
       libraryId: string, 
       libraryName: string,
-      valueType: string
+      valueType: string,
+      modes?: Array<{
+        modeId: string,
+        name: string,
+        value: string
+      }>
     }> = [];
     
-    // Para cada variável local
+    // Inicializar estrutura para agrupar variáveis por ID
+    const matchesMap: {[key: string]: {
+      localId: string, 
+      localName: string, 
+      libraryId: string, 
+      libraryName: string, 
+      valueType: string
+    }} = {};
+    
+    // Fase 1: Encontrar correspondências e agrupá-las por ID local
     for (const localVar of localVariables) {
       if (!localVar) continue;
       
-      // Verificar cada modo da coleção local
+      // Variável para armazenar se encontramos correspondência para esta variável local
+      let encontrouCorrespondencia = false;
+      
+      // Para cada modo da coleção local
       for (const modo of localCollection.modes) {
-        const modeName = modo.name || 'Modo';
+        if (encontrouCorrespondencia) break; // Se já encontramos correspondência, não precisamos verificar outros modos
         
-        // Obter valor da variável local no modo atual
+        const modeName = modo.name || 'Modo';
         const localValue = localVar.valuesByMode[modo.modeId];
-          
-          if (!localValue) continue;
-          
-        // CASO 1: Verificar se o valor é uma referência a outra variável
+        
+        if (!localValue) continue;
+        
+        // CASO 1: Referência a variável
         if (typeof localValue === 'object' && localValue !== null && 
-            'type' in localValue && localValue.type === VAR_TYPE_ALIAS && 
+            'type' in localValue && 
+            ((localValue as any).type === 'VARIABLE_ALIAS') && 
             'id' in localValue) {
-              const referencedVarId = localValue.id as string;
-              
-              // Buscar a variável referenciada
-              const referencedVar = figma.variables.getVariableById(referencedVarId);
-              
-              if (referencedVar) {
-                // Procurar variáveis na biblioteca com o mesmo nome da variável referenciada
-                const matchingLibraryVars = libraryVariables.filter(v => 
-                  v.name === referencedVar.name
-                );
-                
-                if (matchingLibraryVars.length > 0) {
-                  for (const libVar of matchingLibraryVars) {
-                    matches.push({
-                      localId: localVar.id,
-                      localName: localVar.name,
-                      libraryId: libVar.key,
-                      libraryName: libVar.name,
-                      valueType: 'Referência a Variável'
-                    });
-                
-                console.log(`Correspondência de referência encontrada: local "${localVar.name}" -> biblioteca "${libVar.name}"`);
-                    
-                    // Uma vez que encontramos um match, não precisamos verificar os outros
-                    break;
-                  }
-              continue; // Já encontramos uma correspondência para esta variável neste modo
+          const referencedVarId = localValue.id as string;
+          const referencedVar = figma.variables.getVariableById(referencedVarId);
+          
+          if (referencedVar) {
+            const matchingLibraryVars = libraryVariables.filter(v => v.name === referencedVar.name);
+            
+            if (matchingLibraryVars.length > 0) {
+              const libVar = matchingLibraryVars[0];
+              matchesMap[localVar.id] = {
+                localId: localVar.id,
+                localName: localVar.name,
+                libraryId: libVar.key,
+                libraryName: libVar.name,
+                valueType: 'Referência a Variável'
+              };
+              encontrouCorrespondencia = true;
             }
           }
         }
         
-        // CASO 2: Para valores de string que podem ser nomes de variáveis
-        if (typeof localValue === 'object' && localValue !== null && 
-            'type' in localValue && localValue.type === VAR_TYPE_STRING && 
+        // CASO 2: String como nome de variável
+        else if (typeof localValue === 'object' && localValue !== null && 
+            'type' in localValue && 
+            ((localValue as any).type === 'STRING') && 
             'value' in localValue) {
-          const localString = localValue.value as string;
-          
-          // Verificar se o valor corresponde ao nome de alguma variável na biblioteca
-          const matchingLibraryVars = libraryVariables.filter(v => 
-            v.name === localString
-          );
+          const localString = (localValue as any).value as string;
+          const matchingLibraryVars = libraryVariables.filter(v => v.name === localString);
           
           if (matchingLibraryVars.length > 0) {
-            for (const libVar of matchingLibraryVars) {
-                      matches.push({
-                        localId: localVar.id,
-                        localName: localVar.name,
-                        libraryId: libVar.key,
-                        libraryName: libVar.name,
-                valueType: 'Nome de Variável'
-                      });
-                      
-              console.log(`Correspondência de nome encontrada: local "${localVar.name}" -> biblioteca "${libVar.name}"`);
-              
-              // Uma vez que encontramos um match, não precisamos verificar os outros
-                      break;
-                    }
-            continue; // Já encontramos uma correspondência para esta variável neste modo
-                  }
-                }
-              
-        // CASO 3: Comparar pelo valor (o mesmo código anterior)
-              for (const libVar of libraryVariables) {
-          if (!libVar || !libVar.valuesByMode) continue;
-          
-          let encontrouCorrespondencia = false;
-          
-          for (const libModoId in libVar.valuesByMode) {
-            const libValue = libVar.valuesByMode[libModoId];
-            
-            if (!libValue) continue;
-            
-            // Comparar os valores
-            if (valoresIguais(localValue, libValue)) {
-                    matches.push({
-                      localId: localVar.id,
-                      localName: localVar.name,
-                      libraryId: libVar.key,
-                      libraryName: libVar.name,
-                valueType: localVar.resolvedType || 'Valor Correspondente'
-              });
-              
-              console.log(`Correspondência de valor encontrada: local "${localVar.name}" -> biblioteca "${libVar.name}"`);
-              encontrouCorrespondencia = true;
-              break; // Encontrou correspondência para este modo, vai para próxima variável
-            }
+            const libVar = matchingLibraryVars[0];
+            matchesMap[localVar.id] = {
+              localId: localVar.id,
+              localName: localVar.name,
+              libraryId: libVar.key,
+              libraryName: libVar.name,
+              valueType: 'Nome de Variável'
+            };
+            encontrouCorrespondencia = true;
           }
-          
-          if (encontrouCorrespondencia) break; // Já encontrou correspondência para esta variável, pula para a próxima
         }
+        
+        // CASO 3: Comparação de valores
+        else {
+          for (const libVar of libraryVariables) {
+            if (!libVar || !libVar.valuesByMode) continue;
+            
+            for (const libModoId in libVar.valuesByMode) {
+              const libValue = libVar.valuesByMode[libModoId];
+              
+              if (!libValue) continue;
+              
+              if (valoresIguais(localValue, libValue)) {
+                matchesMap[localVar.id] = {
+                  localId: localVar.id,
+                  localName: localVar.name,
+                  libraryId: libVar.key,
+                  libraryName: libVar.name,
+                  valueType: localVar.resolvedType || 'Valor Correspondente'
+                };
+                encontrouCorrespondencia = true;
+                break;
+              }
+            }
+            
+            if (encontrouCorrespondencia) break;
+          }
+        }
+      }
+    }
+    
+    // Fase 2: Adicionar informações de modo para cada variável correspondente
+    for (const localId in matchesMap) {
+      try {
+        // Obter a variável local
+        const localVar = figma.variables.getVariableById(localId);
+        
+        if (!localVar) {
+          console.warn(`Variável local com ID ${localId} não encontrada`);
+          continue;
+        }
+        
+        // Criar uma nova correspondência com informações de modo
+        const newMatch = {
+          ...matchesMap[localId],
+          modes: [] as Array<{ modeId: string, name: string, value: string }>
+        };
+        
+        // Para cada modo da coleção local
+        for (const mode of localCollection.modes) {
+          // Verificar se a variável local tem um valor para este modo
+          if (localVar.valuesByMode.hasOwnProperty(mode.modeId)) {
+            const modeValue = localVar.valuesByMode[mode.modeId];
+            
+            // Formatar o valor do modo de maneira legível
+            let valueStr = 'Valor desconhecido';
+            
+            if (modeValue && typeof modeValue === 'object') {
+              if ('type' in modeValue) {
+                const type = modeValue.type as string;
+                
+                switch (type) {
+                  case 'COLOR':
+                    if ('r' in modeValue && 'g' in modeValue && 'b' in modeValue) {
+                      const r = Math.round((modeValue as any).r * 255);
+                      const g = Math.round((modeValue as any).g * 255);
+                      const b = Math.round((modeValue as any).b * 255);
+                      const a = 'a' in modeValue ? (modeValue as any).a.toFixed(2) : 1;
+                      valueStr = `rgba(${r}, ${g}, ${b}, ${a})`;
+                    }
+                    break;
+                  case 'FLOAT':
+                    if ('value' in modeValue) {
+                      valueStr = (modeValue as any).value.toString();
+                    }
+                    break;
+                  case 'STRING':
+                    if ('value' in modeValue) {
+                      valueStr = (modeValue as any).value.toString();
+                    }
+                    break;
+                  case 'BOOLEAN':
+                    if ('value' in modeValue) {
+                      valueStr = (modeValue as any).value ? 'true' : 'false';
+                    }
+                    break;
+                  case 'VARIABLE_ALIAS':
+                    if ('id' in modeValue) {
+                      const referencedVar = figma.variables.getVariableById((modeValue as any).id);
+                      valueStr = referencedVar ? referencedVar.name : `Ref: ${(modeValue as any).id}`;
+                    }
+                    break;
+                  default:
+                    valueStr = JSON.stringify(modeValue);
+                }
+              } else {
+                valueStr = JSON.stringify(modeValue);
+              }
+            } else if (modeValue !== undefined && modeValue !== null) {
+              valueStr = String(modeValue);
+            }
+            
+            // Adicionar informação do modo
+            newMatch.modes.push({
+              modeId: mode.modeId,
+              name: mode.name,
+              value: valueStr
+            });
+          }
+        }
+        
+        // Adicionar esta correspondência à lista
+        matches.push(newMatch);
+        
+      } catch (varError) {
+        console.warn(`Erro ao processar variável com ID ${localId}: ${varError}`);
       }
     }
     
@@ -1418,12 +1501,12 @@ async function preVisualizarCorrespondencias(libraryId: string, localCollectionI
     
     // Enviar resultado para a UI
     if (matches.length > 0) {
-    figma.ui.postMessage({
+      figma.ui.postMessage({
         type: 'preview-correspondencias',
         hasMatches: true,
-      matches: matches,
-      totalMatches: matches.length
-    });
+        matches: matches,
+        totalMatches: matches.length
+      });
     } else {
       figma.ui.postMessage({
         type: 'preview-correspondencias',

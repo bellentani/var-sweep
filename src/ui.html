@@ -581,6 +581,64 @@
       border-radius: 4px;
       font-size: 12px;
     }
+
+    /* Estilos para os modos e valores das variáveis */
+    .modes-container {
+      margin-top: 10px;
+      background-color: white;
+      border-radius: 6px;
+      padding: 10px;
+    }
+
+    .modes-title {
+      font-weight: 600;
+      font-size: 12px;
+      margin-bottom: 5px;
+      color: #333;
+    }
+
+    .modes-list {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .mode-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 5px 10px;
+      background-color: #f4f4f4;
+      border-radius: 4px;
+    }
+
+    .mode-name {
+      font-weight: 500;
+      font-size: 12px;
+      padding: 3px 10px;
+      background-color: #4b4b4b;
+      color: white;
+      border-radius: 3px;
+    }
+
+    .mode-value {
+      font-family: 'Roboto Mono', monospace;
+      font-size: 12px;
+      padding: 3px 10px;
+    }
+
+    .match-header {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .match-item {
+      padding: 15px;
+      border-bottom: 1px solid #eee;
+      margin-bottom: 10px;
+      background-color: #f9fafb;
+      border-radius: 6px;
+    }
   </style>
 </head>
 <body>
@@ -1441,19 +1499,36 @@
           );
         }
         
+        // Agrupar correspondências por nome de variável local
+        const groupedMatches = {};
+        filteredMatches.forEach(match => {
+          if (!groupedMatches[match.localName]) {
+            groupedMatches[match.localName] = [];
+          }
+          groupedMatches[match.localName].push(match);
+        });
+        
+        // Transformar o objeto agrupado em array para paginação
+        const groupedArray = Object.keys(groupedMatches).map(varName => {
+          return {
+            name: varName,
+            matches: groupedMatches[varName]
+          };
+        });
+        
         // Calcular páginas e total
-        const totalItems = filteredMatches.length;
+        const totalItems = groupedArray.length;
         const totalPages = Math.ceil(totalItems / itemsPerPage);
         
         // Garantir que a página está dentro dos limites
-        page = Math.max(1, Math.min(page, totalPages));
+        page = Math.max(1, Math.min(page, totalPages || 1));
         
         // Índices para seleção
         const startIndex = (page - 1) * itemsPerPage;
         const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
         
         // Selecionar itens da página atual
-        const currentItems = filteredMatches.slice(startIndex, endIndex);
+        const currentItems = groupedArray.slice(startIndex, endIndex);
         
         // Construir HTML
         let html = `<div class="matches-count">Encontradas ${totalItems} correspondências</div>`;
@@ -1472,12 +1547,49 @@
         if (currentItems.length === 0) {
           html += '<p>Nenhuma correspondência encontrada com o filtro aplicado.</p>';
         } else {
-          currentItems.forEach(match => {
-            const matchType = match.valueType || 'Variável';
-            html += `<div class="match-item">
-              <div class="match-local">Variável local: <strong>${match.localName}</strong> (${matchType})</div>
-              <div class="match-library">Biblioteca: <strong>${match.libraryName}</strong></div>
-            </div>`;
+          currentItems.forEach(group => {
+            html += `
+              <div class="match-item">
+                <div class="match-header">
+                  <div class="match-local">Variável <strong>${group.name}</strong></div>
+                  <div class="match-library">Biblioteca: <strong>${group.matches[0].libraryName}</strong></div>
+                </div>
+                
+                <div class="modes-container">
+                  <div class="modes-title">Modes</div>
+                  <div class="modes-list">
+            `;
+            
+            // Verificar se há informações de modos
+            if (group.matches[0].modes && group.matches[0].modes.length > 0) {
+              group.matches[0].modes.forEach(mode => {
+                html += `
+                  <div class="mode-row">
+                    <span class="mode-name">${mode.name}</span>
+                    <span class="mode-value">${mode.value}</span>
+                  </div>
+                `;
+              });
+            } else {
+              // Fallback para exibir pelo menos o tipo da variável se não houver informações de modo
+              const matchType = group.matches[0].valueType || 'Desconhecido';
+              html += `
+                <div class="mode-row">
+                  <span class="mode-name">modeName</span>
+                  <span class="mode-value">variableValue</span>
+                </div>
+                <div class="mode-row">
+                  <span class="mode-name">modeName</span>
+                  <span class="mode-value">variableValue</span>
+                </div>
+              `;
+            }
+            
+            html += `
+                  </div>
+                </div>
+              </div>
+            `;
           });
         }
         
