@@ -1644,11 +1644,14 @@ async function substituirVariaveisEmColecao(matches: Array<{
             console.log(`Processando modo: ${modo.name} (ID: ${modo.modeId})`);
             console.log(`Valor original: ${formatarValor(valorAtual)}`);
             
-            // Se for uma referência, pulamos (já é uma referência)
+            // Vamos processar mesmo se for uma referência, para poder substituí-la se necessário
+            let isReference = false;
+            let currentReferenceId = null;
             if (valorAtual && typeof valorAtual === 'object' && 
                (valorAtual as any).type === 'VARIABLE_ALIAS') {
-              console.log(`Valor já é uma referência, pulando...`);
-              continue;
+              isReference = true;
+              currentReferenceId = (valorAtual as any).id;
+              console.log(`Valor atual é uma referência para ID: ${currentReferenceId}`);
             }
             
             // Agora precisamos buscar em todas as variáveis da biblioteca
@@ -1699,7 +1702,7 @@ async function substituirVariaveisEmColecao(matches: Array<{
             // Se encontramos uma variável correspondente, aplicamos a referência
             if (variavelCorrespondente) {
               try {
-                console.log(`Aplicando referência para variável ${variavelCorrespondente.variable.name}`);
+                console.log(`Encontrada correspondência na biblioteca: ${variavelCorrespondente.variable.name}`);
                 
                 // Criar a referência
                 const referencia = {
@@ -1707,24 +1710,31 @@ async function substituirVariaveisEmColecao(matches: Array<{
                   id: variavelCorrespondente.variable.key
                 };
                 
-                // Fazer backup do valor atual
-                const valorBackup = localVar.valuesByMode[modo.modeId];
-                
-                try {
-                  // Aplicar a referência
-                  localVar.setValueForMode(modo.modeId, referencia);
-                  variavelAlterada = true;
-                } catch (err) {
-                  console.warn(`Erro ao aplicar referência: ${err}`);
+                // Verificar se já é a mesma referência
+                if (isReference && currentReferenceId === variavelCorrespondente.variable.key) {
+                  console.log(`Já é uma referência para a mesma variável, não é necessário alterar`);
+                } else {
+                  console.log(`Aplicando nova referência para variável ${variavelCorrespondente.variable.name}`);
+                  // Fazer backup do valor atual
+                  const valorBackup = localVar.valuesByMode[modo.modeId];
                   
-                  // Restaurar o valor original
                   try {
-                    localVar.setValueForMode(modo.modeId, valorBackup);
-                  } catch (restoreErr) {
-                    console.error(`Erro ao restaurar valor original: ${restoreErr}`);
+                    // Aplicar a referência
+                    localVar.setValueForMode(modo.modeId, referencia);
+                    variavelAlterada = true;
+                    console.log(`Modo ${modo.name} atualizado com sucesso para ${variavelCorrespondente.variable.name}`);
+                  } catch (err) {
+                    console.warn(`Erro ao aplicar referência: ${err}`);
+                    
+                    // Restaurar o valor original
+                    try {
+                      localVar.setValueForMode(modo.modeId, valorBackup);
+                    } catch (restoreErr) {
+                      console.error(`Erro ao restaurar valor original: ${restoreErr}`);
+                    }
+                    
+                    variaveisComErro++;
                   }
-                  
-                  variaveisComErro++;
                 }
               } catch (err) {
                 console.warn(`Erro ao criar referência: ${err}`);
