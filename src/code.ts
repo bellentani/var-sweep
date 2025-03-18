@@ -1314,25 +1314,25 @@ async function preVisualizarCorrespondencias(libraryId: string, localCollectionI
         
         // Obter valor da variável local no modo atual
         const localValue = localVar.valuesByMode[modo.modeId];
-        
-        if (!localValue) continue;
-        
+          
+          if (!localValue) continue;
+          
         // CASO 1: Verificar se o valor é uma referência a outra variável
         if (typeof localValue === 'object' && localValue !== null && 
             'type' in localValue && localValue.type === VAR_TYPE_ALIAS && 
             'id' in localValue) {
-          const referencedVarId = localValue.id as string;
-          
-          // Buscar a variável referenciada
-          const referencedVar = figma.variables.getVariableById(referencedVarId);
-          
-          if (referencedVar) {
-            // Procurar variáveis na biblioteca com o mesmo nome da variável referenciada
-            const matchingLibraryVars = libraryVariables.filter(v => 
-              v.name === referencedVar.name
-            );
-            
-            if (matchingLibraryVars.length > 0) {
+              const referencedVarId = localValue.id as string;
+              
+              // Buscar a variável referenciada
+              const referencedVar = figma.variables.getVariableById(referencedVarId);
+              
+              if (referencedVar) {
+                // Procurar variáveis na biblioteca com o mesmo nome da variável referenciada
+                const matchingLibraryVars = libraryVariables.filter(v => 
+                  v.name === referencedVar.name
+                );
+                
+                if (matchingLibraryVars.length > 0) {
               for (const libVar of matchingLibraryVars) {
                 matches.push({
                   localId: localVar.id,
@@ -1345,8 +1345,8 @@ async function preVisualizarCorrespondencias(libraryId: string, localCollectionI
                 console.log(`Correspondência de referência encontrada: local "${localVar.name}" -> biblioteca "${libVar.name}"`);
                 
                 // Uma vez que encontramos um match, não precisamos verificar os outros
-                break;
-              }
+                      break;
+                    }
               continue; // Já encontramos uma correspondência para esta variável neste modo
             }
           }
@@ -1376,14 +1376,14 @@ async function preVisualizarCorrespondencias(libraryId: string, localCollectionI
               console.log(`Correspondência de nome encontrada: local "${localVar.name}" -> biblioteca "${libVar.name}"`);
               
               // Uma vez que encontramos um match, não precisamos verificar os outros
-              break;
-            }
+                    break;
+                  }
             continue; // Já encontramos uma correspondência para esta variável neste modo
-          }
-        }
-        
+                }
+              }
+              
         // CASO 3: Comparar pelo valor (o mesmo código anterior)
-        for (const libVar of libraryVariables) {
+              for (const libVar of libraryVariables) {
           if (!libVar || !libVar.valuesByMode) continue;
           
           let encontrouCorrespondencia = false;
@@ -1418,7 +1418,7 @@ async function preVisualizarCorrespondencias(libraryId: string, localCollectionI
     
     // Enviar resultado para a UI
     if (matches.length > 0) {
-      figma.ui.postMessage({
+    figma.ui.postMessage({
         type: 'preview-correspondencias',
         hasMatches: true,
         matches: matches,
@@ -1438,6 +1438,110 @@ async function preVisualizarCorrespondencias(libraryId: string, localCollectionI
       type: 'preview-correspondencias',
       hasMatches: false,
       error: String(error)
+    });
+  }
+}
+
+// Função para substituir variáveis em uma coleção local pelas correspondentes da biblioteca
+async function substituirVariaveisEmColecao(matches: Array<{
+  localId: string, 
+  localName: string, 
+  libraryId: string, 
+  libraryName: string,
+  valueType: string
+}>): Promise<void> {
+  try {
+    console.log(`Iniciando substituição de ${matches.length} variáveis na coleção local`);
+    
+    let variaveis_alteradas = 0;
+    
+    // Obter todas as variáveis e coleções da biblioteca
+    // @ts-ignore
+    const variableCollections = await figma.teamLibrary.getAvailableLibraryVariableCollectionsAsync();
+    
+    if (!variableCollections || !Array.isArray(variableCollections)) {
+      throw new Error("Não foi possível obter as coleções de variáveis da biblioteca");
+    }
+    
+    // Obter todas as variáveis da biblioteca
+    const libraryVariables: any[] = [];
+    
+    for (const collection of variableCollections) {
+      try {
+        // @ts-ignore
+        const variables = await figma.teamLibrary.getVariablesInLibraryCollectionAsync(collection.key);
+        if (variables && Array.isArray(variables)) {
+          libraryVariables.push(...variables);
+        }
+      } catch (err) {
+        console.warn(`Erro ao obter variáveis da coleção ${collection.name}:`, err);
+      }
+    }
+    
+    console.log(`Obtidas ${libraryVariables.length} variáveis da biblioteca para referência`);
+    
+    // Para cada correspondência encontrada
+    for (const match of matches) {
+      try {
+        // Obter a variável local
+        const localVar = figma.variables.getVariableById(match.localId);
+        
+        if (!localVar) {
+          console.warn(`Variável local com ID ${match.localId} não encontrada`);
+          continue;
+        }
+        
+        // Encontrar a variável correspondente na biblioteca pelo nome
+        const libVar = libraryVariables.find(v => v.name === match.libraryName);
+        
+        if (!libVar) {
+          console.warn(`Variável de biblioteca com nome "${match.libraryName}" não encontrada`);
+          continue;
+        }
+        
+        console.log(`Substituindo variável local: ${match.localName} pela variável da biblioteca: ${match.libraryName} (ID: ${libVar.key})`);
+        
+        // Para cada modo da variável local
+        for (const modoId in localVar.valuesByMode) {
+          try {
+            // Obter o valor atual para entender o tipo
+            const valorAtual = localVar.valuesByMode[modoId];
+            if (!valorAtual || typeof valorAtual !== 'object') continue;
+            
+            // Criar uma referência à variável da biblioteca
+            const novoValor = {
+              type: "VARIABLE_ALIAS" as const,
+              id: libVar.key // Usar a chave da variável encontrada
+            };
+            
+            // Atualizar o valor no modo atual
+            localVar.setValueForMode(modoId, novoValor);
+            variaveis_alteradas++;
+            console.log(`  - Atualizado modo ${modoId} com sucesso`);
+          } catch (modeError) {
+            console.warn(`Erro ao atualizar modo ${modoId} da variável ${match.localName}:`, modeError);
+          }
+        }
+      } catch (varError) {
+        console.warn(`Erro ao processar variável ${match.localName}:`, varError);
+      }
+    }
+    
+    console.log(`Substituição concluída. ${variaveis_alteradas} valores de variáveis foram atualizados.`);
+    
+    // Enviar resultado para a UI
+    figma.ui.postMessage({
+      type: 'update-collections-result',
+      success: true,
+      message: `Substituição concluída! ${variaveis_alteradas} valores de variáveis foram atualizados.`
+    });
+    
+  } catch (error) {
+    console.error("Erro ao substituir variáveis:", error);
+    figma.ui.postMessage({
+      type: 'update-collections-result',
+      success: false,
+      message: "Erro ao substituir variáveis: " + String(error)
     });
   }
 }
@@ -1483,7 +1587,7 @@ figma.ui.onmessage = async (msg) => {
     }
   }
   else if (msg.type === 'substituirVariaveis') {
-    console.log('Substituindo variáveis e estilos...');
+    console.log('Substituindo variáveis e estilos em nós...');
     // Obtém a seleção com base no escopo
     const scope = msg.scope || 'selection';
     let nodesToProcess: SceneNode[] = [];
@@ -1504,6 +1608,14 @@ figma.ui.onmessage = async (msg) => {
       figma.notify(`Variáveis e estilos substituídos com sucesso!`);
     } else {
       figma.notify(`Nenhum nó selecionado ou nenhuma variável para substituir.`);
+    }
+  }
+  else if (msg.type === 'substituirVariaveisEmColecao') {
+    console.log('Substituindo variáveis na coleção local...');
+    if (msg.matches && Array.isArray(msg.matches)) {
+      await substituirVariaveisEmColecao(msg.matches);
+    } else {
+      figma.notify('Nenhuma correspondência para substituir.');
     }
   }
   else if (msg.type === 'activeTabChanged') {

@@ -845,14 +845,19 @@
       showInfoUpdate("Iniciando substituição de variáveis...");
       updateButton.disabled = true;
       
-      // Enviar solicitação para substituir as variáveis
-      parent.postMessage({ 
-        pluginMessage: { 
-          type: 'substituirVariaveis',
-          libraryId: libraryId,
-          localCollectionId: localCollectionId
-        } 
-      }, '*');
+      // Se tivermos correspondências disponíveis, use-as para substituir
+      if (window.matchesData && window.matchesData.length > 0) {
+        // Enviar solicitação para substituir as variáveis na coleção
+        parent.postMessage({ 
+          pluginMessage: { 
+            type: 'substituirVariaveisEmColecao',
+            matches: window.matchesData
+          } 
+        }, '*');
+      } else {
+        showErrorUpdate("Nenhuma correspondência encontrada para substituir");
+        updateButton.disabled = false;
+      }
     });
     
       // Evento para o seletor de bibliotecas da aba Update Variables
@@ -1140,6 +1145,9 @@
           case 'preview-correspondencias':
             // Atualizar a pré-visualização das correspondências
             if (message.hasMatches) {
+              // Armazenar as correspondências para usar na substituição
+              window.matchesData = message.matches;
+              
               updateButton.disabled = false;
               // Formatar e exibir as correspondências
               let htmlContent = `<p class="info">Encontradas ${message.totalMatches} correspondências</p>`;
@@ -1156,6 +1164,9 @@
               htmlContent += '</div>';
               previewContent.innerHTML = htmlContent;
             } else {
+              // Limpar as correspondências armazenadas
+              window.matchesData = [];
+              
               updateButton.disabled = true;
               previewContent.innerHTML = `<p class="warning">${message.message || 'Não há correspondências'}</p>`;
               if (message.error) {
@@ -1266,6 +1277,16 @@
             
             componentsContainer.appendChild(libraryElement);
           });
+            break;
+
+          case 'update-collections-result':
+            // Atualizar o resultado da substituição de variáveis na coleção
+            if (message.success) {
+              showInfoUpdate(message.message);
+            } else {
+              showErrorUpdate(message.message);
+            }
+            updateButton.disabled = false;
             break;
         }
       };
