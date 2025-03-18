@@ -650,7 +650,7 @@
             if (message.matches && Array.isArray(message.matches)) {
               message.matches.forEach((match, index) => {
                 if (index < 10) { // Limitar a exibição para não sobrecarregar
-                  previewText += `- Local: "${match.localName}" → "${match.libraryName}"\n`;
+                  previewText += `- Local: "${match.localName}" → "${match.libraryName}" (${match.mode}, ${match.valueType})\n`;
                 }
               });
               
