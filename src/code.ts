@@ -1466,9 +1466,13 @@ async function substituirVariaveisEmColecao(matches: Array<{
     
     // Obter todas as variáveis da biblioteca
     const libraryVariables: any[] = [];
+    const libraryCollectionsMap = new Map<string, any>(); // Mapa de coleções para consulta rápida
     
     for (const collection of variableCollections) {
       try {
+        // Armazenar a coleção no mapa para uso posterior
+        libraryCollectionsMap.set(collection.key, collection);
+        
         // @ts-ignore
         const variables = await figma.teamLibrary.getVariablesInLibraryCollectionAsync(collection.key);
         if (variables && Array.isArray(variables)) {
@@ -1507,6 +1511,13 @@ async function substituirVariaveisEmColecao(matches: Array<{
           continue;
         }
         
+        // Obter a coleção da biblioteca para acessar os modos
+        const libCollection = libraryCollectionsMap.get(libVar.collectionKey);
+        if (!libCollection) {
+          console.warn(`Coleção da biblioteca para variável "${match.libraryName}" não encontrada`);
+          continue;
+        }
+        
         console.log(`Substituindo variável local: ${match.localName} pela variável da biblioteca: ${match.libraryName} (ID: ${libVar.key})`);
         
         // Importar a variável da biblioteca primeiro, para garantir que ela existe localmente
@@ -1521,26 +1532,74 @@ async function substituirVariaveisEmColecao(matches: Array<{
           continue;
         }
         
-        // Para cada modo da coleção local (não da variável local)
-        for (const mode of localCollection.modes) {
-          try {
-            // Verificar se a variável local tem um valor para este modo
-            if (localVar.valuesByMode.hasOwnProperty(mode.modeId)) {
-              // Criar uma referência à variável da biblioteca
-              const novoValor = {
-                type: "VARIABLE_ALIAS" as const,
-                id: variableAlias.id // Usar o ID da variável importada
-              };
+        // Mapear os modos da coleção local para os modos correspondentes na biblioteca
+        // Esta é a parte crucial para garantir que cada modo use o valor correto
+        try {
+          // Obter os modos da biblioteca
+          const libModes = libCollection.modes || [];
+          console.log(`Biblioteca "${libCollection.name}" tem ${libModes.length} modos`);
+          
+          // Para cada modo da coleção local
+          for (const localMode of localCollection.modes) {
+            try {
+              // Verificar se a variável local tem um valor para este modo
+              if (!localVar.valuesByMode.hasOwnProperty(localMode.modeId)) {
+                console.log(`  - Modo "${localMode.name}" não tem valor definido, pulando`);
+                continue;
+              }
               
-              // Atualizar o valor no modo atual
-              localVar.setValueForMode(mode.modeId, novoValor);
-              variaveis_alteradas++;
-              console.log(`  - Atualizado modo ${mode.name} (${mode.modeId}) com sucesso`);
+              // Tentar encontrar um modo correspondente na biblioteca por nome
+              let libModeId = null;
+              const localModeName = localMode.name.toLowerCase();
+              
+              // Primeiro, tentar encontrar por nome exato
+              const exactMatch = libModes.find((m: any) => 
+                m.name.toLowerCase() === localModeName
+              );
+              
+              if (exactMatch) {
+                libModeId = exactMatch.modeId;
+                console.log(`  - Encontrado modo correspondente exato na biblioteca: "${exactMatch.name}"`);
+              } else {
+                // Se não encontrar por nome exato, tentar encontrar um que contenha o nome
+                const partialMatch = libModes.find((m: any) => 
+                  m.name.toLowerCase().includes(localModeName) || 
+                  localModeName.includes(m.name.toLowerCase())
+                );
+                
+                if (partialMatch) {
+                  libModeId = partialMatch.modeId;
+                  console.log(`  - Encontrado modo correspondente parcial na biblioteca: "${partialMatch.name}"`);
+                } else if (libModes.length > 0) {
+                  // Se ainda não encontrou, usar o primeiro modo como fallback
+                  libModeId = libModes[0].modeId;
+                  console.log(`  - Usando primeiro modo da biblioteca como fallback: "${libModes[0].name}"`);
+                }
+              }
+              
+              // Se encontrou um modo correspondente na biblioteca
+              if (libModeId && libVar.valuesByMode && libVar.valuesByMode[libModeId]) {
+                // Criar uma referência à variável da biblioteca
+                const novoValor = {
+                  type: "VARIABLE_ALIAS" as const,
+                  id: variableAlias.id // Usar o ID da variável importada
+                };
+                
+                // Atualizar o valor no modo atual
+                localVar.setValueForMode(localMode.modeId, novoValor);
+                variaveis_alteradas++;
+                console.log(`  - Atualizado modo ${localMode.name} (${localMode.modeId}) com valor do modo "${libModes.find((m: any) => m.modeId === libModeId)?.name || libModeId}"`);
+              } else {
+                console.warn(`  - Não foi possível encontrar um valor para o modo "${localMode.name}" na variável da biblioteca`);
+              }
+            } catch (modeError) {
+              console.warn(`Erro ao atualizar modo ${localMode.name} da variável ${match.localName}:`, modeError);
+              variaveis_com_erro++;
             }
-          } catch (modeError) {
-            console.warn(`Erro ao atualizar modo ${mode.name} da variável ${match.localName}:`, modeError);
-            variaveis_com_erro++;
           }
+        } catch (modesError) {
+          console.error(`Erro ao processar modos para variável ${match.localName}:`, modesError);
+          variaveis_com_erro++;
         }
       } catch (varError) {
         console.warn(`Erro ao processar variável ${match.localName}:`, varError);
