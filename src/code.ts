@@ -20,16 +20,16 @@ if (!figma.currentPage) {
 figma.showUI(__html__, { width: 450, height: 500 });
 console.log("UI exibida");
 
-// Função extremamente simplificada para listar bibliotecas
-// Evitando acessos profundos a objetos que podem causar erros
+// Função para listar bibliotecas únicas conectadas ao arquivo
 async function carregarBibliotecas(): Promise<void> {
   try {
     console.log("Iniciando carregamento de bibliotecas...");
     
-    // Array para armazenar informações sobre bibliotecas
-    const bibliotecas: BibliotecaInfo[] = [];
+    // Usamos um Map para garantir que cada biblioteca apareça apenas uma vez
+    // A chave é o nome da biblioteca, o valor é a informação da biblioteca
+    const bibliotecasMap = new Map<string, BibliotecaInfo>();
 
-    // Função segura para serializar um objeto, removendo referências circulares
+    // Função segura para serializar um objeto
     const serializarSeguro = (obj: any): string => {
       try {
         // Função helper para criar uma versão simplificada do objeto
@@ -65,146 +65,143 @@ async function carregarBibliotecas(): Promise<void> {
       }
     };
     
-    // Não podemos confiar na API, então vamos abdicar de tipagem forte
-    // e vamos gerar IDs únicos para cada biblioteca
+    // MÉTODO 1: Obter bibliotecas de variáveis
     try {
-      // Obtém as coleções de variáveis
-      try {
-        console.log("Buscando bibliotecas de variáveis...");
-        // @ts-ignore - API pode não estar nas tipagens
-        const apiResult = await figma.teamLibrary.getAvailableLibraryVariableCollectionsAsync();
+      console.log("1. Buscando bibliotecas de variáveis...");
+      // @ts-ignore - API pode não estar nas tipagens
+      const variableCollections = await figma.teamLibrary.getAvailableLibraryVariableCollectionsAsync();
+      
+      if (variableCollections && Array.isArray(variableCollections)) {
+        console.log(`Encontradas ${variableCollections.length} coleções de variáveis`);
+        console.log("Estrutura:", serializarSeguro(variableCollections));
         
-        if (apiResult && Array.isArray(apiResult)) {
-          console.log(`Encontradas ${apiResult.length} bibliotecas via API`);
-          
-          // Mostrar estrutura completa para diagnóstico
+        // Percorre as coleções para extrair bibliotecas únicas
+        for (let i = 0; i < variableCollections.length; i++) {
           try {
-            console.log("Estrutura completa do objeto retornado:", serializarSeguro(apiResult));
-          } catch (e) {
-            console.log("Não foi possível serializar o objeto completo");
-          }
-          
-          // Evitamos loops forEach que podem causar problemas
-          for (let i = 0; i < apiResult.length; i++) {
-            try {
-              // Gera um ID único para esta biblioteca
-              const id = `lib-${Date.now()}-${i}`;
+            const collection = variableCollections[i] as any;
+            
+            // A propriedade importante é libraryName, que contém o nome da biblioteca real
+            if (collection && typeof collection.libraryName === 'string') {
+              const bibliotecaName = collection.libraryName;
               
-              // Safe access usando propriedades primitivas
-              let name;
-              let type;
-              
-              try {
-                // Tentar obter nome com segurança - diretamente do objeto
-                // Usando any para evitar erros de tipagem
-                const result = apiResult[i] as any;
+              // Só adiciona se ainda não existir no Map
+              if (!bibliotecasMap.has(bibliotecaName)) {
+                const bibliotecaId = collection.key || `lib-var-${Date.now()}-${i}`;
                 
-                // Logs com todas as propriedades do objeto para diagnóstico
-                console.log(`Propriedades do objeto ${i}:`, Object.keys(result));
+                bibliotecasMap.set(bibliotecaName, {
+                  id: bibliotecaId,
+                  name: bibliotecaName,
+                  library: "Biblioteca de Variáveis",
+                  type: "Variáveis"
+                });
                 
-                // Logs seguros para depuração
-                const objStr = serializarSeguro(result);
-                console.log(`Biblioteca ${i+1}:`, objStr); // Mostrar objeto completo
-                
-                // Extrair o nome da biblioteca corretamente baseado na estrutura real
-                if (typeof result === 'object' && result !== null) {
-                  // Prioridade para propriedades específicas que podem conter o nome da biblioteca
-                  if (result.library && typeof result.library === 'object') {
-                    if (typeof result.library.name === 'string') {
-                      name = result.library.name;
-                      console.log(`Nome obtido de library.name: ${name}`);
-                    }
-                  }
-                  
-                  // Se ainda não encontrou nome, tenta outras propriedades
-                  if (!name && typeof result.libraryName === 'string') {
-                    name = result.libraryName;
-                    console.log(`Nome obtido de libraryName: ${name}`);
-                  }
-                  
-                  // Se ainda não encontrou, tenta usar a propriedade key, que contém o nome como prefixo em algumas bibliotecas
-                  if (!name && typeof result.key === 'string' && result.key.includes(':')) {
-                    const parts = result.key.split(':');
-                    if (parts.length > 0) {
-                      name = parts[0];
-                      console.log(`Nome obtido de key: ${name}`);
-                    }
-                  }
-                  
-                  // Se ainda não encontrou, verifica name diretamente
-                  if (!name && typeof result.name === 'string') {
-                    name = result.name;
-                    console.log(`Nome obtido de name: ${name}`);
-                  }
-                  
-                  // Se ainda não tiver nome, usa um valor padrão melhor
-                  if (!name) {
-                    // Tenta extrair o nome de qualquer propriedade que parece ser um nome
-                    for (const prop of ['fileName', 'title', 'id', 'key']) {
-                      if (typeof result[prop] === 'string' && result[prop].length > 0) {
-                        name = result[prop];
-                        console.log(`Nome obtido de propriedade alternativa ${prop}: ${name}`);
-                        break;
-                      }
-                    }
-                    
-                    // Último recurso
-                    if (!name) {
-                      name = `Biblioteca ${i+1}`;
-                      console.log(`Usando nome padrão: ${name}`);
-                    }
-                  }
-                  
-                  // Determina o tipo baseado nas propriedades disponíveis
-                  if (result.variableCollection || 
-                      (result.name && typeof result.name === 'string' && 
-                       result.name.toLowerCase().includes('variável'))) {
-                    type = "Variáveis";
-                  } else if (result.componentSet || result.component || 
-                           (result.name && typeof result.name === 'string' && 
-                            result.name.toLowerCase().includes('componente'))) {
-                    type = "Componentes";
-                  } else {
-                    // Verifica nomes de propriedades específicas
-                    const props = Object.keys(result).join(',').toLowerCase();
-                    if (props.includes('variable')) {
-                      type = "Variáveis";
-                    } else if (props.includes('component')) {
-                      type = "Componentes";
-                    } else {
-                      type = "Desconhecido";
-                    }
-                  }
-                } else {
-                  name = `Biblioteca ${i+1}`;
-                  type = "Desconhecido";
-                }
-              } catch (nameErr) {
-                console.warn(`Erro ao obter nome para biblioteca ${i}:`, nameErr);
-                name = `Biblioteca ${i+1}`;
-                type = "Desconhecido";
+                console.log(`Adicionada biblioteca única: ${bibliotecaName} (Variáveis)`);
               }
-              
-              // Adiciona à lista de bibliotecas com informações mínimas
-              bibliotecas.push({
-                id,
-                name,
-                library: `Biblioteca de ${type}`,
-                type
-              });
-              
-              console.log(`Adicionada biblioteca: ${name} (${type})`);
-            } catch (itemErr) {
-              console.warn(`Erro ao processar biblioteca ${i}:`, itemErr);
             }
+          } catch (err) {
+            console.warn("Erro ao processar coleção:", err);
           }
         }
-      } catch (varErr) {
-        console.warn("Erro ao obter bibliotecas:", varErr);
       }
-    } catch (apiErr) {
-      console.warn("Erro ao acessar APIs:", apiErr);
+    } catch (err) {
+      console.warn("Erro ao buscar bibliotecas de variáveis:", err);
     }
+    
+    // MÉTODO 2: Tentar obter bibliotecas de componentes
+    try {
+      console.log("2. Buscando bibliotecas de componentes...");
+      // @ts-ignore - API pode não estar nas tipagens
+      const libraries = await figma.teamLibrary.getAvailableLibrariesAsync();
+      
+      if (libraries && Array.isArray(libraries)) {
+        console.log(`Encontradas ${libraries.length} bibliotecas de componentes`);
+        console.log("Estrutura:", serializarSeguro(libraries));
+        
+        // Percorre as bibliotecas
+        for (let i = 0; i < libraries.length; i++) {
+          try {
+            const lib = libraries[i] as any;
+            
+            // O nome da biblioteca geralmente está na propriedade 'name'
+            if (lib && typeof lib.name === 'string') {
+              const bibliotecaName = lib.name;
+              
+              // Só adiciona se ainda não existir no Map
+              if (!bibliotecasMap.has(bibliotecaName)) {
+                const bibliotecaId = lib.key || lib.id || `lib-comp-${Date.now()}-${i}`;
+                
+                bibliotecasMap.set(bibliotecaName, {
+                  id: bibliotecaId,
+                  name: bibliotecaName,
+                  library: "Biblioteca de Componentes",
+                  type: "Componentes"
+                });
+                
+                console.log(`Adicionada biblioteca única: ${bibliotecaName} (Componentes)`);
+              }
+            }
+          } catch (err) {
+            console.warn("Erro ao processar biblioteca:", err);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("Erro ao buscar bibliotecas de componentes:", err);
+    }
+    
+    // MÉTODO 3: Buscar bibliotecas diretamente nas instâncias de componentes
+    try {
+      console.log("3. Buscando bibliotecas nos componentes do documento...");
+      const instances = figma.currentPage.findAllWithCriteria({types: ['INSTANCE']});
+      
+      if (instances && instances.length > 0) {
+        console.log(`Encontradas ${instances.length} instâncias de componentes`);
+        
+        // Percorre as instâncias
+        for (let i = 0; i < instances.length; i++) {
+          try {
+            const instance = instances[i] as InstanceNode;
+            
+            // Verifica se o componente é de uma biblioteca
+            if (instance.mainComponent && instance.mainComponent.remote === true) {
+              // Tenta obter o nome da biblioteca
+              let bibliotecaName = "";
+              
+              // Tenta extrair o nome da biblioteca do nome do componente
+              if (typeof instance.mainComponent.name === 'string' && instance.mainComponent.name.includes('/')) {
+                bibliotecaName = instance.mainComponent.name.split('/')[0];
+              }
+              
+              // Se não conseguiu um nome válido, usa um genérico
+              if (!bibliotecaName) {
+                bibliotecaName = `Biblioteca de Componente ${i+1}`;
+              }
+              
+              // Só adiciona se ainda não existir e tiver um nome válido
+              if (!bibliotecasMap.has(bibliotecaName) && bibliotecaName.length > 0) {
+                const bibliotecaId = `lib-inst-${Date.now()}-${i}`;
+                
+                bibliotecasMap.set(bibliotecaName, {
+                  id: bibliotecaId,
+                  name: bibliotecaName,
+                  library: "Biblioteca de Componentes",
+                  type: "Componentes"
+                });
+                
+                console.log(`Adicionada biblioteca de componente: ${bibliotecaName}`);
+              }
+            }
+          } catch (err) {
+            console.warn(`Erro ao processar instância ${i}:`, err);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("Erro ao buscar componentes no documento:", err);
+    }
+    
+    // Converter o Map para array para enviar à UI
+    const bibliotecas = Array.from(bibliotecasMap.values());
     
     // Se não encontramos nenhuma biblioteca, mostramos uma mensagem
     if (bibliotecas.length === 0) {
@@ -218,7 +215,7 @@ async function carregarBibliotecas(): Promise<void> {
     }
     
     // Exibimos as bibliotecas encontradas
-    console.log(`Encontradas ${bibliotecas.length} bibliotecas no total`);
+    console.log(`Encontradas ${bibliotecas.length} bibliotecas únicas no total`);
     figma.ui.postMessage({
       type: 'libraries-data',
       message: `Encontradas ${bibliotecas.length} bibliotecas`,
