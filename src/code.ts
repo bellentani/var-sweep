@@ -1407,9 +1407,8 @@ async function substituirVariaveis(
         if (matches.length === 0) continue;
         
         const localVar = matches[0].localVar; // Todas as correspondências têm a mesma variável local
-        const libraryVarKey = matches[0].libraryVarKey; // Usamos a primeira correspondência
-        
-        console.log(`Substituindo variável local "${localVar.name}" pela variável da biblioteca com key "${libraryVarKey}"`);
+        const localVarName = localVar.name;
+        console.log(`Processando variável local: "${localVarName}" (ID: ${localVar.id})`);
         
         // Verificar todos os modos da variável
         for (const mode of localCollection.modes) {
@@ -1418,55 +1417,89 @@ async function substituirVariaveis(
           
           if (modeMatch) {
             try {
-              // Verificar se a variável da biblioteca existe antes de tentar usá-la
-              const libVarExists = libraryVariables.some(v => v.key === modeMatch.libraryVarKey);
+              // Encontrar a variável da biblioteca pelo nome
+              const matchingLibVars = libraryVariables.filter(v => {
+                // Remover prefixos da biblioteca se existirem
+                let libVarName = v.name;
+                if (libVarName.includes('/')) {
+                  libVarName = libVarName.split('/').pop() || '';
+                }
+                
+                // Verificar se o nome da variável local combina com o da biblioteca
+                // (ignorando prefixos do caminho)
+                let cleanLocalName = localVarName;
+                if (cleanLocalName.includes('/')) {
+                  cleanLocalName = cleanLocalName.split('/').pop() || '';
+                }
+                
+                return libVarName.toLowerCase() === cleanLocalName.toLowerCase();
+              });
               
-              if (!libVarExists) {
-                console.warn(`Variável da biblioteca com key ${modeMatch.libraryVarKey} não encontrada.`);
+              // Se não encontrou pelo nome exato, tenta pelo nome sem prefixos
+              if (matchingLibVars.length === 0) {
+                console.log(`Não foi encontrada variável com nome exato "${localVarName}", tentando busca alternativa...`);
+                
+                // Extrair o nome base sem prefixos
+                let baseLocalName = localVarName;
+                // Remove prefixos comuns como "bg/" ou "text/"
+                const prefixMatch = localVarName.match(/^([^\/]+\/)/);
+                if (prefixMatch && prefixMatch[1]) {
+                  baseLocalName = localVarName.substring(prefixMatch[1].length);
+                }
+                
+                // Busca pelo nome base
+                const alternativeMatches = libraryVariables.filter(v => {
+                  let libVarName = v.name;
+                  // Remove prefixos da biblioteca
+                  if (libVarName.includes('/')) {
+                    libVarName = libVarName.split('/').pop() || '';
+                  }
+                  
+                  // Verifica se o nome base corresponde
+                  return libVarName.toLowerCase() === baseLocalName.toLowerCase();
+                });
+                
+                if (alternativeMatches.length > 0) {
+                  console.log(`Encontradas ${alternativeMatches.length} variáveis com nome base "${baseLocalName}"`);
+                  matchingLibVars.push(...alternativeMatches);
+                }
+              }
+              
+              if (matchingLibVars.length === 0) {
+                console.warn(`Nenhuma variável da biblioteca encontrada com nome semelhante a "${localVarName}"`);
                 erros++;
                 continue;
               }
               
-              console.log(`Tentando substituir modo ${mode.name} da variável ${localVar.name} (ID: ${localVar.id}) pela variável da biblioteca com key ${modeMatch.libraryVarKey}`);
+              console.log(`Encontradas ${matchingLibVars.length} variáveis na biblioteca com nome semelhante. Usando a primeira.`);
+              const libVar = matchingLibVars[0];
               
-              // Tentar o formato completo para referência de variável de biblioteca
+              // Tenta importar a variável da biblioteca primeiro
               try {
-                // Formato explícito para variáveis de biblioteca
+                console.log(`Importando variável da biblioteca: ${libVar.name} (key: ${libVar.key})`);
+                
+                const importedVar = await figma.variables.importVariableByKeyAsync(libVar.key);
+                
+                if (!importedVar) {
+                  throw new Error(`Não foi possível importar a variável ${libVar.name}`);
+                }
+                
+                console.log(`Variável importada com sucesso. ID local: ${importedVar.id}`);
+                
+                // Agora usamos o ID da variável importada para a referência
                 await localVar.setValueForMode(mode.modeId, {
                   type: 'VARIABLE_ALIAS',
-                  id: modeMatch.libraryVarKey
+                  id: importedVar.id
                 });
                 
                 substituidas++;
-                console.log(`Modo ${mode.name} da variável ${localVar.name} substituído com sucesso usando formato completo`);
-              } catch (completeFormatError) {
-                console.warn(`Erro ao usar formato completo: ${completeFormatError}`);
-                
-                // Tentar formato alternativo
-                try {
-                  // API específica do Figma - formato alternativo
-                  await figma.variables.importVariableByKeyAsync(modeMatch.libraryVarKey)
-                    .then(async (importedVar) => {
-                      if (importedVar) {
-                        // Agora usamos a variável importada
-                        await localVar.setValueForMode(mode.modeId, {
-                          type: 'VARIABLE_ALIAS',
-                          id: importedVar.id
-                        });
-                        
-                        substituidas++;
-                        console.log(`Modo ${mode.name} da variável ${localVar.name} substituído com sucesso usando importação`);
-                      } else {
-                        throw new Error("A variável importada é nula");
-                      }
-                    });
-                } catch (importError) {
-                  console.warn(`Erro ao importar variável: ${importError}`);
-                  erros++;
-                }
+                console.log(`Modo ${mode.name} da variável ${localVar.name} substituído com sucesso`);
+              } catch (importError) {
+                console.warn(`Erro ao importar e substituir variável: ${importError}`);
+                erros++;
               }
             } catch (modeError) {
-              console.warn(`Erro ao substituir modo ${mode.name} da variável ${localVar.name}:`, modeError);
+              console.warn(`Erro ao processar modo ${mode.name} da variável ${localVar.name}:`, modeError);
               erros++;
             }
           }
