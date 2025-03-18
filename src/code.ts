@@ -1454,6 +1454,7 @@ async function substituirVariaveisEmColecao(matches: Array<{
     console.log(`Iniciando substituição de ${matches.length} variáveis na coleção local`);
     
     let variaveis_alteradas = 0;
+    let variaveis_com_erro = 0;
     
     // Obter todas as variáveis e coleções da biblioteca
     // @ts-ignore
@@ -1491,6 +1492,13 @@ async function substituirVariaveisEmColecao(matches: Array<{
           continue;
         }
         
+        // Obter a coleção local para acessar os modos corretamente
+        const localCollection = figma.variables.getVariableCollectionById(localVar.variableCollectionId);
+        if (!localCollection) {
+          console.warn(`Coleção local da variável ${match.localName} não encontrada`);
+          continue;
+        }
+        
         // Encontrar a variável correspondente na biblioteca pelo nome
         const libVar = libraryVariables.find(v => v.name === match.libraryName);
         
@@ -1501,39 +1509,52 @@ async function substituirVariaveisEmColecao(matches: Array<{
         
         console.log(`Substituindo variável local: ${match.localName} pela variável da biblioteca: ${match.libraryName} (ID: ${libVar.key})`);
         
-        // Para cada modo da variável local
-        for (const modoId in localVar.valuesByMode) {
+        // Importar a variável da biblioteca primeiro, para garantir que ela existe localmente
+        let variableAlias;
+        try {
+          // @ts-ignore
+          variableAlias = await figma.variables.importVariableByKeyAsync(libVar.key);
+          console.log(`Variável ${match.libraryName} importada com sucesso.`);
+        } catch (importError) {
+          console.error(`Erro ao importar variável ${match.libraryName}:`, importError);
+          variaveis_com_erro++;
+          continue;
+        }
+        
+        // Para cada modo da coleção local (não da variável local)
+        for (const mode of localCollection.modes) {
           try {
-            // Obter o valor atual para entender o tipo
-            const valorAtual = localVar.valuesByMode[modoId];
-            if (!valorAtual || typeof valorAtual !== 'object') continue;
-            
-            // Criar uma referência à variável da biblioteca
-            const novoValor = {
-              type: "VARIABLE_ALIAS" as const,
-              id: libVar.key // Usar a chave da variável encontrada
-            };
-            
-            // Atualizar o valor no modo atual
-            localVar.setValueForMode(modoId, novoValor);
-            variaveis_alteradas++;
-            console.log(`  - Atualizado modo ${modoId} com sucesso`);
+            // Verificar se a variável local tem um valor para este modo
+            if (localVar.valuesByMode.hasOwnProperty(mode.modeId)) {
+              // Criar uma referência à variável da biblioteca
+              const novoValor = {
+                type: "VARIABLE_ALIAS" as const,
+                id: variableAlias.id // Usar o ID da variável importada
+              };
+              
+              // Atualizar o valor no modo atual
+              localVar.setValueForMode(mode.modeId, novoValor);
+              variaveis_alteradas++;
+              console.log(`  - Atualizado modo ${mode.name} (${mode.modeId}) com sucesso`);
+            }
           } catch (modeError) {
-            console.warn(`Erro ao atualizar modo ${modoId} da variável ${match.localName}:`, modeError);
+            console.warn(`Erro ao atualizar modo ${mode.name} da variável ${match.localName}:`, modeError);
+            variaveis_com_erro++;
           }
         }
       } catch (varError) {
         console.warn(`Erro ao processar variável ${match.localName}:`, varError);
+        variaveis_com_erro++;
       }
     }
     
-    console.log(`Substituição concluída. ${variaveis_alteradas} valores de variáveis foram atualizados.`);
+    console.log(`Substituição concluída. ${variaveis_alteradas} valores de variáveis foram atualizados. ${variaveis_com_erro > 0 ? `(${variaveis_com_erro} com erro)` : ''}`);
     
     // Enviar resultado para a UI
     figma.ui.postMessage({
       type: 'update-collections-result',
       success: true,
-      message: `Substituição concluída! ${variaveis_alteradas} valores de variáveis foram atualizados.`
+      message: `Substituição concluída! ${variaveis_alteradas} valores de variáveis foram atualizados. ${variaveis_com_erro > 0 ? `(${variaveis_com_erro} com erro)` : ''}`
     });
     
   } catch (error) {
