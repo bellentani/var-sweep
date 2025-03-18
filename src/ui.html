@@ -243,35 +243,18 @@
       font-family: 'Roboto Mono', monospace;
       white-space: pre-wrap;
     }
-    
-    /* Estilos para os radio buttons */
-    .radio-group {
-      margin-bottom: 12px;
-    }
-    
-    .radio-label {
-      display: block;
-      margin-bottom: 8px;
-      font-size: 13px;
-      cursor: pointer;
-    }
-    
-    .radio-label input[type="radio"] {
-      margin-right: 8px;
-    }
   </style>
 </head>
 <body>
   <!-- Abas de navegação -->
   <div class="tabs">
-    <div class="tab active" data-tab="update-collections">Update Collections</div>
-    <div class="tab" data-tab="update-variables">Update Variables</div>
+    <div class="tab active" data-tab="update-variables">Update Variables</div>
     <div class="tab" data-tab="list-libs">List Libraries</div>
   </div>
   
-  <!-- Conteúdo da Aba Update Collections -->
-  <div id="update-collections" class="tab-content active container">
-    <h2>Substituir Variáveis na Coleção</h2>
+  <!-- Conteúdo da Aba Update Variables -->
+  <div id="update-variables" class="tab-content active container">
+    <h2>Substituir Variáveis</h2>
     <div id="error-container-update" style="display: none;" class="error-message"></div>
     <div id="info-container-update" style="display: none;" class="info-message"></div>
     
@@ -301,52 +284,6 @@
       </div>
       
       <button id="update-button" class="action-button" disabled>Substituir Variáveis</button>
-    </div>
-  </div>
-  
-  <!-- Conteúdo da nova Aba Update Variables -->
-  <div id="update-variables" class="tab-content container">
-    <h2>Substituir Variáveis nos Nós</h2>
-    <div id="error-container-update-nodes" style="display: none;" class="error-message"></div>
-    <div id="info-container-update-nodes" style="display: none;" class="info-message"></div>
-    
-    <div class="variable-form">
-      <div class="form-group">
-        <label class="form-label">Biblioteca de referência:</label>
-        <select id="library-select-update-nodes" class="form-select">
-          <option value="">Carregando bibliotecas...</option>
-        </select>
-        <p class="form-help">Selecione a biblioteca externa com as variáveis que deseja usar como referência</p>
-      </div>
-      
-      <div class="form-group">
-        <label class="form-label">Escopo da substituição:</label>
-        <div class="radio-group">
-          <label class="radio-label">
-            <input type="radio" name="escopo" value="selecao" checked>
-            Seleção atual
-          </label>
-          <label class="radio-label">
-            <input type="radio" name="escopo" value="pagina">
-            Página atual
-          </label>
-          <label class="radio-label">
-            <input type="radio" name="escopo" value="documento">
-            Todo o documento
-          </label>
-        </div>
-        <p class="form-help">Escolha onde as variáveis serão procuradas e substituídas</p>
-      </div>
-      
-      <div class="variable-preview">
-        <div class="preview-title">Pré-visualização:</div>
-        <div id="preview-content-nodes" class="preview-content">
-          Ainda não há nada para pré-visualizar.
-          Selecione uma biblioteca externa e um escopo para ver as correspondências potenciais.
-        </div>
-      </div>
-      
-      <button id="update-nodes-button" class="action-button" disabled>Substituir Variáveis nos Nós</button>
     </div>
   </div>
   
@@ -395,20 +332,13 @@
     const collectionsList = document.getElementById('collections-list');
     const collectionsEmpty = document.getElementById('collections-empty');
     
-    // Elementos da aba Update Collections
+    // Elementos da aba Update Variables
     const librarySelectUpdate = document.getElementById('library-select-update');
     const localCollectionSelect = document.getElementById('local-collection-select');
     const previewContent = document.getElementById('preview-content');
     const updateButton = document.getElementById('update-button');
     const errorContainerUpdate = document.getElementById('error-container-update');
     const infoContainerUpdate = document.getElementById('info-container-update');
-    
-    // Elementos da nova Aba Update Variables
-    const librarySelectUpdateNodes = document.getElementById('library-select-update-nodes');
-    const previewContentNodes = document.getElementById('preview-content-nodes');
-    const updateNodesButton = document.getElementById('update-nodes-button');
-    const errorContainerUpdateNodes = document.getElementById('error-container-update-nodes');
-    const infoContainerUpdateNodes = document.getElementById('info-container-update-nodes');
     
     // Função para alternar entre abas
     function switchTab(tabId) {
@@ -446,28 +376,23 @@
       infoContainer.style.display = message ? "block" : "none";
     }
     
-    // Função para mostrar erro na aba Update Collections
+    // Função para mostrar erro na aba Update Variables
     function showErrorUpdate(message) {
       errorContainerUpdate.textContent = message || "Ocorreu um erro desconhecido";
       errorContainerUpdate.style.display = "block";
     }
     
-    // Função para esconder erro na aba Update Collections
+    // Função para esconder erro na aba Update Variables
     function hideErrorUpdate() {
       errorContainerUpdate.style.display = "none";
     }
     
-    // Função para mostrar informação na aba Update Collections
+    // Função para mostrar informação na aba Update Variables
     function showInfoUpdate(message) {
       infoContainerUpdate.textContent = message || "";
-      infoContainerUpdate.style.display = "block";
+      infoContainerUpdate.style.display = message ? "block" : "none";
     }
 
-    // Função para esconder informação na aba Update Collections
-    function hideInfoUpdate() {
-      infoContainerUpdate.style.display = "none";
-    }
-    
     // Função para mostrar o loading das coleções
     function showCollectionsLoading() {
       collectionsLoading.classList.remove('hidden');
@@ -552,7 +477,7 @@
       }, '*');
     });
     
-    // Evento para o seletor de bibliotecas da aba Update Collections
+    // Evento para o seletor de bibliotecas da aba Update Variables
     librarySelectUpdate.addEventListener('change', updatePreview);
     
     // Evento para o seletor de coleções locais
@@ -583,97 +508,6 @@
       }, '*');
     });
     
-    // Evento para o seletor de bibliotecas da nova Aba Update Variables
-    librarySelectUpdateNodes.addEventListener('change', () => {
-      const libraryId = librarySelectUpdateNodes.value;
-      const escopoSelecionado = document.querySelector('input[name="escopo"]:checked').value;
-      
-      if (!libraryId) {
-        previewContentNodes.textContent = "Ainda não há nada para pré-visualizar.\nSelecione uma biblioteca externa.";
-        updateNodesButton.disabled = true;
-        return;
-      }
-      
-      // Solicitar uma prévia das substituições em nós
-      previewContentNodes.textContent = "Analisando nós e buscando variáveis equivalentes...";
-      updateNodesButton.disabled = true;
-      
-      parent.postMessage({ 
-        pluginMessage: { 
-          type: 'preVisualizarSubstituicaoEmNos', 
-          libraryId: libraryId,
-          escopo: escopoSelecionado
-        } 
-      }, '*');
-    });
-    
-    // Evento para o botão de atualizar na nova Aba Update Variables
-    updateNodesButton.addEventListener('click', () => {
-      const libraryId = librarySelectUpdateNodes.value;
-      const escopoSelecionado = document.querySelector('input[name="escopo"]:checked').value;
-      
-      if (!libraryId) {
-        showErrorUpdateNodes("Selecione uma biblioteca externa");
-        return;
-      }
-      
-      // Verificar e enviar os dados para o plugin
-      hideErrorUpdateNodes();
-      showInfoUpdateNodes(`Iniciando substituição de variáveis no escopo: ${escopoSelecionado}...`);
-      updateNodesButton.disabled = true;
-      
-      // Enviar solicitação para substituir as variáveis
-      parent.postMessage({ 
-        pluginMessage: { 
-          type: 'substituirVariaveisEmNos',
-          libraryId: libraryId,
-          escopo: escopoSelecionado
-        } 
-      }, '*');
-    });
-    
-    // Evento para os radio buttons de escopo para atualizar a prévia quando o escopo muda
-    document.querySelectorAll('input[name="escopo"]').forEach(radio => {
-      radio.addEventListener('change', () => {
-        const libraryId = librarySelectUpdateNodes.value;
-        
-        if (libraryId) {
-          // Recarregar a prévia com o novo escopo
-          const escopoSelecionado = document.querySelector('input[name="escopo"]:checked').value;
-          
-          previewContentNodes.textContent = "Analisando nós e buscando variáveis equivalentes...";
-          updateNodesButton.disabled = true;
-          
-          parent.postMessage({ 
-            pluginMessage: { 
-              type: 'preVisualizarSubstituicaoEmNos', 
-              libraryId: libraryId,
-              escopo: escopoSelecionado
-            } 
-          }, '*');
-        }
-      });
-    });
-    
-    // Funções para a nova aba Update Variables
-    function showErrorUpdateNodes(message) {
-      errorContainerUpdateNodes.textContent = message || "Ocorreu um erro desconhecido";
-      errorContainerUpdateNodes.style.display = "block";
-    }
-    
-    function hideErrorUpdateNodes() {
-      errorContainerUpdateNodes.style.display = "none";
-    }
-    
-    function showInfoUpdateNodes(message) {
-      infoContainerUpdateNodes.textContent = message || "";
-      infoContainerUpdateNodes.style.display = "block";
-    }
-    
-    function hideInfoUpdateNodes() {
-      infoContainerUpdateNodes.style.display = "none";
-    }
-    
     // Escuta as mensagens enviadas pelo código do plugin
     window.onmessage = async (event) => {
       try {
@@ -688,7 +522,6 @@
         if (message.type === 'error') {
           showError(message.message);
           showErrorUpdate(message.message);
-          showErrorUpdateNodes(message.message);
           return;
         }
         
@@ -700,7 +533,6 @@
           // Limpar e preencher o select com as bibliotecas (ambas as abas)
           librarySelect.innerHTML = '';
           librarySelectUpdate.innerHTML = '';
-          librarySelectUpdateNodes.innerHTML = '';
           
           // Adicionar opção padrão
           const defaultOption = document.createElement('option');
@@ -713,9 +545,6 @@
           const defaultOptionUpdate = defaultOption.cloneNode(true);
           librarySelectUpdate.appendChild(defaultOptionUpdate);
           
-          const defaultOptionUpdateNodes = defaultOption.cloneNode(true);
-          librarySelectUpdateNodes.appendChild(defaultOptionUpdateNodes);
-          
           // Adicionar opções para cada biblioteca
           libraries.forEach(library => {
             // Para a aba List Libs
@@ -724,13 +553,9 @@
             option.textContent = library.name;
             librarySelect.appendChild(option);
             
-            // Para a aba Update Collections
+            // Para a aba Update Variables
             const optionUpdate = option.cloneNode(true);
             librarySelectUpdate.appendChild(optionUpdate);
-            
-            // Para a nova Aba Update Variables
-            const optionUpdateNodes = option.cloneNode(true);
-            librarySelectUpdateNodes.appendChild(optionUpdateNodes);
           });
           
           // Carregar coleções locais
@@ -852,46 +677,6 @@
             showInfoUpdate(message.message || "Variáveis substituídas com sucesso!");
           } else {
             showErrorUpdate(message.message || "Erro ao substituir variáveis");
-          }
-        }
-        
-        // Recebendo resultado de substituição de variáveis em nós
-        if (message.type === 'substituicao-nodes-result') {
-          updateNodesButton.disabled = false;
-          
-          if (message.success) {
-            showInfoUpdateNodes(message.message || "Variáveis nos nós substituídas com sucesso!");
-          } else {
-            showErrorUpdateNodes(message.message || "Erro ao substituir variáveis nos nós");
-          }
-        }
-        
-        // Recebendo prévia de substituição de variáveis em nós
-        if (message.type === 'preview-substituicao-nodes') {
-          if (message.hasMatches) {
-            let previewText = "Variáveis que serão substituídas:\n\n";
-            
-            if (message.matches && Array.isArray(message.matches)) {
-              message.matches.forEach((match, index) => {
-                if (index < 10) { // Limitar a exibição para não sobrecarregar
-                  previewText += `- Nó: "${match.no}" (${match.propriedade})\n  Local: "${match.localVarName}" → Biblioteca: "${match.libraryVarName}"\n`;
-                }
-              });
-              
-              if (message.matches.length > 10) {
-                previewText += `\n... e mais ${message.matches.length - 10} correspondências.`;
-              }
-              
-              previewText += `\n\nTotal: ${message.matches.length} variáveis serão substituídas em ${message.totalNodes} nós analisados.`;
-            } else {
-              previewText += "Correspondências encontradas, mas detalhes não disponíveis.";
-            }
-            
-            previewContentNodes.textContent = previewText;
-            updateNodesButton.disabled = false;
-          } else {
-            previewContentNodes.textContent = "Não foram encontradas variáveis locais para substituir nos nós do escopo selecionado.";
-            updateNodesButton.disabled = true;
           }
         }
       } catch (error) {
