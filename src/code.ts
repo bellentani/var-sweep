@@ -107,97 +107,172 @@ async function carregarBibliotecas(): Promise<void> {
       console.warn("Erro ao buscar bibliotecas de variáveis:", err);
     }
     
-    // MÉTODO 2: Tentar obter bibliotecas de componentes
+    // MÉTODO 2: Tentar detectar bibliotecas usando métodos alternativos
     try {
-      console.log("2. Buscando bibliotecas de componentes...");
-      // @ts-ignore - API pode não estar nas tipagens
-      const libraries = await figma.teamLibrary.getAvailableLibrariesAsync();
+      console.log("2. Tentando métodos alternativos para detectar bibliotecas de componentes...");
       
-      if (libraries && Array.isArray(libraries)) {
-        console.log(`Encontradas ${libraries.length} bibliotecas de componentes`);
-        console.log("Estrutura:", serializarSeguro(libraries));
-        
-        // Percorre as bibliotecas
-        for (let i = 0; i < libraries.length; i++) {
-          try {
-            const lib = libraries[i] as any;
-            
-            // O nome da biblioteca geralmente está na propriedade 'name'
-            if (lib && typeof lib.name === 'string') {
-              const bibliotecaName = lib.name;
-              
-              // Só adiciona se ainda não existir no Map
-              if (!bibliotecasMap.has(bibliotecaName)) {
-                const bibliotecaId = lib.key || lib.id || `lib-comp-${Date.now()}-${i}`;
-                
-                bibliotecasMap.set(bibliotecaName, {
-                  id: bibliotecaId,
-                  name: bibliotecaName,
-                  library: "Biblioteca de Componentes",
-                  type: "Componentes"
-                });
-                
-                console.log(`Adicionada biblioteca única: ${bibliotecaName} (Componentes)`);
-              }
-            }
-          } catch (err) {
-            console.warn("Erro ao processar biblioteca:", err);
-          }
-        }
-      }
-    } catch (err) {
-      console.warn("Erro ao buscar bibliotecas de componentes:", err);
-    }
-    
-    // MÉTODO 3: Buscar bibliotecas diretamente nas instâncias de componentes
-    try {
-      console.log("3. Buscando bibliotecas nos componentes do documento...");
-      const instances = figma.currentPage.findAllWithCriteria({types: ['INSTANCE']});
+      // Verificar todos os estilos disponíveis que podem ser de bibliotecas
+      const paintStyles = figma.getLocalPaintStyles();
+      const textStyles = figma.getLocalTextStyles();
+      const effectStyles = figma.getLocalEffectStyles();
+      const gridStyles = figma.getLocalGridStyles();
       
-      if (instances && instances.length > 0) {
-        console.log(`Encontradas ${instances.length} instâncias de componentes`);
-        
-        // Percorre as instâncias
-        for (let i = 0; i < instances.length; i++) {
+      console.log(`Encontrados: ${paintStyles.length} estilos de cor, ${textStyles.length} estilos de texto, ${effectStyles.length} estilos de efeito, ${gridStyles.length} estilos de grid`);
+      
+      // Função para processar estilos e obter nomes de bibliotecas
+      const processarEstilos = (estilos: BaseStyle[]) => {
+        for (const estilo of estilos) {
           try {
-            const instance = instances[i] as InstanceNode;
-            
-            // Verifica se o componente é de uma biblioteca
-            if (instance.mainComponent && instance.mainComponent.remote === true) {
+            // Verifica se o estilo é de uma biblioteca remota
+            if (estilo.remote === true) {
               // Tenta obter o nome da biblioteca
               let bibliotecaName = "";
               
-              // Tenta extrair o nome da biblioteca do nome do componente
-              if (typeof instance.mainComponent.name === 'string' && instance.mainComponent.name.includes('/')) {
-                bibliotecaName = instance.mainComponent.name.split('/')[0];
+              // Tenta extrair do nome do estilo
+              if (typeof estilo.name === 'string' && estilo.name.includes('/')) {
+                bibliotecaName = estilo.name.split('/')[0].trim();
               }
               
-              // Se não conseguiu um nome válido, usa um genérico
-              if (!bibliotecaName) {
-                bibliotecaName = `Biblioteca de Componente ${i+1}`;
+              // Se não encontrou, tenta extrair da key
+              if (!bibliotecaName && typeof estilo.key === 'string' && estilo.key.includes(';')) {
+                // Tenta pegar a primeira parte da key
+                const keyParts = estilo.key.split(';');
+                if (keyParts.length > 0) {
+                  bibliotecaName = keyParts[0].trim();
+                }
               }
               
-              // Só adiciona se ainda não existir e tiver um nome válido
-              if (!bibliotecasMap.has(bibliotecaName) && bibliotecaName.length > 0) {
-                const bibliotecaId = `lib-inst-${Date.now()}-${i}`;
+              // Se encontramos um nome, adicionamos à lista
+              if (bibliotecaName && !bibliotecasMap.has(bibliotecaName)) {
+                const bibliotecaId = `lib-style-${Date.now()}-${bibliotecaName.replace(/\s+/g, '-')}`;
                 
                 bibliotecasMap.set(bibliotecaName, {
                   id: bibliotecaId,
                   name: bibliotecaName,
-                  library: "Biblioteca de Componentes",
-                  type: "Componentes"
+                  library: "Biblioteca de Estilos",
+                  type: "Estilos"
                 });
                 
-                console.log(`Adicionada biblioteca de componente: ${bibliotecaName}`);
+                console.log(`Adicionada biblioteca de estilos: ${bibliotecaName}`);
               }
             }
           } catch (err) {
-            console.warn(`Erro ao processar instância ${i}:`, err);
+            console.warn("Erro ao processar estilo:", err);
           }
+        }
+      };
+      
+      // Processa todos os tipos de estilos
+      processarEstilos(paintStyles);
+      processarEstilos(textStyles);
+      processarEstilos(effectStyles);
+      processarEstilos(gridStyles);
+      
+    } catch (err) {
+      console.warn("Erro ao buscar estilos:", err);
+    }
+    
+    // MÉTODO 3: Buscar bibliotecas diretamente nas instâncias de componentes (mais confiável)
+    try {
+      console.log("3. Buscando bibliotecas nos componentes do documento...");
+      
+      // Busca em todas as páginas do documento, não apenas na página atual
+      for (const page of figma.root.children) {
+        try {
+          console.log(`Buscando componentes na página: ${page.name}`);
+          const instances = page.findAllWithCriteria({types: ['INSTANCE']});
+          
+          if (instances && instances.length > 0) {
+            console.log(`Encontradas ${instances.length} instâncias de componentes na página ${page.name}`);
+            
+            // Percorre as instâncias
+            for (let i = 0; i < instances.length; i++) {
+              try {
+                const instance = instances[i] as InstanceNode;
+                
+                // Verifica se o componente é de uma biblioteca
+                if (instance.mainComponent && instance.mainComponent.remote === true) {
+                  // Tenta obter o nome da biblioteca
+                  let bibliotecaName = "";
+                  
+                  // Tenta extrair o nome da biblioteca do nome do componente
+                  if (typeof instance.mainComponent.name === 'string' && instance.mainComponent.name.includes('/')) {
+                    bibliotecaName = instance.mainComponent.name.split('/')[0].trim();
+                  }
+                  
+                  // Se não conseguiu um nome válido, tenta extrair de outras propriedades
+                  if (!bibliotecaName && instance.mainComponent.key) {
+                    const keyParts = instance.mainComponent.key.split(';');
+                    if (keyParts.length > 0) {
+                      bibliotecaName = keyParts[0].trim();
+                    }
+                  }
+                  
+                  // Se ainda não tem um nome válido, usa um genérico
+                  if (!bibliotecaName) {
+                    continue; // Pula essa instância
+                  }
+                  
+                  // Só adiciona se ainda não existir e tiver um nome válido
+                  if (!bibliotecasMap.has(bibliotecaName) && bibliotecaName.length > 0) {
+                    const bibliotecaId = `lib-comp-${Date.now()}-${bibliotecaName.replace(/\s+/g, '-')}`;
+                    
+                    bibliotecasMap.set(bibliotecaName, {
+                      id: bibliotecaId,
+                      name: bibliotecaName,
+                      library: "Biblioteca de Componentes",
+                      type: "Componentes"
+                    });
+                    
+                    console.log(`Adicionada biblioteca de componente: ${bibliotecaName}`);
+                  }
+                }
+              } catch (err) {
+                console.warn(`Erro ao processar instância ${i}:`, err);
+              }
+            }
+          }
+        } catch (pageErr) {
+          console.warn(`Erro ao processar página ${page.name}:`, pageErr);
         }
       }
     } catch (err) {
       console.warn("Erro ao buscar componentes no documento:", err);
+    }
+    
+    // MÉTODO 4: Tentar listar todas as páginas da biblioteca (como fallback)
+    try {
+      if (bibliotecasMap.size === 0) {
+        console.log("4. Tentando listar todas as bibliotecas via importable libraries...");
+        // @ts-ignore
+        const importableLibraries = figma.importableLibraryItems;
+        
+        if (importableLibraries) {
+          console.log("Bibliotecas importáveis:", serializarSeguro(importableLibraries));
+          
+          // Se for um objeto, tenta extrair propriedades
+          if (typeof importableLibraries === 'object' && importableLibraries !== null) {
+            const keys = Object.keys(importableLibraries);
+            for (const key of keys) {
+              try {
+                if (!bibliotecasMap.has(key) && key.length > 0) {
+                  bibliotecasMap.set(key, {
+                    id: `lib-import-${Date.now()}-${key.replace(/\s+/g, '-')}`,
+                    name: key,
+                    library: "Biblioteca Importável",
+                    type: "Mista"
+                  });
+                  console.log(`Adicionada biblioteca importável: ${key}`);
+                }
+              } catch (err) {
+                console.warn(`Erro ao processar biblioteca importável ${key}:`, err);
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("Erro ao listar bibliotecas importáveis:", err);
     }
     
     // Converter o Map para array para enviar à UI
