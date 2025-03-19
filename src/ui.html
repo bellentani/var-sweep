@@ -339,6 +339,7 @@
     /* Grupos de variáveis/estilos - Layout mais compacto */
     .variable-group {
       margin-bottom: 12px;
+      overflow: hidden; /* Para conter qualquer elemento que possa transbordar */
     }
 
     .variable-group h3 {
@@ -352,6 +353,7 @@
       list-style: none;
       padding: 0;
       margin: 0;
+      max-width: 100%;
     }
 
     .variable-group li {
@@ -362,10 +364,8 @@
       border-radius: 3px;
       background: #f5f5f5;
       font-size: 11px;
-    }
-
-    .variable-group li:hover {
-      background: #eee;
+      max-width: 100%;
+      box-sizing: border-box;
     }
 
     .var-name {
@@ -375,6 +375,7 @@
       overflow: hidden;
       text-overflow: ellipsis;
       max-width: 150px;
+      min-width: 0; /* Permite que o flex shrink funcione corretamente */
     }
 
     .var-type {
@@ -382,6 +383,7 @@
       margin: 0 4px;
       border-radius: 3px;
       font-size: 10px;
+      white-space: nowrap;
     }
 
     .var-collection {
@@ -391,6 +393,7 @@
       overflow: hidden;
       text-overflow: ellipsis;
       max-width: 80px;
+      min-width: 0; /* Permite que o flex shrink funcione corretamente */
     }
 
     .more-items {
@@ -398,6 +401,9 @@
       font-style: italic;
       text-align: center;
       padding: 2px 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .load-more-button {
@@ -411,6 +417,10 @@
       margin: 4px auto;
       display: block;
       width: auto;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .load-more-button:hover {
@@ -735,6 +745,25 @@
 
     .pagination-button:hover {
       background-color: #e0e0e0;
+    }
+
+    /* Estilos para exibição de amostras de cores */
+    .color-preview {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      margin-right: 6px;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+      display: inline-block;
+      vertical-align: middle;
+    }
+
+    /* Garantindo que as cores sejam exibidas corretamente */
+    .var-type.color {
+      background: #ffebee;
+      color: #c62828;
+      display: flex;
+      align-items: center;
     }
   </style>
 </head>
@@ -1185,9 +1214,9 @@
 
         let html = '';
 
-        // Agrupar variáveis e estilos por tipo
+        // Agrupar variáveis e estilos por tipo, filtrando apenas variáveis reais
         const groups = {
-          colors: variables.filter(v => v.type === 'COLOR'),
+          colors: variables.filter(v => v.type === 'COLOR' && v.isRealVariable === true),
           numbers: variables.filter(v => v.type === 'FLOAT'),
           texts: variables.filter(v => v.type === 'STRING'),
           booleans: variables.filter(v => v.type === 'BOOLEAN'),
@@ -1221,7 +1250,19 @@
                 <ul>`;
 
               items.slice(0, 5).forEach(item => {
+                // Adicionar uma prévia de cor para o tipo COLOR
+                let colorPreview = '';
+                if (groupName === 'colors') {
+                  // Se temos um valor de cor real, usamos ele
+                  const colorStyle = item.colorValue ? 
+                    `background-color: ${item.colorValue};` : 
+                    'background-color: rgba(255, 0, 0, 0.5);'; // Cor padrão caso não tenha
+                  
+                  colorPreview = `<span class="color-preview" style="${colorStyle}"></span>`;
+                }
+                
                 html += `<li>
+                  ${colorPreview}
                   <span class="var-name" title="${item.name}">${item.name}</span>
                   <span class="var-type ${groupName.slice(0, -1)}">${item.type}</span>
                   ${item.collection ? `<span class="var-collection" title="${item.collection}">${item.collection}</span>` : ''}
@@ -1327,7 +1368,7 @@
             
             // Organiza as variáveis por grupo para o carregamento posterior
             variablesByGroup = {
-              colors: foundVariables.filter(v => v.type === 'COLOR'),
+              colors: foundVariables.filter(v => v.type === 'COLOR' && v.isRealVariable === true),
               numbers: foundVariables.filter(v => v.type === 'FLOAT'),
               texts: foundVariables.filter(v => v.type === 'STRING'),
               booleans: foundVariables.filter(v => v.type === 'BOOLEAN'),
@@ -1513,73 +1554,102 @@
         parent.postMessage({ pluginMessage: { type: 'carregarColecoesLocais' } }, '*');
       }, 500);
 
-      // Função para lidar com clique no botão "carregar mais"
+      // Manipulador para o botão "carregar mais"
       function handleLoadMoreClick(event) {
-        const button = event.target;
-        const groupType = button.dataset.type;
-        const groupId = button.dataset.group;
-        const items = variablesByGroup[groupType];
+        // Evita a propagação do evento
+        event.preventDefault();
+        event.stopPropagation();
         
+        // Obtém o botão clicado
+        const button = event.target;
+        const groupId = button.getAttribute('data-group');
+        const groupType = button.getAttribute('data-type');
+        
+        // Obtém o elemento pai (li) e o elemento ul
+        const liElement = button.closest('li');
+        const ulElement = liElement.parentElement;
+        
+        // Remove o botão "carregar mais"
+        liElement.remove();
+        
+        // Obtém os itens do grupo
+        const items = variablesByGroup[groupType];
         if (!items || items.length <= 5) return;
         
-        // Encontra o grupo no DOM
-        const groupElement = document.querySelector(`.variable-group[data-group="${groupId}"]`);
-        if (!groupElement) return;
-        
-        const ul = groupElement.querySelector('ul');
-        const existingItems = groupElement.querySelectorAll('li:not(.more-items)').length;
-        
-        // Obtém o HTML para os próximos 10 itens (ou o restante, se forem menos)
-        let newItemsHtml = '';
-        
-        // Mapeamento de classes CSS para os tipos de estilo
-        const styleClasses = {
-          fills: 'fill',
-          strokes: 'stroke',
-          effects: 'effect',
-          textStyles: 'text-style',
-          grids: 'grid'
-        };
-        
-        const isStyleGroup = ['fills', 'strokes', 'effects', 'textStyles', 'grids'].includes(groupType);
-        
-        items.slice(existingItems, existingItems + 10).forEach(item => {
-          newItemsHtml += `<li>
-            <span class="var-name" title="${item.name}">${item.name}</span>
-            <span class="var-type ${isStyleGroup ? styleClasses[groupType] : groupType.slice(0, -1)}">
-              ${isStyleGroup ? 'Estilo' : item.type}
-            </span>
-            ${item.collection ? `<span class="var-collection" title="${item.collection}">${item.collection}</span>` : ''}
-          </li>`;
-        });
-        
-        // Remove o botão atual
-        const moreItemsLi = ul.querySelector('.more-items');
-        if (moreItemsLi) {
-          ul.removeChild(moreItemsLi);
-        }
-        
-        // Adiciona os novos itens
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = newItemsHtml;
-        while (tempDiv.firstChild) {
-          ul.appendChild(tempDiv.firstChild);
-        }
-        
-        // Se ainda houver mais itens para mostrar, adiciona um novo botão
-        if (items.length > existingItems + 10) {
-          const newMore = document.createElement('li');
-          newMore.className = 'more-items';
-          newMore.innerHTML = `
-            <button class="load-more-button" data-group="${groupId}" data-type="${groupType}">
-              Mostrar +${items.length - (existingItems + 10)} itens
-            </button>
-          `;
-          ul.appendChild(newMore);
+        // Adiciona os itens restantes
+        for (let i = 5; i < items.length; i++) {
+          const item = items[i];
+          const li = document.createElement('li');
           
-          // Adiciona o event listener ao novo botão
-          newMore.querySelector('.load-more-button').addEventListener('click', handleLoadMoreClick);
+          // Adiciona amostra de cor para o tipo COLOR
+          let colorPreviewHTML = '';
+          if (groupType === 'colors') {
+            // Se temos um valor de cor real, usamos ele
+            const colorStyle = item.colorValue ? 
+              `background-color: ${item.colorValue};` : 
+              'background-color: rgba(255, 0, 0, 0.5);'; // Cor padrão caso não tenha
+            
+            colorPreviewHTML = `<span class="color-preview" style="${colorStyle}"></span>`;
+          }
+          
+          li.innerHTML = `
+            ${colorPreviewHTML}
+            <span class="var-name" title="${item.name}">${item.name}</span>
+            <span class="var-type ${groupType.slice(0, -1)}">${item.type}</span>
+            ${item.collection ? `<span class="var-collection" title="${item.collection}">${item.collection}</span>` : ''}
+          `;
+          ulElement.appendChild(li);
         }
+        
+        // Adiciona um botão para mostrar menos, se necessário
+        const liCollapse = document.createElement('li');
+        liCollapse.className = 'more-items';
+        liCollapse.innerHTML = `
+          <button class="load-more-button" data-group="${groupId}" data-type="${groupType}" data-action="collapse">
+            Mostrar menos
+          </button>
+        `;
+        ulElement.appendChild(liCollapse);
+        
+        // Adiciona manipulador de evento para o botão "mostrar menos"
+        const collapseButton = liCollapse.querySelector('button');
+        collapseButton.addEventListener('click', handleCollapseClick);
+      }
+
+      // Manipulador para o botão "mostrar menos"
+      function handleCollapseClick(event) {
+        // Evita a propagação do evento
+        event.preventDefault();
+        event.stopPropagation();
+        
+        // Obtém o botão clicado
+        const button = event.target;
+        const groupId = button.getAttribute('data-group');
+        const groupType = button.getAttribute('data-type');
+        
+        // Obtém o elemento ul
+        const ulElement = button.closest('ul');
+        
+        // Remove todos os elementos li após o quinto
+        const allItems = Array.from(ulElement.querySelectorAll('li'));
+        for (let i = 5; i < allItems.length; i++) {
+          allItems[i].remove();
+        }
+        
+        // Adiciona novamente o botão "carregar mais"
+        const liMore = document.createElement('li');
+        liMore.className = 'more-items';
+        const items = variablesByGroup[groupType];
+        liMore.innerHTML = `
+          <button class="load-more-button" data-group="${groupId}" data-type="${groupType}">
+            Mostrar +${items.length - 5} itens
+          </button>
+        `;
+        ulElement.appendChild(liMore);
+        
+        // Adiciona manipulador de evento para o novo botão "mostrar mais"
+        const moreButton = liMore.querySelector('button');
+        moreButton.addEventListener('click', handleLoadMoreClick);
       }
 
       // Função para formatar e mostrar as correspondências com paginação

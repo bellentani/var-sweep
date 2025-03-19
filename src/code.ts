@@ -1013,30 +1013,117 @@ interface VariableInfo {
   collection: string;
   nodeId: string;
   property: string;
+  isRealVariable?: boolean; // Indica se é uma variável real ou cor inline
+  colorValue?: string; // Para armazenar o valor CSS da cor
+  variableCollectionId?: string; // ID da coleção à qual a variável pertence
 }
 
 // Função para buscar variáveis e estilos em nós
 async function buscarVariaveisEEstilos(escopo: 'selection' | 'page'): Promise<VariableInfo[]> {
   const nodes = escopo === 'selection' ? figma.currentPage.selection : [figma.currentPage];
   const variables: VariableInfo[] = [];
+  
+  // Conjunto para controlar variáveis que já foram adicionadas
+  const addedVariableIds = new Set<string>();
 
   function processarNo(node: BaseNode) {
     // Verifica variáveis vinculadas
     if ('boundVariables' in node) {
       const boundVars = (node as any).boundVariables;
       if (boundVars) {
+        console.log(`Verificando variáveis vinculadas em nó: ${node.name || 'sem nome'}, id: ${node.id}`);
+        console.log(`Propriedades vinculadas:`, Object.keys(boundVars));
+        
+        // Processar todas as propriedades com variáveis vinculadas
         Object.entries(boundVars).forEach(([property, value]: [string, any]) => {
+          // Se é um valor de variável única
           if (value && value.id) {
             const variable = figma.variables.getVariableById(value.id);
-            if (variable) {
+            if (variable && !addedVariableIds.has(variable.id)) {
+              console.log(`Encontrada variável: ${variable.name}, tipo: ${variable.resolvedType}`);
+              addedVariableIds.add(variable.id);
               variables.push({
                 name: variable.name,
                 type: variable.resolvedType.toString(),
-                collection: variable.variableCollectionId,
+                collection: variable.id, // Usar o ID da variável em vez do ID da coleção
+                variableCollectionId: variable.variableCollectionId, // Salvar também o ID da coleção
                 nodeId: node.id,
-                property: property
+                property: property,
+                isRealVariable: true // Esta é uma variável real
               });
             }
+          } 
+          // Se é um array de variáveis (como em fills ou strokes)
+          else if (Array.isArray(value)) {
+            value.forEach((varItem, index) => {
+              if (varItem && varItem.id) {
+                const variable = figma.variables.getVariableById(varItem.id);
+                if (variable && !addedVariableIds.has(variable.id)) {
+                  addedVariableIds.add(variable.id);
+                  variables.push({
+                    name: variable.name,
+                    type: variable.resolvedType.toString(),
+                    collection: variable.variableCollectionId,
+                    nodeId: node.id,
+                    property: `${property}[${index}]`,
+                    isRealVariable: true // Esta é uma variável real
+                  });
+                }
+              }
+            });
+          }
+        });
+      }
+    }
+    
+    // Verifica se o nó tem propriedades de cor diretamente
+    if ('fills' in node && Array.isArray(node.fills) && node.fills.length > 0) {
+      // Verificar se as cores são de variáveis
+      const hasBoundFills = 'boundVariables' in node && 
+                            (node as any).boundVariables && 
+                            (node as any).boundVariables.fills;
+                            
+      // Se não tem variáveis vinculadas a fills, adicionar como cores inline
+      if (!hasBoundFills) {
+        node.fills.forEach((fill, index) => {
+          if (fill.type === 'SOLID' && fill.color) {
+            const rgba = `rgba(${Math.round(fill.color.r * 255)}, ${Math.round(fill.color.g * 255)}, ${Math.round(fill.color.b * 255)}, ${fill.opacity || 1})`;
+            
+            variables.push({
+              name: `${node.name || 'Node'} Fill ${index + 1}`,
+              type: 'COLOR',
+              collection: 'Inline Colors',
+              nodeId: node.id,
+              property: `fill-${index}`,
+              isRealVariable: false, // Não é uma variável real, apenas uma cor inline
+              colorValue: rgba
+            });
+          }
+        });
+      }
+    }
+    
+    if ('strokes' in node && Array.isArray(node.strokes) && node.strokes.length > 0) {
+      // Verificar se as cores são de variáveis
+      const hasBoundStrokes = 'boundVariables' in node && 
+                             (node as any).boundVariables && 
+                             (node as any).boundVariables.strokes;
+                             
+      // Se não tem variáveis vinculadas a strokes, adicionar como cores inline                       
+      if (!hasBoundStrokes) {
+        node.strokes.forEach((stroke, index) => {
+          if (stroke.type === 'SOLID' && stroke.color) {
+            const rgba = `rgba(${Math.round(stroke.color.r * 255)}, ${Math.round(stroke.color.g * 255)}, ${Math.round(stroke.color.b * 255)}, ${stroke.opacity || 1})`;
+                               
+            variables.push({
+              name: `${node.name || 'Node'} Stroke ${index + 1}`,
+              type: 'COLOR',
+              collection: 'Inline Colors',
+              nodeId: node.id,
+              property: `stroke-${index}`,
+              isRealVariable: false, // Não é uma variável real, apenas uma cor inline
+              colorValue: rgba
+            });
           }
         });
       }
@@ -1065,9 +1152,9 @@ async function buscarVariaveisEEstilos(escopo: 'selection' | 'page'): Promise<Va
           collection: 'Strokes',
           nodeId: node.id,
           property: 'stroke'
-                  });
-                }
-              }
+        });
+      }
+    }
 
     if ('effectStyleId' in node && node.effectStyleId) {
       const style = figma.getStyleById(node.effectStyleId.toString());
@@ -1138,10 +1225,61 @@ async function procurarVariaveisEEstilos(): Promise<void> {
     
     console.log(`Encontradas ${variables.length} variáveis e estilos`);
     
-    if (variables.length > 0) {
+    // Processar valores de cor para exibição na UI
+    const processedVariables = await Promise.all(variables.map(async variable => {
+      // Se for uma variável real do tipo COLOR, buscar seu valor real
+      if (variable.type === 'COLOR' && variable.isRealVariable) {
+        try {
+          // Obter a variável diretamente pelo ID
+          const variableObj = figma.variables.getVariableById(variable.collection);
+          
+          if (variableObj) {
+            // Obter a coleção para acessar os modos
+            const collection = figma.variables.getVariableCollectionById(variableObj.variableCollectionId);
+            
+            if (collection && collection.modes.length > 0) {
+              // Usar o primeiro modo disponível (geralmente é o padrão)
+              const modeId = collection.modes[0].modeId;
+              
+              // Obter o valor da variável neste modo
+              const value = variableObj.valuesByMode[modeId];
+              
+              console.log(`Processando variável ${variable.name}, valor:`, value);
+              
+              // Se o valor for um objeto de cor
+              if (value && typeof value === 'object' && 'r' in value &&
+                  'g' in value && 'b' in value) {
+                // Verificar se temos o valor alpha
+                const alpha = 'a' in value ? value.a : 1;
+                const rgba = `rgba(${Math.round(value.r * 255)}, ${Math.round(value.g * 255)}, ${Math.round(value.b * 255)}, ${alpha})`;
+                
+                console.log(`Processada variável de cor: ${variable.name} com valor: ${rgba}`);
+                
+                return {
+                  ...variable,
+                  colorValue: rgba
+                };
+              }
+            }
+          }
+        } catch (err) {
+          console.warn(`Erro ao processar valor de cor da variável ${variable.name}:`, err);
+        }
+      }
+      return variable;
+    }));
+    
+    if (processedVariables.length > 0) {
+      console.log("Enviando variáveis encontradas para a UI");
+      
+      // Adicionando logs para debug
+      const colorVars = processedVariables.filter(v => v.type === 'COLOR' && v.isRealVariable === true);
+      console.log(`Variáveis de cor reais encontradas: ${colorVars.length}`);
+      colorVars.forEach(v => console.log(`  - ${v.name} (${v.collection})`));
+      
       figma.ui.postMessage({
         type: 'variables-found',
-        variables: variables
+        variables: processedVariables
       });
     } else {
       figma.ui.postMessage({
