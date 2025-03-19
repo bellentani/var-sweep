@@ -1583,48 +1583,105 @@
       }
 
       // Função para formatar e mostrar as correspondências com paginação
-      function formatMatchesList(matches, filter = '') {
-        if (!matches || matches.length === 0) {
-          return `<p class="empty-message">Nenhuma correspondência encontrada.</p>`;
-        }
-
-        // Grupos para organizar as correspondências por variável local
-        const matchGroups = [];
-
-        // Aplicar filtro se existir
-        const filteredMatches = filter ? 
-          matches.filter(match => 
-            match.localName.toLowerCase().includes(filter.toLowerCase()) || 
-            (match.libraryName && match.libraryName.toLowerCase().includes(filter.toLowerCase()))
-          ) : 
-          matches;
-
-        // Agrupar por variável local
-        for (const match of filteredMatches) {
-          matchGroups.push(`
-            <div class="match-item">
-              <div class="match-header">
-                <div class="local-variable">${match.localName}</div>
-              </div>
-              ${match.modes && match.modes.length > 0 ? `
+      function formatMatchesList(matches, page = 1, itemsPerPage = 30) {
+        // Agrupar correspondências por nome de variável local
+        const groupedMatches = {};
+        matches.forEach(match => {
+          if (!groupedMatches[match.localName]) {
+            groupedMatches[match.localName] = [];
+          }
+          groupedMatches[match.localName].push(match);
+        });
+        
+        // Transformar o objeto agrupado em array para paginação
+        const groupedArray = Object.keys(groupedMatches).map(varName => {
+          return {
+            name: varName,
+            matches: groupedMatches[varName]
+          };
+        });
+        
+        // Calcular páginas e total
+        const totalItems = groupedArray.length;
+        const totalPages = Math.ceil(totalItems / itemsPerPage);
+        
+        // Garantir que a página está dentro dos limites
+        page = Math.max(1, Math.min(page, totalPages || 1));
+        
+        // Índices para seleção
+        const startIndex = (page - 1) * itemsPerPage;
+        const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
+        
+        // Selecionar itens da página atual
+        const currentItems = groupedArray.slice(startIndex, endIndex);
+        
+        // Construir HTML
+        let html = `<div class="preview-header">Preview</div>`;
+        html += `<div class="matches-count">Encontradas ${totalItems} correspondências</div>`;
+        
+        // Conteúdo principal
+        html += '<div class="matches-container">';
+        
+        if (currentItems.length === 0) {
+          html += '<p>Nenhuma correspondência encontrada.</p>';
+            } else {
+          currentItems.forEach(group => {
+            html += `
+              <div class="match-item">
+                <div class="variavel">${group.name}</div>
+                
                 <div class="modes-container">
-                  <div class="modes-title">Modos</div>
+                  <div class="modes-title">Modes</div>
                   <div class="modes-list">
-                    ${match.modes.map(mode => `
-                      <div class="mode-row">
-                        <div class="mode-name">${mode.name}</div>
-                        <div class="mode-value">→ ${mode.matchedVarName}</div>
-                      </div>
-                    `).join('')}
+            `;
+            
+            // Verificar se há informações de modos
+            if (group.matches[0].modes && group.matches[0].modes.length > 0) {
+              group.matches[0].modes.forEach(mode => {
+                html += `
+                  <div class="mode-row">
+                    <span class="mode-name">${mode.name}</span>
+                    <span class="mode-value">${mode.value}</span>
+                  </div>
+                `;
+              });
+          } else {
+              // Fallback para exibir pelo menos o tipo da variável se não houver informações de modo
+              html += `
+                <div class="mode-row">
+                  <span class="mode-name">modeName</span>
+                  <span class="mode-value">variableValue</span>
+                </div>
+                <div class="mode-row">
+                  <span class="mode-name">modeName</span>
+                  <span class="mode-value">variableValue</span>
+                </div>
+              `;
+            }
+            
+            html += `
                   </div>
                 </div>
-              ` : ''}
-            </div>
-          `);
+              </div>
+            `;
+          });
         }
-
-        // Retornar lista formatada
-        return matchGroups.join('');
+        
+        html += '</div>';
+        
+        // Informações de paginação simplificadas
+        if (totalPages > 1) {
+          html += `
+            <div class="matches-pagination">
+              <span>Página ${page} de ${totalPages}</span>
+              ${page > 1 ? '<button class="pagination-button" id="prev-page">Próxima</button>' : ''}
+              <button class="pagination-button" id="show-more">Ver Mais 30</button>
+              <button class="pagination-button" id="show-all">Ver Todas</button>
+            </div>
+          `;
+        }
+        
+        return html;
       }
 
       // Inicializar variáveis de paginação
@@ -1671,11 +1728,20 @@
           return;
         }
         
-        // Obter filtro atual (se houver)
-        const filterInput = document.querySelector('.matches-filter input');
-        const currentFilter = filterInput ? filterInput.value : '';
-        
-        previewContent.innerHTML = formatMatchesList(window.matchesData, currentFilter);
+        // Se estiver mostrando todas
+        if (window.paginationState.showingAll) {
+          previewContent.innerHTML = formatMatchesList(
+            window.matchesData, 
+            1, 
+            window.matchesData.length
+          );
+        } else {
+          previewContent.innerHTML = formatMatchesList(
+            window.matchesData, 
+            window.paginationState.currentPage,
+            window.paginationState.itemsPerPage
+          );
+        }
         
         // Configurar eventos após atualizar o conteúdo
         setupPaginationEvents();
