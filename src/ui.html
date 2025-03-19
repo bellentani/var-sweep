@@ -1671,20 +1671,11 @@
           return;
         }
         
-        // Se estiver mostrando todas
-        if (window.paginationState.showingAll) {
-          previewContent.innerHTML = formatMatchesList(
-            window.matchesData, 
-            1, 
-            window.matchesData.length
-          );
-        } else {
-          previewContent.innerHTML = formatMatchesList(
-            window.matchesData, 
-            window.paginationState.currentPage,
-            window.paginationState.itemsPerPage
-          );
-        }
+        // Obter filtro atual (se houver)
+        const filterInput = document.querySelector('.matches-filter input');
+        const currentFilter = filterInput ? filterInput.value : '';
+        
+        previewContent.innerHTML = formatMatchesList(window.matchesData, currentFilter);
         
         // Configurar eventos após atualizar o conteúdo
         setupPaginationEvents();

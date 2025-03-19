@@ -1561,6 +1561,7 @@ async function substituirVariaveisEmColecao(matches: Array<{
     
     // Carregar todas as variáveis da biblioteca pelo nome para facilitar a busca
     let variaveisBibliotecaPorNome: Record<string, any> = {};
+    let variaveisBibliotecaPorId: Record<string, any> = {};
     
     for (const collection of variableCollections) {
       try {
@@ -1569,6 +1570,8 @@ async function substituirVariaveisEmColecao(matches: Array<{
         if (variables && Array.isArray(variables)) {
           for (const variable of variables) {
             variaveisBibliotecaPorNome[variable.name] = variable;
+            variaveisBibliotecaPorId[variable.key] = variable;
+            console.log(`Biblioteca: ${variable.name}, ID: ${variable.key}`);
           }
         }
       } catch (err) {
@@ -1622,7 +1625,52 @@ async function substituirVariaveisEmColecao(matches: Array<{
             console.log(`Correspondência encontrada: ${nomeVariavelCorrespondente}`);
             
             // Buscar a variável na biblioteca pelo nome exato
-            const variavelBiblioteca = variaveisBibliotecaPorNome[nomeVariavelCorrespondente];
+            let variavelBiblioteca = variaveisBibliotecaPorNome[nomeVariavelCorrespondente];
+            
+            // Se não encontrou pelo nome, tenta encontrar pelo ID diretamente se estiver disponível
+            if (!variavelBiblioteca && match.libraryId) {
+              variavelBiblioteca = variaveisBibliotecaPorId[match.libraryId];
+              if (variavelBiblioteca) {
+                console.log(`Variável encontrada pelo ID: ${match.libraryId}`);
+              }
+            }
+            
+            if (!variavelBiblioteca) {
+              // Se ainda não encontrou, tenta importar diretamente pelo nome
+              try {
+                console.log(`Tentando importar a variável "${nomeVariavelCorrespondente}" diretamente pelo nome...`);
+                // Tenta encontrar em todas as coleções
+                let variavelImportada = null;
+                
+                // Tenta importar para cada nome possível
+                for (const collection of variableCollections) {
+                  // @ts-ignore
+                  const variables = await figma.teamLibrary.getVariablesInLibraryCollectionAsync(collection.key);
+                  if (variables && Array.isArray(variables)) {
+                    for (const variable of variables) {
+                      if (variable.name === nomeVariavelCorrespondente) {
+                        // @ts-ignore
+                        variavelImportada = await figma.variables.importVariableByKeyAsync(variable.key);
+                        if (variavelImportada) {
+                          variavelBiblioteca = variable;
+                          console.log(`Variável "${nomeVariavelCorrespondente}" importada diretamente`);
+                          break;
+                        }
+                      }
+                    }
+                  }
+                  if (variavelImportada) break;
+                }
+                
+                if (!variavelImportada) {
+                  console.warn(`Variável "${nomeVariavelCorrespondente}" não encontrada para importação direta`);
+                  continue;
+                }
+              } catch (importErr) {
+                console.warn(`Erro ao tentar importar variável "${nomeVariavelCorrespondente}": ${importErr}`);
+                continue;
+              }
+            }
             
             if (!variavelBiblioteca) {
               console.warn(`Variável "${nomeVariavelCorrespondente}" não encontrada na biblioteca`);
