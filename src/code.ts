@@ -1256,60 +1256,6 @@ async function preVisualizarCorrespondencias(libraryId: string, localCollectionI
       if (!valor1 && !valor2) return true;
       if (!valor1 || !valor2) return false;
       
-      // CASO ESPECIAL: Se o primeiro valor é uma referência (VARIABLE_ALIAS)
-      if (typeof valor1 === 'object' && valor1 !== null && 
-          'type' in valor1 && valor1.type === 'VARIABLE_ALIAS' && 
-          'id' in valor1) {
-        // Tentamos obter a variável referenciada
-        try {
-          const referencedVar = figma.variables.getVariableById(valor1.id);
-          if (referencedVar) {
-            // Se tivermos acesso à variável referenciada, podemos comparar seu nome
-            // contra o valor2, que pode ser um nome de variável também
-            if (typeof valor2 === 'object' && valor2 !== null) {
-              if ('type' in valor2 && valor2.type === 'STRING' && 
-                  'value' in valor2 && referencedVar.name === valor2.value) {
-                return true;
-              }
-              // Caso o valor2 também seja uma referência, comparamos os IDs
-              else if ('type' in valor2 && valor2.type === 'VARIABLE_ALIAS' && 
-                      'id' in valor2) {
-                // Comparar por ID direto primeiro
-                if (valor1.id === valor2.id) return true;
-                
-                // Ou tentar resolver o segundo e comparar os nomes
-                const referencedVar2 = figma.variables.getVariableById(valor2.id);
-                if (referencedVar2 && referencedVar.name === referencedVar2.name) {
-                  return true;
-                }
-              }
-            }
-          }
-        } catch (e) {
-          console.warn("Erro ao resolver variável referenciada:", e);
-        }
-      }
-      
-      // CASO ESPECIAL: Se o segundo valor é uma referência (VARIABLE_ALIAS)
-      if (typeof valor2 === 'object' && valor2 !== null && 
-          'type' in valor2 && valor2.type === 'VARIABLE_ALIAS' && 
-          'id' in valor2) {
-        // Lógica similar à anterior, mas invertendo os papéis
-        try {
-          const referencedVar = figma.variables.getVariableById(valor2.id);
-          if (referencedVar) {
-            if (typeof valor1 === 'object' && valor1 !== null) {
-              if ('type' in valor1 && valor1.type === 'STRING' && 
-                  'value' in valor1 && referencedVar.name === valor1.value) {
-                return true;
-              }
-            }
-          }
-        } catch (e) {
-          console.warn("Erro ao resolver variável referenciada:", e);
-        }
-      }
-      
       // Se for tipo COLOR, compara os componentes RGB
       if (typeof valor1 === 'object' && typeof valor2 === 'object' && 
           valor1.type === 'COLOR' && valor2.type === 'COLOR') {
@@ -1340,7 +1286,7 @@ async function preVisualizarCorrespondencias(libraryId: string, localCollectionI
         return valor1.value === valor2.value;
       }
       
-      return false; // Tipos diferentes não são consideridos iguais
+      return false; // Tipos diferentes não são considerados iguais
     }
     
     // Mapear correspondências baseadas nos valores e/ou nomes
@@ -1594,7 +1540,7 @@ async function substituirVariaveisEmColecao(matches: Array<{
     let variaveisAlteradas = 0;
     let variaveisComErro = 0;
     
-    // Primeiro, obtemos todas as variáveis da biblioteca de referência
+    // Carregar todas as coleções de variáveis da biblioteca
     // @ts-ignore
     const variableCollections = await figma.teamLibrary.getAvailableLibraryVariableCollectionsAsync();
     
@@ -1638,7 +1584,7 @@ async function substituirVariaveisEmColecao(matches: Array<{
         return valor1.value === valor2.value;
       }
       
-      return false; // Tipos diferentes não são consideridos iguais
+      return false; // Tipos diferentes não são considerados iguais
     }
     
     // Função para formatar valor para logs
@@ -1653,8 +1599,7 @@ async function substituirVariaveisEmColecao(matches: Array<{
         } else if (valor.type === 'STRING') {
           return `"${valor.value}"`;
         } else if (valor.type === 'VARIABLE_ALIAS') {
-          const refVar = figma.variables.getVariableById(valor.id);
-          return refVar ? `Alias -> ${refVar.name}` : `Alias -> ${valor.id}`;
+          return `Alias -> ${valor.id}`;
         } else {
           return JSON.stringify(valor);
         }
@@ -1663,22 +1608,21 @@ async function substituirVariaveisEmColecao(matches: Array<{
       return String(valor);
     };
     
-    // Carregar todas as variáveis de todas as coleções da biblioteca
-    const todasVariavelsBiblioteca: any[] = [];
-    
+    // Carregar todas as variáveis de todas as coleções da biblioteca em um array
+    const todasVariaveisBiblioteca: any[] = [];
     for (const collection of variableCollections) {
       try {
         // @ts-ignore
         const variables = await figma.teamLibrary.getVariablesInLibraryCollectionAsync(collection.key);
         if (variables && Array.isArray(variables)) {
-          todasVariavelsBiblioteca.push(...variables);
+          todasVariaveisBiblioteca.push(...variables);
         }
       } catch (err) {
-        console.warn(`Erro ao obter variáveis da coleção ${(collection as any).name}:`, err);
+        console.warn(`Erro ao carregar variáveis da coleção ${collection.name}:`, err);
       }
     }
     
-    console.log(`Carregadas ${todasVariavelsBiblioteca.length} variáveis da biblioteca para análise`);
+    console.log(`Carregadas ${todasVariaveisBiblioteca.length} variáveis da biblioteca de referência para busca de valores`);
     
     // Para cada variável local nos matches
     for (const match of matches) {
@@ -1699,10 +1643,10 @@ async function substituirVariaveisEmColecao(matches: Array<{
         
         console.log(`Processando variável local: ${localVar.name}`);
         
-        // Flag para indicar se algum modo da variável foi alterado
+        // Flag para indicar se houve alteração
         let variavelAlterada = false;
         
-        // Para cada modo na coleção local, buscamos INDIVIDUALMENTE a variável correspondente
+        // Para cada modo na coleção local
         for (const modo of localCollection.modes) {
           try {
             // Verificar se a variável local tem valor para este modo
@@ -1726,121 +1670,66 @@ async function substituirVariaveisEmColecao(matches: Array<{
               console.log(`Valor atual é uma referência para ID: ${currentReferenceId}`);
             }
             
-            // NOVA ABORDAGEM: Buscar variável na biblioteca com o MESMO VALOR para este modo específico
-            const correspondencias: Array<{variavel: any, valor: any}> = [];
+            // Buscar uma variável na biblioteca com o MESMO VALOR neste modo específico
+            let variavelCorrespondente = null;
             
-            // Buscamos em todas as variáveis da biblioteca
-            for (const varBiblioteca of todasVariavelsBiblioteca) {
-              if (!varBiblioteca || !varBiblioteca.valuesByMode) continue;
+            // Para cada variável da biblioteca
+            for (const varBiblioteca of todasVariaveisBiblioteca) {
+              // Verificar se a variável tem valuesByMode
+              if (!varBiblioteca || !(varBiblioteca as any).valuesByMode) continue;
               
-              // Para cada modo da variável da biblioteca
-              for (const modoIdBiblioteca in varBiblioteca.valuesByMode) {
-                const valorBiblioteca = varBiblioteca.valuesByMode[modoIdBiblioteca];
-                if (!valorBiblioteca) continue;
+              // Para cada modo desta variável da biblioteca
+              for (const modoBibliotecaId in (varBiblioteca as any).valuesByMode) {
+                const valorBiblioteca = (varBiblioteca as any).valuesByMode[modoBibliotecaId];
                 
-                // Comparar valores
+                // Se o valor for igual ao valor atual da variável local neste modo
                 if (valoresIguais(valorAtual, valorBiblioteca)) {
-                  correspondencias.push({
-                    variavel: varBiblioteca,
+                  variavelCorrespondente = {
+                    variable: varBiblioteca,
+                    modeId: modoBibliotecaId,
                     valor: valorBiblioteca
-                  });
-                  continue; // Se encontramos uma correspondência, não precisamos verificar outros modos
-                }
-                
-                // CASO ESPECIAL: Verificar se o valor atual é uma referência e resolver para comparação adicional
-                if (valorAtual && typeof valorAtual === 'object' && 
-                   'type' in valorAtual && valorAtual.type === 'VARIABLE_ALIAS' && 
-                   'id' in valorAtual) {
-                  try {
-                    // Buscar a variável referenciada
-                    const varReferenciada = figma.variables.getVariableById((valorAtual as any).id);
-                    if (varReferenciada) {
-                      // Verificar se o nome da variável é igual ao nome da variável da biblioteca
-                      if (varReferenciada.name === varBiblioteca.name) {
-                        console.log(`Correspondência por nome entre ${varReferenciada.name} e ${varBiblioteca.name}`);
-                        correspondencias.push({
-                          variavel: varBiblioteca,
-                          valor: valorBiblioteca
-                        });
-                        continue;
-                      }
-                      
-                      // Tentar resolver o valor real e comparar
-                      for (const modoVarRef in varReferenciada.valuesByMode) {
-                        const valorReal = varReferenciada.valuesByMode[modoVarRef];
-                        if (valorReal && valoresIguais(valorReal, valorBiblioteca)) {
-                          console.log(`Correspondência por valor resolvido entre ${varReferenciada.name} e ${varBiblioteca.name}`);
-                          correspondencias.push({
-                            variavel: varBiblioteca,
-                            valor: valorBiblioteca
-                          });
-                          break;
-                        }
-                      }
-                    }
-                  } catch (e) {
-                    console.warn("Erro ao resolver valor de referência:", e);
-                  }
+                  };
+                  console.log(`Encontrada variável na biblioteca com nome ${varBiblioteca.name} para ${localVar.name} em ${modo.name}`);
+                  break;
                 }
               }
+              
+              if (variavelCorrespondente) break;
             }
             
-            console.log(`Encontradas ${correspondencias.length} correspondências para o valor em ${localVar.name}, modo ${modo.name}`);
-            
-            // Se encontramos pelo menos uma correspondência
-            if (correspondencias.length > 0) {
-              // Ordenar correspondências para priorizar aquelas com nome mais próximo do match.libraryName
-              correspondencias.sort((a, b) => {
-                // Prioridade 1: Correspondência exata com o nome desejado
-                if (a.variavel.name === match.libraryName && b.variavel.name !== match.libraryName) return -1;
-                if (a.variavel.name !== match.libraryName && b.variavel.name === match.libraryName) return 1;
-                
-                // Prioridade 2: Nome contém a string desejada
-                const aContains = a.variavel.name.includes(match.libraryName);
-                const bContains = b.variavel.name.includes(match.libraryName);
-                if (aContains && !bContains) return -1;
-                if (!aContains && bContains) return 1;
-                
-                // Prioridade 3: Diferença na distância de edição (Levenshtein)
-                return 0; // Simplificado, poderíamos implementar distância Levenshtein
-              });
-              
-              // Usar a primeira correspondência após ordenação
-              const melhorCorrespondencia = correspondencias[0];
-              
-              console.log(`Encontrada variável na biblioteca com nome ${melhorCorrespondencia.variavel.name} para ${localVar.name} em ${modo.name}`);
-              
-              // Criar a referência para esta variável específica
+            // Se encontramos uma variável correspondente, aplicamos a referência
+            if (variavelCorrespondente) {
+              // Criar a referência
               const referencia = {
                 type: "VARIABLE_ALIAS" as const,
-                id: melhorCorrespondencia.variavel.key
+                id: variavelCorrespondente.variable.key
               };
               
               // Verificar se já é a mesma referência
-              if (isReference && currentReferenceId === melhorCorrespondencia.variavel.key) {
+              if (isReference && currentReferenceId === variavelCorrespondente.variable.key) {
                 console.log(`Já é uma referência para a mesma variável, não é necessário alterar`);
               } else {
-                console.log(`Aplicando nova referência para variável ${melhorCorrespondencia.variavel.name} (ID: ${melhorCorrespondencia.variavel.key})`);
+                console.log(`Aplicando referência para variável ${variavelCorrespondente.variable.name} para o modo ${modo.name}`);
                 
                 // Fazer backup do valor atual
                 const valorBackup = localVar.valuesByMode[modo.modeId];
                 
                 try {
-                  // Aplicar a referência diretamente
+                  // Aplicar a referência
                   localVar.setValueForMode(modo.modeId, referencia);
                   variavelAlterada = true;
-                  console.log(`Modo ${modo.name} atualizado com sucesso para ${melhorCorrespondencia.variavel.name}`);
+                  console.log(`Modo ${modo.name} atualizado com sucesso para ${variavelCorrespondente.variable.name}`);
                 } catch (err) {
-                  console.warn(`Erro ao aplicar referência direta: ${err}`);
+                  console.warn(`Erro ao aplicar referência: ${err}`);
                   
-                  // Tentar abordagem alternativa: importar a variável primeiro
+                  // Tentar importar primeiro
                   try {
-                    console.log(`Tentando importar variável ${melhorCorrespondencia.variavel.name} antes de referenciar`);
+                    console.log(`Tentando importar variável ${variavelCorrespondente.variable.name} antes de referenciar`);
                     // @ts-ignore
-                    const importedVar = await figma.variables.importVariableByKeyAsync(melhorCorrespondencia.variavel.key);
+                    const importedVar = await figma.variables.importVariableByKeyAsync(variavelCorrespondente.variable.key);
                     
                     if (importedVar) {
-                      // Agora criar referência para a variável importada
+                      // Criar referência para a variável importada
                       const referenciaImportada = {
                         type: "VARIABLE_ALIAS" as const,
                         id: importedVar.id
@@ -1867,7 +1756,7 @@ async function substituirVariaveisEmColecao(matches: Array<{
                 }
               }
             } else {
-              console.warn(`Não foi encontrada correspondência por valor para ${localVar.name} em ${modo.name}`);
+              console.log(`Não foi encontrada variável na biblioteca com valor correspondente para ${localVar.name} no modo ${modo.name}`);
             }
           } catch (modoErr) {
             console.warn(`Erro ao processar modo ${modo.name}: ${modoErr}`);
