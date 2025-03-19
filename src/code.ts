@@ -1548,6 +1548,45 @@ async function substituirVariaveisEmColecao(matches: Array<{
       throw new Error("Não foi possível obter as coleções de variáveis da biblioteca");
     }
     
+    // Função para comparar valores de variáveis
+    function valoresIguais(valor1: any, valor2: any): boolean {
+      // Se ambos forem undefined ou null, são considerados iguais
+      if (!valor1 && !valor2) return true;
+      if (!valor1 || !valor2) return false;
+      
+      // Se for tipo COLOR, compara os componentes RGB
+      if (typeof valor1 === 'object' && typeof valor2 === 'object' && 
+          valor1.type === 'COLOR' && valor2.type === 'COLOR') {
+        return (
+          valor1.r === valor2.r &&
+          valor1.g === valor2.g &&
+          valor1.b === valor2.b &&
+          (valor1.a === valor2.a || // Compara alpha se disponível
+           (valor1.a === undefined && valor2.a === undefined)) // Ou se ambos não tiverem alpha
+        );
+      }
+      
+      // Se for tipo FLOAT, compara o valor numérico
+      if (typeof valor1 === 'object' && typeof valor2 === 'object' && 
+          valor1.type === 'FLOAT' && valor2.type === 'FLOAT') {
+        return valor1.value === valor2.value;
+      }
+      
+      // Se for tipo STRING, compara o valor de texto
+      if (typeof valor1 === 'object' && typeof valor2 === 'object' && 
+          valor1.type === 'STRING' && valor2.type === 'STRING') {
+        return valor1.value === valor2.value;
+      }
+      
+      // Se for tipo BOOLEAN, compara o valor booleano
+      if (typeof valor1 === 'object' && typeof valor2 === 'object' && 
+          valor1.type === 'BOOLEAN' && valor2.type === 'BOOLEAN') {
+        return valor1.value === valor2.value;
+      }
+      
+      return false; // Tipos diferentes não são considerados iguais
+    }
+    
     // Função para formatar valor para logs
     const formatarValor = (valor: any): string => {
       if (!valor) return "undefined";
@@ -1570,8 +1609,8 @@ async function substituirVariaveisEmColecao(matches: Array<{
       return String(valor);
     };
     
-    // Carregamos todas as variáveis de todas as coleções da biblioteca
-    const todasVariaveisBiblioteca: any[] = [];
+    // Carregar todas as variáveis da biblioteca
+    let todasVariaveisBiblioteca: any[] = [];
     
     for (const collection of variableCollections) {
       try {
@@ -1587,7 +1626,7 @@ async function substituirVariaveisEmColecao(matches: Array<{
     
     console.log(`Carregadas ${todasVariaveisBiblioteca.length} variáveis da biblioteca`);
     
-    // Para cada variável local nos matches
+    // Para cada match proveniente da pré-visualização
     for (const match of matches) {
       try {
         // Obter a variável local
@@ -1609,19 +1648,15 @@ async function substituirVariaveisEmColecao(matches: Array<{
         // Flag para indicar se houve alteração na variável
         let variavelAlterada = false;
         
-        // Vamos buscar a variável da biblioteca pelo nome
-        const nomeDaVariavelLocal = localVar.name; 
-        console.log(`Buscando variável na biblioteca com nome: ${nomeDaVariavelLocal}`);
-        
-        // Encontrar a variável correspondente na biblioteca pelo nome exato
-        const variavelBiblioteca = todasVariaveisBiblioteca.find(v => v.name === nomeDaVariavelLocal);
+        // Encontrar a variável na biblioteca que foi correspondida
+        const variavelBiblioteca = todasVariaveisBiblioteca.find(v => v.key === match.libraryId);
         
         if (!variavelBiblioteca) {
-          console.warn(`Variável com nome "${nomeDaVariavelLocal}" não encontrada na biblioteca`);
+          console.warn(`Variável da biblioteca com ID ${match.libraryId} não encontrada`);
           continue;
         }
         
-        console.log(`Variável encontrada na biblioteca: ${variavelBiblioteca.name}`);
+        console.log(`Variável da biblioteca correspondente: ${variavelBiblioteca.name}`);
         
         // Para cada modo na coleção local
         for (const modo of localCollection.modes) {
@@ -1638,20 +1673,14 @@ async function substituirVariaveisEmColecao(matches: Array<{
             const valorAtual = localVar.valuesByMode[modo.modeId];
             console.log(`Valor atual no modo ${modo.name}: ${formatarValor(valorAtual)}`);
             
-            // Verificar se o valor atual já é uma referência
+            // Verificar se o valor atual já é uma referência para a mesma variável
             const isReference = valorAtual && 
                                typeof valorAtual === 'object' && 
                                (valorAtual as any).type === 'VARIABLE_ALIAS';
             
-            // Se já for uma referência, verificamos se é para a mesma variável
-            if (isReference) {
-              const refId = (valorAtual as any).id;
-              console.log(`O valor atual já é uma referência. ID: ${refId}`);
-              
-              if (refId === variavelBiblioteca.key) {
-                console.log(`Já é uma referência para a variável desejada, não é necessário alterar`);
-                continue;
-              }
+            if (isReference && (valorAtual as any).id === variavelBiblioteca.key) {
+              console.log(`Já é uma referência para a variável ${variavelBiblioteca.name}, não é necessário alterar`);
+              continue;
             }
             
             // Criar a referência para a variável da biblioteca
