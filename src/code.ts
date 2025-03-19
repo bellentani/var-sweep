@@ -1256,6 +1256,60 @@ async function preVisualizarCorrespondencias(libraryId: string, localCollectionI
       if (!valor1 && !valor2) return true;
       if (!valor1 || !valor2) return false;
       
+      // CASO ESPECIAL: Se o primeiro valor é uma referência (VARIABLE_ALIAS)
+      if (typeof valor1 === 'object' && valor1 !== null && 
+          'type' in valor1 && valor1.type === 'VARIABLE_ALIAS' && 
+          'id' in valor1) {
+        // Tentamos obter a variável referenciada
+        try {
+          const referencedVar = figma.variables.getVariableById(valor1.id);
+          if (referencedVar) {
+            // Se tivermos acesso à variável referenciada, podemos comparar seu nome
+            // contra o valor2, que pode ser um nome de variável também
+            if (typeof valor2 === 'object' && valor2 !== null) {
+              if ('type' in valor2 && valor2.type === 'STRING' && 
+                  'value' in valor2 && referencedVar.name === valor2.value) {
+                return true;
+              }
+              // Caso o valor2 também seja uma referência, comparamos os IDs
+              else if ('type' in valor2 && valor2.type === 'VARIABLE_ALIAS' && 
+                      'id' in valor2) {
+                // Comparar por ID direto primeiro
+                if (valor1.id === valor2.id) return true;
+                
+                // Ou tentar resolver o segundo e comparar os nomes
+                const referencedVar2 = figma.variables.getVariableById(valor2.id);
+                if (referencedVar2 && referencedVar.name === referencedVar2.name) {
+                  return true;
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("Erro ao resolver variável referenciada:", e);
+        }
+      }
+      
+      // CASO ESPECIAL: Se o segundo valor é uma referência (VARIABLE_ALIAS)
+      if (typeof valor2 === 'object' && valor2 !== null && 
+          'type' in valor2 && valor2.type === 'VARIABLE_ALIAS' && 
+          'id' in valor2) {
+        // Lógica similar à anterior, mas invertendo os papéis
+        try {
+          const referencedVar = figma.variables.getVariableById(valor2.id);
+          if (referencedVar) {
+            if (typeof valor1 === 'object' && valor1 !== null) {
+              if ('type' in valor1 && valor1.type === 'STRING' && 
+                  'value' in valor1 && referencedVar.name === valor1.value) {
+                return true;
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("Erro ao resolver variável referenciada:", e);
+        }
+      }
+      
       // Se for tipo COLOR, compara os componentes RGB
       if (typeof valor1 === 'object' && typeof valor2 === 'object' && 
           valor1.type === 'COLOR' && valor2.type === 'COLOR') {
@@ -1690,6 +1744,43 @@ async function substituirVariaveisEmColecao(matches: Array<{
                     variavel: varBiblioteca,
                     valor: valorBiblioteca
                   });
+                  continue; // Se encontramos uma correspondência, não precisamos verificar outros modos
+                }
+                
+                // CASO ESPECIAL: Verificar se o valor atual é uma referência e resolver para comparação adicional
+                if (valorAtual && typeof valorAtual === 'object' && 
+                   'type' in valorAtual && valorAtual.type === 'VARIABLE_ALIAS' && 
+                   'id' in valorAtual) {
+                  try {
+                    // Buscar a variável referenciada
+                    const varReferenciada = figma.variables.getVariableById((valorAtual as any).id);
+                    if (varReferenciada) {
+                      // Verificar se o nome da variável é igual ao nome da variável da biblioteca
+                      if (varReferenciada.name === varBiblioteca.name) {
+                        console.log(`Correspondência por nome entre ${varReferenciada.name} e ${varBiblioteca.name}`);
+                        correspondencias.push({
+                          variavel: varBiblioteca,
+                          valor: valorBiblioteca
+                        });
+                        continue;
+                      }
+                      
+                      // Tentar resolver o valor real e comparar
+                      for (const modoVarRef in varReferenciada.valuesByMode) {
+                        const valorReal = varReferenciada.valuesByMode[modoVarRef];
+                        if (valorReal && valoresIguais(valorReal, valorBiblioteca)) {
+                          console.log(`Correspondência por valor resolvido entre ${varReferenciada.name} e ${varBiblioteca.name}`);
+                          correspondencias.push({
+                            variavel: varBiblioteca,
+                            valor: valorBiblioteca
+                          });
+                          break;
+                        }
+                      }
+                    }
+                  } catch (e) {
+                    console.warn("Erro ao resolver valor de referência:", e);
+                  }
                 }
               }
             }
