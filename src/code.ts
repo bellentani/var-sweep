@@ -1540,39 +1540,52 @@ async function substituirVariaveisEmColecao(matches: Array<{
     let variaveisAlteradas = 0;
     let variaveisComErro = 0;
     
-    // Primeiro, importar diretamente todas as variáveis da biblioteca que estão nos matches
-    console.log("Importando variáveis da biblioteca...");
-    const variaveisImportadas = new Map<string, any>(); // Key da biblioteca -> Variável local importada
-    
-    for (const match of matches) {
-      try {
-        if (!match.libraryId) {
-          console.warn(`Match para variável ${match.localName} não tem ID da biblioteca`);
-          continue;
+    // Função para formatar valor para exibição nos logs
+    function formatarValorLog(valor: any): string {
+      if (!valor) return "undefined";
+      
+      if (typeof valor === 'object') {
+        if (valor.type === 'COLOR') {
+          return `RGB(${Math.round(valor.r * 255)},${Math.round(valor.g * 255)},${Math.round(valor.b * 255)})`;
+        } else if (valor.type === 'FLOAT') {
+          return `${valor.value}`;
+        } else if (valor.type === 'STRING') {
+          return `"${valor.value}"`;
+        } else if (valor.type === 'VARIABLE_ALIAS') {
+          const refVar = figma.variables.getVariableById(valor.id);
+          return `Alias -> ${refVar ? refVar.name : valor.id}`;
+        } else {
+          return JSON.stringify(valor);
         }
-        
-        // Importar a variável da biblioteca
-        console.log(`Importando variável ${match.libraryName} (ID: ${match.libraryId})...`);
-        
-        try {
-          // @ts-ignore
-          const importedVar = await figma.variables.importVariableByKeyAsync(match.libraryId);
-          
-          if (importedVar) {
-            variaveisImportadas.set(match.libraryId, importedVar);
-            console.log(`Variável ${match.libraryName} importada com sucesso, ID local: ${importedVar.id}`);
-          } else {
-            console.warn(`Não foi possível importar a variável ${match.libraryName}`);
-          }
-        } catch (importErr) {
-          console.warn(`Erro ao importar variável ${match.libraryName}: ${importErr}`);
+      }
+      
+      return String(valor);
+    }
+    
+    // Primeiro, carregar todas as coleções de variáveis da biblioteca
+    // @ts-ignore
+    const variableCollections = await figma.teamLibrary.getAvailableLibraryVariableCollectionsAsync();
+    
+    if (!variableCollections || !Array.isArray(variableCollections)) {
+      throw new Error("Não foi possível obter as coleções de variáveis da biblioteca");
+    }
+    
+    // Obter todas as variáveis de todas as coleções da biblioteca
+    console.log("Carregando todas as variáveis da biblioteca...");
+    const todasVariaveisBiblioteca: any[] = [];
+    for (const collection of variableCollections) {
+      try {
+        // @ts-ignore
+        const variables = await figma.teamLibrary.getVariablesInLibraryCollectionAsync(collection.key);
+        if (variables && Array.isArray(variables)) {
+          todasVariaveisBiblioteca.push(...variables);
         }
       } catch (err) {
-        console.warn(`Erro ao processar match para ${match.localName}: ${err}`);
+        console.warn(`Erro ao obter variáveis da coleção ${collection.name}:`, err);
       }
     }
     
-    console.log(`Importadas ${variaveisImportadas.size} variáveis da biblioteca`);
+    console.log(`Carregadas ${todasVariaveisBiblioteca.length} variáveis da biblioteca`);
     
     // Para cada variável nos matches
     for (const match of matches) {
@@ -1593,29 +1606,30 @@ async function substituirVariaveisEmColecao(matches: Array<{
         
         console.log(`Processando variável local: ${localVar.name}`);
         
-        // Obter a variável da biblioteca correspondente que foi importada
-        const importedVar = variaveisImportadas.get(match.libraryId);
+        // Encontrar a variável da biblioteca pelo ID
+        const libVar = todasVariaveisBiblioteca.find(v => v.key === match.libraryId);
+        if (!libVar) {
+          console.warn(`Variável da biblioteca com ID ${match.libraryId} não encontrada`);
+          continue;
+        }
         
-        if (!importedVar) {
-          console.warn(`Variável importada para ${match.libraryName} não encontrada, tentando importar novamente...`);
+        console.log(`Variável da biblioteca encontrada: ${libVar.name}`);
+        
+        // Importar a variável da biblioteca
+        let importedVar = null;
+        try {
+          // @ts-ignore
+          importedVar = await figma.variables.importVariableByKeyAsync(match.libraryId);
           
-          try {
-            // @ts-ignore
-            const newImportedVar = await figma.variables.importVariableByKeyAsync(match.libraryId);
-            
-            if (newImportedVar) {
-              console.log(`Variável ${match.libraryName} importada com sucesso na segunda tentativa, ID local: ${newImportedVar.id}`);
-              variaveisImportadas.set(match.libraryId, newImportedVar);
-            } else {
-              console.warn(`Não foi possível importar a variável ${match.libraryName} na segunda tentativa`);
-              variaveisComErro++;
-              continue;
-            }
-          } catch (importErr) {
-            console.warn(`Erro ao importar variável ${match.libraryName} na segunda tentativa: ${importErr}`);
-            variaveisComErro++;
+          if (!importedVar) {
+            console.warn(`Não foi possível importar a variável ${match.libraryName}`);
             continue;
           }
+          
+          console.log(`Variável ${match.libraryName} importada com sucesso, ID local: ${importedVar.id}`);
+        } catch (importErr) {
+          console.warn(`Erro ao importar variável ${match.libraryName}: ${importErr}`);
+          continue;
         }
         
         // Flag para indicar se houve alteração em algum modo desta variável
@@ -1636,27 +1650,28 @@ async function substituirVariaveisEmColecao(matches: Array<{
                 continue;
               }
               
-              // Criar a referência para a variável importada
-              const referencia = {
-                type: "VARIABLE_ALIAS" as const,
-                id: variaveisImportadas.get(match.libraryId)?.id || ""
-              };
-              
-              if (!referencia.id) {
-                console.warn(`ID da variável importada para ${match.libraryName} não encontrado`);
-                continue;
-              }
-              
               console.log(`Processando modo: ${modoName} (ID: ${modoId}) para variável ${localVar.name}`);
               
+              // Obter o valor atual neste modo
+              const valorAtual = localVar.valuesByMode[modoId];
+              
+              // Obter o valor correspondente da variável importada
+              const refVariavel = {
+                type: "VARIABLE_ALIAS" as const,
+                id: importedVar.id
+              };
+              
+              // Log detalhado com valores
+              console.log(`Modo ${modoName} está ${formatarValorLog(valorAtual)} e vai para Alias -> ${importedVar.name}`);
+              
               // Fazer backup do valor atual para caso de erro
-              const valorBackup = localVar.valuesByMode[modoId];
+              const valorBackup = valorAtual;
               
               try {
                 // Aplicar a referência SOMENTE para este modo específico
-                localVar.setValueForMode(modoId, referencia);
+                localVar.setValueForMode(modoId, refVariavel);
                 variavelAlterada = true;
-                console.log(`Modo ${modoName} atualizado com sucesso para ${match.libraryName}`);
+                console.log(`Modo ${modoName} atualizado com sucesso para ${importedVar.name}`);
               } catch (err) {
                 console.warn(`Erro ao aplicar referência para modo ${modoName}: ${err}`);
                 
