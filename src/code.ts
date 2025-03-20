@@ -2007,11 +2007,179 @@ figma.ui.onmessage = async (msg) => {
 
   if (msg.type === 'search-variables') {
     console.log('Procurando variáveis e estilos...');
-    await procurarVariaveisEEstilos({
+    
+    // Verificamos se a flag matchByName está presente na mensagem
+    console.log('Opções recebidas:', { 
       scope: msg.scope || 'selection',
       libraryId: msg.libraryId,
-      collectionId: msg.collectionId
+      collectionId: msg.collectionId,
+      checkMatch: msg.checkMatch,
+      matchByName: msg.matchByName
     });
+    
+    // Busca variáveis e estilos e aplica correspondência baseada nas opções
+    const nodes = msg.scope === 'page' ? figma.currentPage.children : figma.currentPage.selection;
+    
+    if (!nodes || nodes.length === 0) {
+      figma.ui.postMessage({ type: 'no-variables-found', message: 'Nenhum elemento selecionado.' });
+      return;
+    }
+    
+    try {
+      // Buscar variáveis e estilos nos nós
+      const foundVariables = await buscarVariaveisEEstilos(msg.scope || 'selection');
+      
+      // Se não encontramos variáveis, informamos à UI
+      if (!foundVariables || foundVariables.length === 0) {
+        figma.ui.postMessage({ type: 'no-variables-found', message: 'Nenhuma variável ou estilo encontrado.' });
+        return;
+      }
+      
+      console.log(`Processando ${foundVariables.length} variáveis encontradas para verificar correspondências`);
+      
+      // Mostrar variáveis encontradas (para debug)
+      foundVariables.forEach((v, i) => {
+        if (i < 10) { // Limitar a 10 para não inundar o console
+          console.log(`  - [${i}] Nome: "${v.name}", Tipo: ${v.type}`);
+        }
+      });
+      
+      // Verificar a correspondência com variáveis reais da coleção selecionada
+      if (msg.matchByName && msg.checkMatch && msg.libraryId && msg.collectionId) {
+        console.log(`Buscando variáveis reais na biblioteca ${msg.libraryId}, coleção ${msg.collectionId}`);
+        
+        try {
+          // 1. Obter as variáveis reais da biblioteca/coleção selecionada
+          // @ts-ignore - API pode não estar nas tipagens
+          const variableCollections = await figma.teamLibrary.getAvailableLibraryVariableCollectionsAsync();
+          
+          if (!variableCollections || !Array.isArray(variableCollections)) {
+            throw new Error("Não foi possível obter as coleções de variáveis");
+          }
+          
+          // Encontrar a coleção específica
+          const collection = variableCollections.find((collection: any) => {
+            return collection.key === msg.collectionId || collection.id === msg.collectionId;
+          }) as any;
+          
+          if (!collection) {
+            console.warn(`Coleção com ID ${msg.collectionId} não encontrada`);
+            figma.ui.postMessage({
+              type: 'variables-found',
+              variables: foundVariables
+            });
+            return;
+          }
+          
+          console.log(`Coleção encontrada: ${collection.name}`);
+          
+          // 2. Obter variáveis da coleção
+          // @ts-ignore
+          const collectionVariables = await figma.teamLibrary.getVariablesInLibraryCollectionAsync(collection.key);
+          
+          if (!collectionVariables || !Array.isArray(collectionVariables)) {
+            console.warn("Não foi possível obter as variáveis da coleção");
+            figma.ui.postMessage({
+              type: 'variables-found',
+              variables: foundVariables
+            });
+            return;
+          }
+          
+          console.log(`Encontradas ${collectionVariables.length} variáveis na coleção de referência`);
+          
+          // Extrair os nomes das variáveis da coleção para facilitar a busca
+          const collectionVarNames = collectionVariables.map((v: any) => v.name.toLowerCase());
+          console.log(`Nomes das variáveis na coleção: ${collectionVarNames.slice(0, 5).join(', ')}${collectionVarNames.length > 5 ? '...' : ''}`);
+          
+          // 3. Determinar o tipo predominante das variáveis na coleção (para logging)
+          let colorCount = 0;
+          let floatCount = 0;
+          let stringCount = 0;
+          
+          collectionVariables.forEach((v: any) => {
+            if (v.resolvedType === 'COLOR') colorCount++;
+            else if (v.resolvedType === 'FLOAT') floatCount++;
+            else if (v.resolvedType === 'STRING') stringCount++;
+          });
+          
+          console.log(`Tipos na coleção - COLOR: ${colorCount}, FLOAT: ${floatCount}, STRING: ${stringCount}`);
+          
+          const predominantType = colorCount > floatCount && colorCount > stringCount 
+            ? 'COLOR' 
+            : floatCount > colorCount && floatCount > stringCount 
+              ? 'FLOAT' 
+              : 'STRING';
+          
+          console.log(`Tipo predominante na coleção: ${predominantType}`);
+          
+          // 4. Marcar correspondências baseadas nos nomes das variáveis
+          const variablesWithMatch = foundVariables.map(variable => {
+            // Uma variável tem match se seu nome existir na coleção de referência
+            // ou se for uma parte significativa de um nome na coleção
+            let hasMatch = false;
+            
+            // Nome da variável para comparação
+            const varName = variable.name.toLowerCase();
+            
+            // 4.1 Match exato pelo nome
+            if (collectionVarNames.includes(varName)) {
+              console.log(`Match exato para "${varName}"`);
+              hasMatch = true;
+            } 
+            // 4.2 Match parcial - verificar se alguma variável na coleção contém este nome
+            else {
+              // Se for um nome curto (menos de 3 caracteres), precisa de match exato
+              if (varName.length >= 3) {
+                for (const name of collectionVarNames) {
+                  if (name.includes(varName) || varName.includes(name)) {
+                    console.log(`Match parcial: "${varName}" com "${name}"`);
+                    hasMatch = true;
+                    break;
+                  }
+                }
+              }
+            }
+            
+            // 4.3 Se não encontrou match por nome, verificar se o tipo corresponde ao predominante
+            if (!hasMatch && variable.type === predominantType) {
+              console.log(`Match por tipo para "${varName}" (${variable.type} corresponde ao predominante)`);
+              hasMatch = variable.type === predominantType;
+            }
+            
+            return {
+              ...variable,
+              hasMatch
+            };
+          });
+          
+          // Contar quantas variáveis estão marcadas como match
+          const matchCount = variablesWithMatch.filter(v => v.hasMatch).length;
+          console.log(`CORRESPONDÊNCIA BASEADA EM NOMES: ${matchCount} de ${variablesWithMatch.length} variáveis marcadas como correspondentes`);
+          
+          figma.ui.postMessage({
+            type: 'variables-found',
+            variables: variablesWithMatch
+          });
+          return;
+        } catch (error) {
+          console.error('Erro ao buscar variáveis da coleção:', error);
+          // Em caso de erro, continuamos com o fluxo normal
+        }
+      }
+      
+      // Caso não estejamos usando matchByName ou ocorreu algum erro, continuamos com o fluxo normal
+      figma.ui.postMessage({
+        type: 'variables-found',
+        variables: foundVariables
+      });
+    } catch (error) {
+      console.error('Erro ao buscar variáveis:', error);
+      figma.ui.postMessage({
+        type: 'error',
+        error: 'Erro ao buscar variáveis e estilos.'
+      });
+    }
   }
   else if (msg.type === 'ui-ready') {
     console.log('UI pronta, carregando dados iniciais...');

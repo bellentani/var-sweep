@@ -1208,7 +1208,8 @@
           libraryId: libraryId,
           collectionId: collectionId,
           scope: scope,
-          checkMatch: true // Flag para verificar correspondências
+          checkMatch: true, // Flag para verificar correspondências
+          matchByName: true // Verificar match pelo nome e não pelo ID
         }
       }, '*');
     }
@@ -1384,7 +1385,8 @@
           libraryId: libraryId,
           collectionId: collectionId,
           scope: scope,
-          checkMatch: true // Flag para verificar correspondências
+          checkMatch: true, // Flag para verificar correspondências
+          matchByName: true // Verificar match pelo nome e não pelo ID
         } 
       }, '*');
     });
