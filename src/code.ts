@@ -1208,9 +1208,11 @@ async function buscarVariaveisEEstilos(escopo: 'selection' | 'page'): Promise<Va
 }
 
 // Função para procurar variáveis e estilos nos nós selecionados
-async function procurarVariaveisEEstilos(): Promise<void> {
+async function procurarVariaveisEEstilos(options: {scope: 'selection' | 'page', libraryId?: string, collectionId?: string}): Promise<void> {
   try {
     console.log("Buscando variáveis e estilos...");
+    console.log("Opções:", options);
+    
     const selection = figma.currentPage.selection;
     
     if (!selection || selection.length === 0) {
@@ -1221,7 +1223,7 @@ async function procurarVariaveisEEstilos(): Promise<void> {
       return;
     }
     
-    const variables = await buscarVariaveisEEstilos('selection');
+    const variables = await buscarVariaveisEEstilos(options.scope);
     
     console.log(`Encontradas ${variables.length} variáveis e estilos`);
     
@@ -1234,6 +1236,12 @@ async function procurarVariaveisEEstilos(): Promise<void> {
           const variableObj = figma.variables.getVariableById(variable.collection);
           
           if (variableObj) {
+            // Filtrar por coleção específica, se fornecida
+            if (options.collectionId && options.collectionId !== variableObj.variableCollectionId) {
+              console.log(`Variável ${variable.name} ignorada - não pertence à coleção ${options.collectionId}`);
+              return null; // Ignorar esta variável se não pertencer à coleção selecionada
+            }
+            
             // Obter a coleção para acessar os modos
             const collection = figma.variables.getVariableCollectionById(variableObj.variableCollectionId);
             
@@ -1269,17 +1277,20 @@ async function procurarVariaveisEEstilos(): Promise<void> {
       return variable;
     }));
     
-    if (processedVariables.length > 0) {
+    // Filtrar as variáveis nulas (que foram excluídas pelo filtro de coleção)
+    const filteredVariables = processedVariables.filter(v => v !== null);
+    
+    if (filteredVariables.length > 0) {
       console.log("Enviando variáveis encontradas para a UI");
       
       // Adicionando logs para debug
-      const colorVars = processedVariables.filter(v => v.type === 'COLOR' && v.isRealVariable === true);
+      const colorVars = filteredVariables.filter(v => v.type === 'COLOR' && v.isRealVariable === true);
       console.log(`Variáveis de cor reais encontradas: ${colorVars.length}`);
       colorVars.forEach(v => console.log(`  - ${v.name} (${v.collection})`));
       
       figma.ui.postMessage({
         type: 'variables-found',
-        variables: processedVariables
+        variables: filteredVariables
       });
     } else {
       figma.ui.postMessage({
@@ -1996,7 +2007,11 @@ figma.ui.onmessage = async (msg) => {
 
   if (msg.type === 'search-variables') {
     console.log('Procurando variáveis e estilos...');
-    await procurarVariaveisEEstilos();
+    await procurarVariaveisEEstilos({
+      scope: msg.scope || 'selection',
+      libraryId: msg.libraryId,
+      collectionId: msg.collectionId
+    });
   }
   else if (msg.type === 'ui-ready') {
     console.log('UI pronta, carregando dados iniciais...');
@@ -2046,8 +2061,24 @@ figma.ui.onmessage = async (msg) => {
     }
     
     if (nodesToProcess.length > 0 && msg.variables && Array.isArray(msg.variables)) {
+      console.log(`Substituindo variáveis para biblioteca ID: ${msg.libraryId}, coleção ID: ${msg.collectionId}`);
+      console.log(`Escopo: ${scope}, Nós para processar: ${nodesToProcess.length}`);
+      
+      // Filtrar variáveis pela coleção, se especificada
+      let variablesToApply = msg.variables;
+      if (msg.collectionId) {
+        variablesToApply = msg.variables.filter((v: VariableInfo) => {
+          // Se a variável tiver informação de coleção, verificar se corresponde
+          if (v.variableCollectionId) {
+            return v.variableCollectionId === msg.collectionId;
+          }
+          return true; // Manter variáveis sem informação de coleção
+        });
+        console.log(`Variáveis após filtro de coleção: ${variablesToApply.length} de ${msg.variables.length}`);
+      }
+      
       for (const node of nodesToProcess) {
-        await substituirVariaveisEEstilos(node, msg.variables);
+        await substituirVariaveisEEstilos(node, variablesToApply);
       }
       figma.notify(`Variáveis e estilos substituídos com sucesso!`);
     } else {
