@@ -1207,7 +1207,8 @@
           type: 'search-variables',
           libraryId: libraryId,
           collectionId: collectionId,
-          scope: scope
+          scope: scope,
+          checkMatch: true // Flag para verificar correspondências
         }
       }, '*');
     }
@@ -1273,21 +1274,15 @@
               <ul>`;
 
             items.slice(0, 5).forEach(item => {
-              // Adicionar uma prévia de cor para o tipo COLOR
-              let colorPreview = '';
-              if (groupName === 'colors') {
-                // Se temos um valor de cor real, usamos ele
-                const colorStyle = item.colorValue ? 
-                  `background-color: ${item.colorValue};` : 
-                  'background-color: rgba(255, 0, 0, 0.5);'; // Cor padrão caso não tenha
-                
-                colorPreview = `<span class="color-preview" style="${colorStyle}"></span>`;
-              }
+              // Adicionar indicador de correspondência
+              const matchIndicator = item.hasMatch ? 
+                '<span class="match-indicator" style="color: green; margin-right: 4px;">match</span>' : 
+                '<span class="match-indicator" style="color: red; margin-right: 4px;">unmatch</span>';
               
               html += `<li>
-                ${colorPreview}
+                ${matchIndicator}
                 <span class="var-name" title="${item.name}">${item.name}</span>
-                <span class="var-type ${groupName.slice(0, -1)}">${item.type}</span>
+                ${groupName !== 'colors' && groupName !== 'numbers' ? `<span class="var-type ${groupName.slice(0, -1)}">${item.type}</span>` : ''}
                 ${item.collection ? `<span class="var-collection" title="${item.collection}">${item.collection}</span>` : ''}
               </li>`;
             });
@@ -1339,9 +1334,15 @@
               <ul>`;
 
             items.slice(0, 5).forEach(item => {
+              // Adicionar indicador de correspondência
+              const matchIndicator = item.hasMatch ? 
+                '<span class="match-indicator" style="color: green; margin-right: 4px;">match</span>' : 
+                '<span class="match-indicator" style="color: red; margin-right: 4px;">unmatch</span>';
+                
               html += `<li>
+                ${matchIndicator}
                 <span class="var-name" title="${item.name}">${item.name}</span>
-                <span class="var-type ${styleClasses[groupName]}">Estilo</span>
+                ${groupName !== 'textStyles' ? `<span class="var-type ${styleClasses[groupName]}">Estilo</span>` : ''}
                 ${item.collection ? `<span class="var-collection" title="${item.collection}">${item.collection}</span>` : ''}
               </li>`;
             });
@@ -1371,8 +1372,21 @@
       variablePreview.classList.remove('hidden');
       previewContentVar.innerHTML = '<div class="loading">Procurando variáveis e estilos...</div>';
       
+      // Obtém a biblioteca e coleção selecionadas
+      const libraryId = librarySelectVar.value;
+      const collectionId = collectionSelectVar.value;
+      const scope = document.querySelector('input[name="scope"]:checked').value;
+      
       // Envia mensagem para o plugin procurar as variáveis
-      parent.postMessage({ pluginMessage: { type: 'search-variables' } }, '*');
+      parent.postMessage({ 
+        pluginMessage: { 
+          type: 'search-variables',
+          libraryId: libraryId,
+          collectionId: collectionId,
+          scope: scope,
+          checkMatch: true // Flag para verificar correspondências
+        } 
+      }, '*');
     });
 
     // Manipulador de mensagens do plugin
@@ -1631,21 +1645,15 @@
         const item = items[i];
         const li = document.createElement('li');
         
-        // Adiciona amostra de cor para o tipo COLOR
-        let colorPreviewHTML = '';
-        if (groupType === 'colors') {
-          // Se temos um valor de cor real, usamos ele
-          const colorStyle = item.colorValue ? 
-            `background-color: ${item.colorValue};` : 
-            'background-color: rgba(255, 0, 0, 0.5);'; // Cor padrão caso não tenha
-            
-          colorPreviewHTML = `<span class="color-preview" style="${colorStyle}"></span>`;
-        }
-        
+        // Adicionar indicador de correspondência
+        const matchIndicator = item.hasMatch ? 
+          '<span class="match-indicator" style="color: green; margin-right: 4px;">match</span>' : 
+          '<span class="match-indicator" style="color: red; margin-right: 4px;">unmatch</span>';
+          
         li.innerHTML = `
-          ${colorPreviewHTML}
+          ${matchIndicator}
           <span class="var-name" title="${item.name}">${item.name}</span>
-          <span class="var-type ${groupType.slice(0, -1)}">${item.type}</span>
+          ${groupType !== 'colors' && groupType !== 'numbers' ? `<span class="var-type ${groupType.slice(0, -1)}">${item.type}</span>` : ''}
           ${item.collection ? `<span class="var-collection" title="${item.collection}">${item.collection}</span>` : ''}
         `;
         ulElement.appendChild(li);
