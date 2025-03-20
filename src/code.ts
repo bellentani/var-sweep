@@ -1060,11 +1060,11 @@ async function buscarVariaveisEEstilos(escopo: 'selection' | 'page'): Promise<Va
                 const variable = figma.variables.getVariableById(varItem.id);
                 if (variable && !addedVariableIds.has(variable.id)) {
                   addedVariableIds.add(variable.id);
-                  variables.push({
-                    name: variable.name,
-                    type: variable.resolvedType.toString(),
-                    collection: variable.variableCollectionId,
-                    nodeId: node.id,
+              variables.push({
+                name: variable.name,
+                type: variable.resolvedType.toString(),
+                collection: variable.variableCollectionId,
+                nodeId: node.id,
                     property: `${property}[${index}]`,
                     isRealVariable: true // Esta é uma variável real
                   });
@@ -1152,9 +1152,9 @@ async function buscarVariaveisEEstilos(escopo: 'selection' | 'page'): Promise<Va
           collection: 'Strokes',
           nodeId: node.id,
           property: 'stroke'
-        });
-      }
-    }
+                  });
+                }
+              }
 
     if ('effectStyleId' in node && node.effectStyleId) {
       const style = figma.getStyleById(node.effectStyleId.toString());
@@ -2300,4 +2300,449 @@ figma.ui.onmessage = async (msg) => {
     console.log('Aba ativa alterada:', msg.tabId);
     // Implementar lógica específica para mudança de aba se necessário
   }
+  else if (msg.type === 'substituir-variaveis') {
+    console.log('Iniciando substituição de variáveis...');
+    console.log('Escopo:', msg.scope);
+    console.log('Biblioteca:', msg.libraryId);
+    console.log('Coleção:', msg.collectionId);
+    console.log('Variáveis a substituir:', msg.variables.length);
+    
+    // Verificar se temos os dados necessários
+    if (!msg.libraryId || !msg.collectionId || !msg.variables || msg.variables.length === 0) {
+      figma.ui.postMessage({
+        type: 'substituicao-concluida',
+        success: false,
+        message: 'Não foi possível substituir variáveis: dados insuficientes.'
+      });
+      return;
+    }
+    
+    try {
+      // Definir o escopo de nós a serem processados
+      const nodes = msg.scope === 'page' ? figma.currentPage.children : figma.currentPage.selection;
+      
+      if (!nodes || nodes.length === 0) {
+        figma.ui.postMessage({
+          type: 'substituicao-concluida',
+          success: false,
+          message: 'Nenhum elemento selecionado para substituição.'
+        });
+        return;
+      }
+      
+      console.log(`Processando ${nodes.length} nós no escopo ${msg.scope}`);
+      
+      // Chamar a função de substituição para cada nó
+      substituirVariaveisNoEscopo(nodes, msg.variables, msg.libraryId, msg.collectionId)
+        .then((resultado) => {
+          console.log('Substituição concluída:', resultado);
+          
+          figma.ui.postMessage({
+            type: 'substituicao-concluida',
+            success: true,
+            message: `Substituição concluída! ${resultado.sucessos} variáveis substituídas, ${resultado.falhas} falhas.`
+          });
+        })
+        .catch((erro) => {
+          console.error('Erro na substituição:', erro);
+          
+          figma.ui.postMessage({
+            type: 'substituicao-concluida',
+            success: false,
+            message: `Erro ao substituir variáveis: ${erro.message || erro}`
+          });
+        });
+    } catch (error) {
+      console.error('Erro ao processar substituição:', error);
+      
+      figma.ui.postMessage({
+        type: 'substituicao-concluida',
+        success: false,
+        message: `Erro ao processar substituição: ${(error as Error).message || String(error)}`
+      });
+    }
+  }
 }; 
+
+// Adicionar esta nova função para substituir variáveis no escopo
+async function substituirVariaveisNoEscopo(
+  nodes: readonly SceneNode[],
+  variaveisParaSubstituir: Array<{
+    id: string,
+    name: string,
+    type?: string,
+    property?: string,
+    nodeId?: string,
+    hasMatch?: boolean
+  }>,
+  libraryId: string,
+  collectionId: string
+): Promise<{ sucessos: number, falhas: number }> {
+  let sucessos = 0;
+  let falhas = 0;
+  
+  // 1. Obter as variáveis da biblioteca/coleção alvo para fazer correspondência
+  // @ts-ignore - API pode não estar nas tipagens
+  const variableCollections = await figma.teamLibrary.getAvailableLibraryVariableCollectionsAsync();
+  
+  if (!variableCollections || !Array.isArray(variableCollections)) {
+    throw new Error("Não foi possível obter as coleções de variáveis");
+  }
+  
+  // Encontrar a coleção específica
+  const collection = variableCollections.find((col: any) => {
+    return col.key === collectionId || col.id === collectionId;
+  }) as any;
+  
+  if (!collection) {
+    throw new Error(`Coleção com ID ${collectionId} não encontrada`);
+  }
+  
+  console.log(`Coleção alvo encontrada: ${collection.name}`);
+  
+  // 2. Obter variáveis da coleção
+  // @ts-ignore
+  const collectionVariables = await figma.teamLibrary.getVariablesInLibraryCollectionAsync(collection.key);
+  
+  if (!collectionVariables || !Array.isArray(collectionVariables)) {
+    throw new Error("Não foi possível obter as variáveis da coleção");
+  }
+  
+  console.log(`Encontradas ${collectionVariables.length} variáveis na coleção de referência`);
+  
+  // 3. Processar cada nó recursivamente
+  async function processarNo(node: SceneNode) {
+    try {
+      // 3.1 Verificar se alguma das variáveis para substituir está neste nó
+      for (const varInfo of variaveisParaSubstituir) {
+        // Se a variável tem um nodeId específico, verificar se é este nó
+        if (varInfo.nodeId && varInfo.nodeId !== node.id) {
+          continue;
+        }
+        
+        // Determinar o tipo de substituição com base no tipo da variável
+        if (varInfo.type === 'COLOR' || varInfo.property === 'fill' || varInfo.property === 'stroke') {
+          // 3.2 Substituir cor, preenchimento ou borda
+          await substituirPropriedadeCor(node, varInfo, collectionVariables);
+        } 
+        else if (varInfo.type === 'FLOAT') {
+          // 3.3 Substituir variável numérica
+          await substituirPropriedadeNumerica(node, varInfo, collectionVariables);
+        }
+        else if (varInfo.property === 'effect') {
+          // 3.4 Substituir efeito
+          await substituirPropriedadeEfeito(node, varInfo, collectionVariables);
+        }
+        else if (varInfo.property === 'text') {
+          // 3.5 Substituir estilo de texto
+          await substituirPropriedadeTexto(node, varInfo, collectionVariables);
+        }
+        else if (varInfo.property === 'grid') {
+          // 3.6 Substituir grid
+          await substituirPropriedadeGrid(node, varInfo, collectionVariables);
+        }
+      }
+      
+      // 3.7 Processar filhos do nó, se houver
+      if ('children' in node) {
+        for (const child of node.children) {
+          await processarNo(child as SceneNode);
+        }
+      }
+    } catch (erro) {
+      console.error(`Erro ao processar nó ${node.name}:`, erro);
+      falhas++;
+    }
+  }
+  
+  // 4. Função auxiliar para substituir propriedades de cor (fill, stroke, color)
+  async function substituirPropriedadeCor(node: SceneNode, varInfo: any, collectionVariables: any[]) {
+    // Encontrar a variável correspondente na coleção alvo
+    const variavelAlvo = encontrarVariavelCorrespondente(varInfo, collectionVariables);
+    
+    if (!variavelAlvo) {
+      console.warn(`Não foi encontrada variável correspondente para ${varInfo.name}`);
+      falhas++;
+      return;
+    }
+    
+    try {
+      if (varInfo.property === 'fill' && 'fills' in node) {
+        // Substituir preenchimento
+        if (Array.isArray(node.fills) && node.fills.length > 0) {
+          // Criar uma cópia do array de fills
+          const novosFills = [...node.fills];
+          
+          // Substituir apenas o fill que corresponde à variável
+          let substituido = false;
+          
+          for (let i = 0; i < novosFills.length; i++) {
+            const fill = novosFills[i];
+            if (fill.type === 'SOLID') {
+              // Aplicar a variável de cor ao preenchimento
+              // @ts-ignore - Substituir diretamente pelo ID da variável
+              novosFills[i] = figma.variables.setBoundVariableForPaint(
+                fill, 
+                'color', 
+                variavelAlvo.id
+              );
+              substituido = true;
+              break; // Substituir apenas o primeiro
+            }
+          }
+          
+          if (substituido) {
+            // Atualizar os fills no nó
+            node.fills = novosFills;
+            console.log(`✅ Substituído preenchimento em ${node.name} para ${variavelAlvo.name}`);
+            sucessos++;
+          }
+        }
+      } 
+      else if (varInfo.property === 'stroke' && 'strokes' in node) {
+        // Substituir borda
+        if (Array.isArray(node.strokes) && node.strokes.length > 0) {
+          // Criar uma cópia do array de strokes
+          const novosStrokes = [...node.strokes];
+          
+          // Substituir apenas o stroke que corresponde à variável
+          let substituido = false;
+          
+          for (let i = 0; i < novosStrokes.length; i++) {
+            const stroke = novosStrokes[i];
+            if (stroke.type === 'SOLID') {
+              // Aplicar a variável de cor à borda
+              // @ts-ignore - Substituir diretamente pelo ID da variável
+              novosStrokes[i] = figma.variables.setBoundVariableForPaint(
+                stroke, 
+                'color', 
+                variavelAlvo.id
+              );
+              substituido = true;
+              break; // Substituir apenas o primeiro
+            }
+          }
+          
+          if (substituido) {
+            // Atualizar os strokes no nó
+            node.strokes = novosStrokes;
+            console.log(`✅ Substituída borda em ${node.name} para ${variavelAlvo.name}`);
+            sucessos++;
+          }
+        }
+      }
+      else if (varInfo.type === 'COLOR' && 'fillStyleId' in node) {
+        // Se é um estilo de preenchimento, tentar substituir pelo estilo correspondente
+        // @ts-ignore
+        const estiloCorrespondente = await figma.teamLibrary.getStyleByKeyAsync(variavelAlvo.key);
+        if (estiloCorrespondente) {
+          node.fillStyleId = estiloCorrespondente.id;
+          console.log(`✅ Substituído estilo de preenchimento em ${node.name} para ${variavelAlvo.name}`);
+          sucessos++;
+        }
+      }
+    } catch (erro) {
+      console.error(`Erro ao substituir propriedade de cor em ${node.name}:`, erro);
+      falhas++;
+    }
+  }
+  
+  // 5. Função auxiliar para substituir propriedades numéricas
+  async function substituirPropriedadeNumerica(node: SceneNode, varInfo: any, collectionVariables: any[]) {
+    // Encontrar a variável correspondente na coleção alvo
+    const variavelAlvo = encontrarVariavelCorrespondente(varInfo, collectionVariables);
+    
+    if (!variavelAlvo) {
+      console.warn(`Não foi encontrada variável correspondente para ${varInfo.name}`);
+      falhas++;
+      return;
+    }
+    
+    try {
+      // Verificar propriedades numéricas comuns que podem ser substituídas
+      if ('opacity' in node && varInfo.name.toLowerCase().includes('opacity')) {
+        // @ts-ignore
+        node.boundVariables = {
+          ...node.boundVariables,
+          opacity: {
+            id: variavelAlvo.id,
+            type: 'VARIABLE'
+          }
+        };
+        console.log(`✅ Substituída opacidade em ${node.name} para ${variavelAlvo.name}`);
+        sucessos++;
+      }
+      else if ('cornerRadius' in node && varInfo.name.toLowerCase().includes('radius')) {
+        // @ts-ignore
+        node.boundVariables = {
+          ...node.boundVariables,
+          cornerRadius: {
+            id: variavelAlvo.id,
+            type: 'VARIABLE'
+          }
+        };
+        console.log(`✅ Substituído raio de borda em ${node.name} para ${variavelAlvo.name}`);
+        sucessos++;
+      }
+      else if ('width' in node && varInfo.name.toLowerCase().includes('width')) {
+        // @ts-ignore
+        node.boundVariables = {
+          ...node.boundVariables,
+          width: {
+            id: variavelAlvo.id,
+            type: 'VARIABLE'
+          }
+        };
+        console.log(`✅ Substituída largura em ${node.name} para ${variavelAlvo.name}`);
+        sucessos++;
+      }
+      else if ('height' in node && varInfo.name.toLowerCase().includes('height')) {
+        // @ts-ignore
+        node.boundVariables = {
+          ...node.boundVariables,
+          height: {
+            id: variavelAlvo.id,
+            type: 'VARIABLE'
+          }
+        };
+        console.log(`✅ Substituída altura em ${node.name} para ${variavelAlvo.name}`);
+        sucessos++;
+      }
+      else if ('paddingLeft' in node && varInfo.name.toLowerCase().includes('padding')) {
+        // @ts-ignore
+        node.boundVariables = {
+          ...node.boundVariables,
+          paddingLeft: {
+            id: variavelAlvo.id,
+            type: 'VARIABLE'
+          }
+        };
+        console.log(`✅ Substituído padding em ${node.name} para ${variavelAlvo.name}`);
+        sucessos++;
+      }
+      // Adicione outras propriedades numéricas conforme necessário
+    } catch (erro) {
+      console.error(`Erro ao substituir propriedade numérica em ${node.name}:`, erro);
+      falhas++;
+    }
+  }
+  
+  // 6. Função auxiliar para substituir efeitos
+  async function substituirPropriedadeEfeito(node: SceneNode, varInfo: any, collectionVariables: any[]) {
+    try {
+      if ('effects' in node && Array.isArray(node.effects) && node.effects.length > 0) {
+        // Para efeitos, vamos substituir o estilo de efeito inteiro
+        if ('effectStyleId' in node) {
+          // Tentar encontrar o estilo correspondente na biblioteca
+          // @ts-ignore
+          const estilosDisponiveis = await figma.teamLibrary.getAvailableComponentsAsync();
+          
+          const estiloEfeito = estilosDisponiveis.find((estilo: any) => 
+            estilo.name === varInfo.name && estilo.styleType === 'EFFECT'
+          );
+          
+          if (estiloEfeito) {
+            node.effectStyleId = estiloEfeito.key;
+            console.log(`✅ Substituído estilo de efeito em ${node.name} para ${estiloEfeito.name}`);
+            sucessos++;
+          } else {
+            console.warn(`Não foi encontrado estilo de efeito correspondente para ${varInfo.name}`);
+            falhas++;
+          }
+        }
+      }
+    } catch (erro) {
+      console.error(`Erro ao substituir propriedade de efeito em ${node.name}:`, erro);
+      falhas++;
+    }
+  }
+  
+  // 7. Função auxiliar para substituir estilos de texto
+  async function substituirPropriedadeTexto(node: SceneNode, varInfo: any, collectionVariables: any[]) {
+    try {
+      if (node.type === 'TEXT' && 'textStyleId' in node) {
+        // Tentar encontrar o estilo correspondente na biblioteca
+        // @ts-ignore
+        const estilosDisponiveis = await figma.teamLibrary.getAvailableComponentsAsync();
+        
+        const estiloTexto = estilosDisponiveis.find((estilo: any) => 
+          estilo.name === varInfo.name && estilo.styleType === 'TEXT'
+        );
+        
+        if (estiloTexto) {
+          node.textStyleId = estiloTexto.key;
+          console.log(`✅ Substituído estilo de texto em ${node.name} para ${estiloTexto.name}`);
+          sucessos++;
+        } else {
+          console.warn(`Não foi encontrado estilo de texto correspondente para ${varInfo.name}`);
+          falhas++;
+        }
+      }
+    } catch (erro) {
+      console.error(`Erro ao substituir propriedade de texto em ${node.name}:`, erro);
+      falhas++;
+    }
+  }
+  
+  // 8. Função auxiliar para substituir grids
+  async function substituirPropriedadeGrid(node: SceneNode, varInfo: any, collectionVariables: any[]) {
+    try {
+      if ('layoutGrids' in node && Array.isArray(node.layoutGrids) && node.layoutGrids.length > 0) {
+        // Para grids, vamos substituir o estilo de grid inteiro
+        if ('gridStyleId' in node) {
+          // Tentar encontrar o estilo correspondente na biblioteca
+          // @ts-ignore
+          const estilosDisponiveis = await figma.teamLibrary.getAvailableComponentsAsync();
+          
+          const estiloGrid = estilosDisponiveis.find((estilo: any) => 
+            estilo.name === varInfo.name && estilo.styleType === 'GRID'
+          );
+          
+          if (estiloGrid) {
+            node.gridStyleId = estiloGrid.key;
+            console.log(`✅ Substituído estilo de grid em ${node.name} para ${estiloGrid.name}`);
+            sucessos++;
+          } else {
+            console.warn(`Não foi encontrado estilo de grid correspondente para ${varInfo.name}`);
+            falhas++;
+          }
+        }
+      }
+    } catch (erro) {
+      console.error(`Erro ao substituir propriedade de grid em ${node.name}:`, erro);
+      falhas++;
+    }
+  }
+  
+  // 9. Função auxiliar para encontrar a variável correspondente na coleção alvo
+  function encontrarVariavelCorrespondente(varInfo: any, collectionVariables: any[]) {
+    // Primeiro tentar encontrar correspondência exata pelo nome
+    let variavelAlvo = collectionVariables.find((v: any) => 
+      v.name.toLowerCase() === varInfo.name.toLowerCase()
+    );
+    
+    // Se não encontrar exata, procurar por correspondência parcial
+    if (!variavelAlvo && varInfo.name.length >= 3) {
+      variavelAlvo = collectionVariables.find((v: any) => 
+        v.name.toLowerCase().includes(varInfo.name.toLowerCase()) || 
+        varInfo.name.toLowerCase().includes(v.name.toLowerCase())
+      );
+    }
+    
+    // Se não encontrar por nome, tentar por tipo
+    if (!variavelAlvo && varInfo.type) {
+      variavelAlvo = collectionVariables.find((v: any) => 
+        v.resolvedType === varInfo.type
+      );
+    }
+    
+    return variavelAlvo;
+  }
+  
+  // 10. Processar todos os nós no escopo
+  for (const node of nodes) {
+    await processarNo(node);
+  }
+  
+  return { sucessos, falhas };
+}

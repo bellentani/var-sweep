@@ -765,6 +765,137 @@
       display: flex;
       align-items: center;
     }
+
+    /* Estilos para o modal de confirmação */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.2s, visibility 0.2s;
+    }
+    
+    .modal-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+    
+    .modal-container {
+      background: white;
+      border-radius: 8px;
+      padding: 24px;
+      width: 90%;
+      max-width: 500px;
+      max-height: 80vh;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      display: flex;
+      flex-direction: column;
+      font-size: 14px;
+    }
+    
+    .modal-header {
+      margin-bottom: 16px;
+    }
+    
+    .modal-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #333;
+      margin: 0;
+    }
+    
+    .modal-content {
+      flex: 1;
+      overflow-y: auto;
+      margin-bottom: 16px;
+    }
+    
+    .modal-variables-list {
+      max-height: 300px;
+      overflow-y: auto;
+      margin-bottom: 16px;
+      border: 1px solid #eee;
+      border-radius: 4px;
+      padding: 8px;
+    }
+    
+    .var-item {
+      padding: 6px 8px;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      align-items: center;
+    }
+    
+    .var-item:last-child {
+      border-bottom: none;
+    }
+    
+    .modal-item-match {
+      color: #059669;
+      margin-left: 4px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      background-color: #d1fae5;
+    }
+    
+    .modal-item-no-match {
+      color: #b91c1c;
+      margin-left: 4px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      background-color: #fee2e2;
+    }
+    
+    .modal-item-native {
+      color: #2563eb;
+      margin-left: 4px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      background-color: #dbeafe;
+    }
+    
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+    }
+    
+    .modal-button {
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: none;
+      font-size: 13px;
+      cursor: pointer;
+      margin-left: 8px;
+    }
+    
+    .modal-button-cancel {
+      background-color: #e5e7eb;
+      color: #374151;
+    }
+    
+    .modal-button-confirm {
+      background-color: #18a0fb;
+      color: white;
+    }
+    
+    .modal-button-confirm:hover {
+      background-color: #0d8fe0;
+    }
+    
+    .modal-button-cancel:hover {
+      background-color: #d1d5db;
+    }
   </style>
 </head>
 <body>
@@ -876,6 +1007,26 @@
     </div>
     
     <button id="refresh-button" class="action-button">Recarregar</button>
+  </div>
+
+  <!-- Modal de confirmação para substituição de variáveis -->
+  <div id="confirm-modal" class="modal-overlay">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 class="modal-title">Confirmar Substituição de Variáveis</h3>
+      </div>
+      <div class="modal-content">
+        <p>Você está prestes a substituir as seguintes variáveis e estilos:</p>
+        <div id="modal-variables-list" class="modal-variables-list">
+          <!-- Lista de variáveis a serem substituídas -->
+        </div>
+        <p><strong>Nota:</strong> A substituição será aplicada apenas ao escopo selecionado.</p>
+      </div>
+      <div class="modal-footer">
+        <button id="modal-cancel" class="modal-button modal-button-cancel">Cancelar</button>
+        <button id="modal-confirm" class="modal-button modal-button-confirm">Confirmar Substituição</button>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -1234,134 +1385,62 @@
     // Função para formatar a lista de variáveis
     function formatVariablesList(variables) {
       if (!variables || variables.length === 0) {
-        return '<p>Nenhuma variável ou estilo encontrado.</p>';
+        return '<p>Nenhuma variável ou estilo encontrado nos elementos selecionados.</p>';
       }
-
-      let html = '';
-
-      // Agrupar variáveis e estilos por tipo, filtrando apenas variáveis reais
-      const groups = {
+      
+      // Calcular quantos itens têm match vs quantos não têm
+      const matchCount = variables.filter(v => v.hasMatch).length;
+      const totalCount = variables.length;
+      
+      // Iniciar HTML com o resumo
+      let html = `<p><strong>${matchCount} de ${totalCount}</strong> itens têm correspondência na coleção selecionada.</p>`;
+      
+      // Organizar variáveis por tipo
+      const variablesByType = {
         colors: variables.filter(v => v.type === 'COLOR' && v.isRealVariable === true),
-        numbers: variables.filter(v => v.type === 'FLOAT'),
-        texts: variables.filter(v => v.type === 'STRING'),
-        booleans: variables.filter(v => v.type === 'BOOLEAN'),
         fills: variables.filter(v => v.property === 'fill'),
         strokes: variables.filter(v => v.property === 'stroke'),
+        numbers: variables.filter(v => v.type === 'FLOAT'),
+        texts: variables.filter(v => v.type === 'STRING'),
         effects: variables.filter(v => v.property === 'effect'),
         textStyles: variables.filter(v => v.property === 'text'),
         grids: variables.filter(v => v.property === 'grid')
       };
-
-      // Primeiro, mostrar as variáveis
-      if (groups.colors.length > 0 || groups.numbers.length > 0 || 
-          groups.texts.length > 0 || groups.booleans.length > 0) {
-        html += '<div class="section-title">Variáveis</div>';
+      
+      // Adicionar cada tipo de variável
+      for (const [type, vars] of Object.entries(variablesByType)) {
+        if (vars.length === 0) continue;
         
-        // Mapeamento de nomes amigáveis para os tipos de variáveis
-        const varNames = {
-          colors: 'Cores',
-          numbers: 'Números',
-          texts: 'Textos',
-          booleans: 'Booleanos'
-        };
+        // Determinar o título com base no tipo
+        let title = '';
+        switch (type) {
+          case 'colors': title = 'Variáveis de Cor'; break;
+          case 'fills': title = 'Preenchimentos'; break;
+          case 'strokes': title = 'Bordas'; break;
+          case 'numbers': title = 'Variáveis Numéricas'; break;
+          case 'texts': title = 'Variáveis de Texto'; break;
+          case 'effects': title = 'Efeitos'; break;
+          case 'textStyles': title = 'Estilos de Texto'; break;
+          case 'grids': title = 'Grids de Layout'; break;
+          default: title = 'Outros'; break;
+        }
         
-        // Gerar HTML para cada grupo de variáveis
-        ['colors', 'numbers', 'texts', 'booleans'].forEach(groupName => {
-          const items = groups[groupName];
-          if (items.length > 0) {
-            const groupId = `group-${groupName}`;
-            html += `<div class="variable-group" data-group="${groupId}">
-              <h3>${varNames[groupName]} (${items.length})</h3>
-              <ul>`;
-
-            items.slice(0, 5).forEach(item => {
-              // Adicionar indicador de correspondência
-              const matchIndicator = item.hasMatch ? 
-                '<span class="match-indicator" style="color: green; margin-right: 4px;">match</span>' : 
-                '<span class="match-indicator" style="color: red; margin-right: 4px;">unmatch</span>';
-              
-              html += `<li>
-                ${matchIndicator}
-                <span class="var-name" title="${item.name}">${item.name}</span>
-                ${groupName !== 'colors' && groupName !== 'numbers' ? `<span class="var-type ${groupName.slice(0, -1)}">${item.type}</span>` : ''}
-                ${item.collection ? `<span class="var-collection" title="${item.collection}">${item.collection}</span>` : ''}
-              </li>`;
-            });
-
-            if (items.length > 5) {
-              html += `<li class="more-items">
-                <button class="load-more-button" data-group="${groupId}" data-type="${groupName}">
-                  Mostrar +${items.length - 5} itens
-                </button>
-              </li>`;
-            }
-
-            html += '</ul></div>';
-          }
+        // Calcular quantos itens deste tipo têm match
+        const typeMatchCount = vars.filter(v => v.hasMatch).length;
+        
+        html += `<h4>${title} (${typeMatchCount}/${vars.length})</h4>`;
+        
+        vars.forEach((v, idx) => {
+          // Adicionar indicador visual de match/unmatch no início da linha
+          const matchIndicator = v.hasMatch ? 
+            '<span class="match-indicator" style="color: green; margin-right: 4px;">match</span>' : 
+            '<span class="match-indicator" style="color: red; margin-right: 4px;">unmatch</span>';
+          
+          html += `${matchIndicator} ${v.name}<br>`;
         });
       }
-
-      // Depois, mostrar os estilos
-      if (groups.fills.length > 0 || groups.strokes.length > 0 || 
-          groups.effects.length > 0 || groups.textStyles.length > 0 || 
-          groups.grids.length > 0) {
-        html += '<div class="section-title">Estilos</div>';
-        
-        // Mapeamento de nomes amigáveis para os tipos de estilo
-        const styleNames = {
-          fills: 'Preenchimentos',
-          strokes: 'Contornos',
-          effects: 'Efeitos',
-          textStyles: 'Textos',
-          grids: 'Grids'
-        };
-        
-        // Mapeamento de classes CSS para os tipos de estilo
-        const styleClasses = {
-          fills: 'fill',
-          strokes: 'stroke',
-          effects: 'effect',
-          textStyles: 'text-style',
-          grids: 'grid'
-        };
-        
-        // Gerar HTML para cada grupo de estilos
-        ['fills', 'strokes', 'effects', 'textStyles', 'grids'].forEach(groupName => {
-          const items = groups[groupName];
-          if (items.length > 0) {
-            const groupId = `group-${groupName}`;
-            html += `<div class="variable-group" data-group="${groupId}">
-              <h3>${styleNames[groupName]} (${items.length})</h3>
-              <ul>`;
-
-            items.slice(0, 5).forEach(item => {
-              // Adicionar indicador de correspondência
-              const matchIndicator = item.hasMatch ? 
-                '<span class="match-indicator" style="color: green; margin-right: 4px;">match</span>' : 
-                '<span class="match-indicator" style="color: red; margin-right: 4px;">unmatch</span>';
-                
-              html += `<li>
-                ${matchIndicator}
-                <span class="var-name" title="${item.name}">${item.name}</span>
-                ${groupName !== 'textStyles' ? `<span class="var-type ${styleClasses[groupName]}">Estilo</span>` : ''}
-                ${item.collection ? `<span class="var-collection" title="${item.collection}">${item.collection}</span>` : ''}
-              </li>`;
-            });
-
-            if (items.length > 5) {
-              html += `<li class="more-items">
-                <button class="load-more-button" data-group="${groupId}" data-type="${groupName}">
-                  Mostrar +${items.length - 5} itens
-                </button>
-              </li>`;
-            }
-
-            html += '</ul></div>';
-          }
-        });
-      }
-
-      return html || '<p>Nenhuma variável ou estilo encontrado.</p>';
+      
+      return html;
     }
 
     // Variável para armazenar as variáveis completas por grupo
@@ -1608,6 +1687,19 @@
             showErrorUpdate(message.message);
           }
           updateButton.disabled = false;
+          break;
+
+        case 'substituicao-concluida':
+          // Atualizar o resultado da substituição de variáveis
+          searchVariablesBtn.disabled = false;
+          updateButtonVar.disabled = false;
+          loadingPreviewVar.style.display = 'none';
+          
+          if (message.success) {
+            showInfoVar(message.message || "Substituição concluída com sucesso!");
+          } else {
+            showErrorVar(message.message || "Erro ao substituir variáveis");
+          }
           break;
       }
     };
@@ -1876,6 +1968,225 @@
       // Configurar eventos após atualizar o conteúdo
       setupPaginationEvents();
     }
+
+    // Elemento do modal
+    const confirmModal = document.getElementById('confirm-modal');
+    const modalVariablesList = document.getElementById('modal-variables-list');
+    const modalCancel = document.getElementById('modal-cancel');
+    const modalConfirm = document.getElementById('modal-confirm');
+
+    // Eventos para botões na aba Update Variables
+    searchVariablesBtn.addEventListener('click', () => {
+      // Verificar se uma biblioteca e coleção foram selecionadas
+      if (!librarySelectVar.value) {
+        showErrorVar("Por favor, selecione uma biblioteca de referência primeiro.");
+        return;
+      }
+      
+      if (!collectionSelectVar.value) {
+        showErrorVar("Por favor, selecione uma coleção de referência primeiro.");
+        return;
+      }
+      
+      // Mostrar o loading
+      loadingPreviewVar.style.display = 'block';
+      // Esconder o erro
+      hideErrorVar();
+      // Mostrar o container de preview
+      variablePreview.classList.remove('hidden');
+      // Desabilitar o botão enquanto procura
+      searchVariablesBtn.disabled = true;
+      updateButtonVar.disabled = true;
+      
+      // Obter o escopo selecionado
+      const scopeRadio = document.querySelector('input[name="scope"]:checked');
+      const scope = scopeRadio ? scopeRadio.value : 'selection';
+      
+      // Limpar variáveis encontradas
+      foundVariables = [];
+      
+      // Enviar mensagem para o plugin
+      parent.postMessage({ 
+        pluginMessage: { 
+          type: 'search-variables',
+          scope: scope,
+          libraryId: librarySelectVar.value,
+          collectionId: collectionSelectVar.value,
+          matchByName: true,
+          checkMatch: true
+        } 
+      }, '*');
+    });
+    
+    // Função para formatar a lista de variáveis para exibição
+    function formatVariablesList(variables) {
+      if (!variables || variables.length === 0) {
+        return '<p>Nenhuma variável ou estilo encontrado nos elementos selecionados.</p>';
+      }
+      
+      // Calcular quantos itens têm match vs quantos não têm
+      const matchCount = variables.filter(v => v.hasMatch).length;
+      const totalCount = variables.length;
+      
+      // Iniciar HTML com o resumo
+      let html = `<p><strong>${matchCount} de ${totalCount}</strong> itens têm correspondência na coleção selecionada.</p>`;
+      
+      // Organizar variáveis por tipo
+      const variablesByType = {
+        colors: variables.filter(v => v.type === 'COLOR' && v.isRealVariable === true),
+        fills: variables.filter(v => v.property === 'fill'),
+        strokes: variables.filter(v => v.property === 'stroke'),
+        numbers: variables.filter(v => v.type === 'FLOAT'),
+        texts: variables.filter(v => v.type === 'STRING'),
+        effects: variables.filter(v => v.property === 'effect'),
+        textStyles: variables.filter(v => v.property === 'text'),
+        grids: variables.filter(v => v.property === 'grid')
+      };
+      
+      // Adicionar cada tipo de variável
+      for (const [type, vars] of Object.entries(variablesByType)) {
+        if (vars.length === 0) continue;
+        
+        // Determinar o título com base no tipo
+        let title = '';
+        switch (type) {
+          case 'colors': title = 'Variáveis de Cor'; break;
+          case 'fills': title = 'Preenchimentos'; break;
+          case 'strokes': title = 'Bordas'; break;
+          case 'numbers': title = 'Variáveis Numéricas'; break;
+          case 'texts': title = 'Variáveis de Texto'; break;
+          case 'effects': title = 'Efeitos'; break;
+          case 'textStyles': title = 'Estilos de Texto'; break;
+          case 'grids': title = 'Grids de Layout'; break;
+          default: title = 'Outros'; break;
+        }
+        
+        // Calcular quantos itens deste tipo têm match
+        const typeMatchCount = vars.filter(v => v.hasMatch).length;
+        
+        html += `<h4>${title} (${typeMatchCount}/${vars.length})</h4>`;
+        
+        vars.forEach((v, idx) => {
+          // Adicionar indicador visual de match/unmatch no início da linha
+          const matchIndicator = v.hasMatch ? 
+            '<span class="match-indicator" style="color: green; margin-right: 4px;">match</span>' : 
+            '<span class="match-indicator" style="color: red; margin-right: 4px;">unmatch</span>';
+          
+          html += `${matchIndicator} ${v.name}<br>`;
+        });
+      }
+      
+      return html;
+    }
+    
+    // Função para mostrar o modal de confirmação com as variáveis a serem substituídas
+    function showConfirmModal() {
+      if (!foundVariables || foundVariables.length === 0) {
+        showErrorVar("Nenhuma variável encontrada para substituir.");
+        return;
+      }
+      
+      // Limpar a lista de variáveis do modal
+      modalVariablesList.innerHTML = '';
+      
+      // Classificar variáveis: correspondentes, sem correspondência e nativas
+      const matchingVars = foundVariables.filter(v => v.hasMatch && !v.isFromExternalLibrary);
+      const nonMatchingVars = foundVariables.filter(v => !v.hasMatch);
+      const nativeVars = foundVariables.filter(v => v.isFromExternalLibrary);
+      
+      // Adicionar variáveis correspondentes
+      if (matchingVars.length > 0) {
+        const matchingHeader = document.createElement('div');
+        matchingHeader.className = 'modal-group-header';
+        matchingHeader.innerHTML = `<strong>Variáveis a serem substituídas (${matchingVars.length})</strong>`;
+        modalVariablesList.appendChild(matchingHeader);
+        
+        matchingVars.forEach(v => {
+          const item = document.createElement('div');
+          item.className = 'var-item';
+          item.innerHTML = `
+            <span class="var-name">${v.name}</span>
+            <span class="modal-item-match">Será substituída</span>
+          `;
+          modalVariablesList.appendChild(item);
+        });
+      }
+      
+      // Adicionar variáveis nativas que não serão alteradas
+      if (nativeVars.length > 0) {
+        const nativeHeader = document.createElement('div');
+        nativeHeader.className = 'modal-group-header';
+        nativeHeader.innerHTML = `<strong>Variáveis nativas que não serão alteradas (${nativeVars.length})</strong>`;
+        modalVariablesList.appendChild(nativeHeader);
+        
+        nativeVars.forEach(v => {
+          const item = document.createElement('div');
+          item.className = 'var-item';
+          item.innerHTML = `
+            <span class="var-name">${v.name}</span>
+            <span class="modal-item-native">Já é nativa</span>
+          `;
+          modalVariablesList.appendChild(item);
+        });
+      }
+      
+      // Adicionar variáveis sem correspondência
+      if (nonMatchingVars.length > 0) {
+        const nonMatchingHeader = document.createElement('div');
+        nonMatchingHeader.className = 'modal-group-header';
+        nonMatchingHeader.innerHTML = `<strong>Variáveis sem correspondência (${nonMatchingVars.length})</strong>`;
+        modalVariablesList.appendChild(nonMatchingHeader);
+        
+        nonMatchingVars.forEach(v => {
+          const item = document.createElement('div');
+          item.className = 'var-item';
+          item.innerHTML = `
+            <span class="var-name">${v.name}</span>
+            <span class="modal-item-no-match">Sem correspondência</span>
+          `;
+          modalVariablesList.appendChild(item);
+        });
+      }
+      
+      // Mostrar o modal
+      confirmModal.classList.add('active');
+    }
+    
+    // Evento para fechar o modal ao clicar em cancelar
+    modalCancel.addEventListener('click', () => {
+      confirmModal.classList.remove('active');
+    });
+    
+    // Evento para confirmar a substituição
+    modalConfirm.addEventListener('click', () => {
+      // Esconder o modal
+      confirmModal.classList.remove('active');
+      
+      // Mostrar loading e desabilitar botão
+      loadingPreviewVar.style.display = 'block';
+      updateButtonVar.disabled = true;
+      
+      // Obter o escopo selecionado
+      const scopeRadio = document.querySelector('input[name="scope"]:checked');
+      const scope = scopeRadio ? scopeRadio.value : 'selection';
+      
+      // Filtrar apenas as variáveis que têm correspondência e não são nativas
+      const variablesToReplace = foundVariables.filter(v => v.hasMatch && !v.isFromExternalLibrary);
+      
+      // Enviar mensagem para o plugin com as variáveis a serem substituídas
+      parent.postMessage({ 
+        pluginMessage: { 
+          type: 'substituir-variaveis',
+          scope: scope,
+          libraryId: librarySelectVar.value,
+          collectionId: collectionSelectVar.value,
+          variables: variablesToReplace
+        } 
+      }, '*');
+    });
+    
+    // Evento para o botão de atualizar variáveis
+    updateButtonVar.addEventListener('click', showConfirmModal);
   });
 </script>
 </body>
