@@ -2044,6 +2044,19 @@ figma.ui.onmessage = async (msg) => {
         }
       });
       
+      // Separar estilos de texto, efeitos e layout grid que precisam ser tratados separadamente
+      const regularVariables = foundVariables.filter(v => 
+        v.type !== 'style' || 
+        (v.property !== 'text' && v.property !== 'effect' && v.property !== 'grid')
+      );
+      
+      const specialStyles = foundVariables.filter(v => 
+        v.type === 'style' && 
+        (v.property === 'text' || v.property === 'effect' || v.property === 'grid')
+      );
+      
+      console.log(`Identificados ${regularVariables.length} variáveis regulares e ${specialStyles.length} estilos especiais`);
+      
       // Verificar a correspondência com variáveis reais da coleção selecionada
       if (msg.matchByName && msg.checkMatch && msg.libraryId && msg.collectionId) {
         console.log(`Buscando variáveis reais na biblioteca ${msg.libraryId}, coleção ${msg.collectionId}`);
@@ -2113,8 +2126,8 @@ figma.ui.onmessage = async (msg) => {
           
           console.log(`Tipo predominante na coleção: ${predominantType}`);
           
-          // 4. Marcar correspondências baseadas nos nomes das variáveis
-          const variablesWithMatch = foundVariables.map(variable => {
+          // 4. Marcar correspondências baseadas nos nomes das variáveis (apenas para variáveis regulares)
+          const regularVariablesWithMatch = regularVariables.map(variable => {
             // Uma variável tem match se seu nome existir na coleção de referência
             // ou se for uma parte significativa de um nome na coleção
             let hasMatch = false;
@@ -2153,13 +2166,35 @@ figma.ui.onmessage = async (msg) => {
             };
           });
           
+          // 5. Marcar correspondências para estilos especiais (text, effect, grid)
+          // Para esses estilos, consideramos que eles sempre têm match quando uma biblioteca é selecionada
+          const specialStylesWithMatch = specialStyles.map(style => {
+            let hasMatch = true; // Por padrão, consideramos match para esses estilos especiais
+            
+            // Verificações adicionais para log
+            const styleType = style.property === 'text' ? 'texto' : 
+                             style.property === 'effect' ? 'efeito' : 'grid';
+            
+            console.log(`Estilo de ${styleType} "${style.name}" marcado como match por exceção`);
+            
+            return {
+              ...style,
+              hasMatch
+            };
+          });
+          
+          // 6. Combinar os resultados
+          const allVariablesWithMatch = [...regularVariablesWithMatch, ...specialStylesWithMatch];
+          
           // Contar quantas variáveis estão marcadas como match
-          const matchCount = variablesWithMatch.filter(v => v.hasMatch).length;
-          console.log(`CORRESPONDÊNCIA BASEADA EM NOMES: ${matchCount} de ${variablesWithMatch.length} variáveis marcadas como correspondentes`);
+          const matchCount = allVariablesWithMatch.filter(v => v.hasMatch).length;
+          console.log(`CORRESPONDÊNCIA TOTAL: ${matchCount} de ${allVariablesWithMatch.length} itens marcados como correspondentes`);
+          console.log(`- Variáveis regulares: ${regularVariablesWithMatch.filter(v => v.hasMatch).length} de ${regularVariablesWithMatch.length}`);
+          console.log(`- Estilos especiais: ${specialStylesWithMatch.filter(v => v.hasMatch).length} de ${specialStylesWithMatch.length}`);
           
           figma.ui.postMessage({
             type: 'variables-found',
-            variables: variablesWithMatch
+            variables: allVariablesWithMatch
           });
           return;
         } catch (error) {
