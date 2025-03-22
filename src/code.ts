@@ -2974,250 +2974,233 @@ async function buscarEAplicarEstiloTexto(
   try {
     console.log(`Buscando estilo de texto "${nomeEstilo}" na biblioteca "${nomeBiblioteca}"...`);
     
-    // 1. Obter os estilos disponíveis de outra maneira
-    // Primeiro, buscar a API correta
-    let estilosDisponiveis: any[] = [];
-    
-    try {
-      // Método 1: Usar importStyleByKeyAsync
-      // @ts-ignore
-      if (figma.getLocalTextStyles && typeof figma.getLocalTextStyles === 'function') {
-        const localStyles = await figma.getLocalTextStyles();
-        console.log(`Encontrados ${localStyles.length} estilos de texto locais`);
+    // Método simplificado e direto usando importStylesFromLibraryAsync
+    // @ts-ignore - API pode não estar nas tipagens antigas
+    if (figma.importStylesFromLibraryAsync && typeof figma.importStylesFromLibraryAsync === 'function') {
+      // Criar o objeto de busca
+      const estiloBuscado = {
+        libraryName: nomeBiblioteca,
+        styleName: nomeEstilo,
+        styleType: "TEXT" as const
+      };
+      
+      console.log(`Tentando importar estilo "${nomeEstilo}" da biblioteca "${nomeBiblioteca}" usando importStylesFromLibraryAsync...`);
+      
+      try {
+        // @ts-ignore - API pode não estar nas tipagens
+        const estilosImportados = await figma.importStylesFromLibraryAsync([estiloBuscado]);
         
-        // Encontrar estilos com o mesmo nome
-        const estiloLocal = localStyles.find(style => style.name === nomeEstilo);
-        if (estiloLocal) {
-          console.log(`Encontrado estilo local com o mesmo nome: "${estiloLocal.name}"`);
+        if (estilosImportados && estilosImportados.length > 0) {
+          const estiloImportado = estilosImportados[0];
+          console.log(`Estilo "${nomeEstilo}" importado com sucesso: ${estiloImportado.name} (ID: ${estiloImportado.id})`);
           
-          // Aplicar diretamente
-          if ('textStyleId' in node) {
-            node.textStyleId = estiloLocal.id;
-            return {
-              sucesso: true,
-              mensagem: "Aplicado estilo local com o mesmo nome",
-              nomeEstilo: estiloLocal.name
+          // Aplicar o estilo
+          node.textStyleId = estiloImportado.id;
+          
+          // Forçar atualização visual
+          node.setRelaunchData({ update: '' });
+          
+          return {
+            sucesso: true,
+            mensagem: "Estilo importado e aplicado com sucesso",
+            nomeEstilo: estiloImportado.name
+          };
+        }
+      } catch (importErr) {
+        console.warn(`Erro ao importar estilo diretamente: ${importErr}`);
+        
+        // Tentar com nome diferente (variações de formatação)
+        try {
+          // Verificar nomes alternativos
+          const nomesSimilares = [
+            nomeEstilo,
+            nomeEstilo.toLowerCase(),
+            nomeEstilo.replace(/\//g, ' / '),
+            nomeEstilo.split('/').pop() || nomeEstilo,        // Último segmento
+            nomeEstilo.split('/').slice(-2).join('/'),        // Últimos dois segmentos
+            nomeEstilo.replace(/^action\//, 'txt/'),          // Substituir action/ por txt/
+            nomeEstilo.replace(/^action\//, 'text/')          // Substituir action/ por text/
+          ];
+          
+          console.log(`Tentando com nomes alternativos: ${nomesSimilares.join(', ')}`);
+          
+          // Tentar cada nome alternativo
+          for (const nome of nomesSimilares) {
+            if (nome === nomeEstilo) continue; // Pular o nome original
+            
+            const buscaAlternativa = {
+              libraryName: nomeBiblioteca,
+              styleName: nome,
+              styleType: "TEXT" as const
             };
+            
+            console.log(`Tentando importar estilo com nome alternativo: "${nome}"...`);
+            
+            try {
+              // @ts-ignore - API pode não estar nas tipagens
+              const estilosAlternativos = await figma.importStylesFromLibraryAsync([buscaAlternativa]);
+              
+              if (estilosAlternativos && estilosAlternativos.length > 0) {
+                const estiloAlternativo = estilosAlternativos[0];
+                console.log(`Estilo alternativo "${nome}" importado com sucesso: ${estiloAlternativo.name}`);
+                
+                // Aplicar o estilo
+                node.textStyleId = estiloAlternativo.id;
+                
+                // Forçar atualização visual
+                node.setRelaunchData({ update: '' });
+                
+                return {
+                  sucesso: true,
+                  mensagem: `Estilo alternativo "${nome}" importado e aplicado com sucesso`,
+                  nomeEstilo: estiloAlternativo.name
+                };
+              }
+            } catch (altErr) {
+              console.warn(`Erro ao importar estilo alternativo "${nome}": ${altErr}`);
+              // Continuar tentando com outros nomes
+            }
           }
+        } catch (altNamesErr) {
+          console.warn(`Erro ao tentar nomes alternativos: ${altNamesErr}`);
         }
       }
-      
-      // Método 2: Usar API de importable styles
-      // @ts-ignore
-      if (figma.importableTextStyles && Array.isArray(figma.importableTextStyles)) {
-        // @ts-ignore
-        estilosDisponiveis = figma.importableTextStyles;
-        console.log(`Encontrados ${estilosDisponiveis.length} estilos de texto importáveis`);
-      } 
-      // Método 3: Alternativo para versões mais novas
-      // @ts-ignore
-      else if (figma.importableLocalTextStyles && Array.isArray(figma.importableLocalTextStyles)) {
-        // @ts-ignore
-        estilosDisponiveis = figma.importableLocalTextStyles;
-        console.log(`Encontrados ${estilosDisponiveis.length} estilos de texto importáveis (método alternativo)`);
-      }
-      // Método 4: Usando importStylesFromLibraryAsync
-      else {
-        // Lista de bibliotecas
-        const bibliotecas = await obterTodasBibliotecas();
-        const biblioteca = Array.from(bibliotecas.values()).find(b => b.name === nomeBiblioteca);
+    }
+    
+    // Método 2: Buscar todos os estilos da biblioteca e encontrar correspondência
+    try {
+      // @ts-ignore - API pode não estar nas tipagens
+      if (figma.getLibraryTextStylesAsync && typeof figma.getLibraryTextStylesAsync === 'function') {
+        console.log(`Tentando obter todos os estilos de texto da biblioteca "${nomeBiblioteca}" com getLibraryTextStylesAsync...`);
         
-        if (biblioteca) {
-          console.log(`Encontrada biblioteca "${biblioteca.name}" para buscar estilos`);
+        // @ts-ignore
+        const estilosDaBiblioteca = await figma.getLibraryTextStylesAsync(nomeBiblioteca);
+        
+        if (estilosDaBiblioteca && Array.isArray(estilosDaBiblioteca) && estilosDaBiblioteca.length > 0) {
+          console.log(`Encontrados ${estilosDaBiblioteca.length} estilos de texto na biblioteca`);
           
-          try {
-            // Função mais recente para importar estilos
-            // @ts-ignore
-            if (figma.importStylesFromLibraryAsync && typeof figma.importStylesFromLibraryAsync === 'function') {
-              // Importar diretamente pelo nome
-              const estiloBuscado = {
-                libraryName: nomeBiblioteca,
-                styleName: nomeEstilo,
-                styleType: "TEXT"
-              };
-              
-              console.log(`Tentando importar estilo "${nomeEstilo}" diretamente...`);
-              
-              try {
-                // @ts-ignore
-                const estiloImportado = await figma.importStylesFromLibraryAsync([estiloBuscado]);
-                
-                if (estiloImportado && estiloImportado.length > 0) {
-                  console.log(`Estilo importado com sucesso: ${estiloImportado[0].name}`);
-                  
-                  // Aplicar o estilo
-                  node.textStyleId = estiloImportado[0].id;
-                  return {
-                    sucesso: true,
-                    mensagem: "Estilo importado e aplicado com sucesso",
-                    nomeEstilo: estiloImportado[0].name
-                  };
+          // Buscar um estilo com nome igual ou similar
+          let estiloEncontrado = null;
+          
+          // Primeiro, buscar correspondência exata
+          estiloEncontrado = estilosDaBiblioteca.find(estilo => estilo.name === nomeEstilo);
+          
+          // Se não encontrar, tentar correspondências parciais
+          if (!estiloEncontrado) {
+            // Tentar estilos que terminam com o mesmo nome (último segmento do caminho)
+            const ultimoSegmento = nomeEstilo.split('/').pop() || '';
+            estiloEncontrado = estilosDaBiblioteca.find(estilo => {
+              const ultimoSegmentoEstilo = estilo.name.split('/').pop() || '';
+              return ultimoSegmentoEstilo === ultimoSegmento && ultimoSegmento.length > 0;
+            });
+            
+            // Se ainda não encontrou, procurar por similaridade geral
+            if (!estiloEncontrado && ultimoSegmento.length > 0) {
+              for (const estilo of estilosDaBiblioteca) {
+                if (estilo.name.toLowerCase().includes(ultimoSegmento.toLowerCase())) {
+                  estiloEncontrado = estilo;
+                  break;
                 }
-              } catch (importErr) {
-                console.warn(`Erro ao importar estilo diretamente: ${importErr}`);
-                // Continuar com outras abordagens
               }
             }
-          } catch (err) {
-            console.warn(`Erro ao tentar importar estilos: ${err}`);
           }
-        }
-      }
-    } catch (apiErr) {
-      console.warn(`Erro ao acessar API de estilos: ${apiErr}`);
-    }
-    
-    if (estilosDisponiveis.length === 0) {
-      return { 
-        sucesso: false, 
-        mensagem: "Não foi possível obter estilos de texto das bibliotecas" 
-      };
-    }
-    
-    console.log(`Encontrados ${estilosDisponiveis.length} estilos de texto para processo de busca`);
-    
-    // 2. Filtrar estilos da biblioteca especificada (se a informação estiver disponível)
-    let estilosDaBiblioteca = estilosDisponiveis;
-    if (estilosDisponiveis[0] && 'libraryName' in estilosDisponiveis[0]) {
-      estilosDaBiblioteca = estilosDisponiveis.filter((estilo: any) => {
-        return estilo.libraryName === nomeBiblioteca;
-      });
-      
-      console.log(`Encontrados ${estilosDaBiblioteca.length} estilos na biblioteca "${nomeBiblioteca}"`);
-    }
-    
-    if (estilosDaBiblioteca.length === 0) {
-      return { 
-        sucesso: false, 
-        mensagem: `Não foram encontrados estilos de texto na biblioteca "${nomeBiblioteca}" ou não foi possível filtrar por biblioteca` 
-      };
-    }
-    
-    // 3. Procurar pelo estilo com o nome exato
-    let estiloEncontrado = estilosDaBiblioteca.find((estilo: any) => estilo.name === nomeEstilo);
-    
-    // 4. Se não encontrar pelo nome exato, tentar com correspondência parcial
-    if (!estiloEncontrado) {
-      // Primeiro tentar encontrar um estilo que termina com o nome do estilo original
-      estiloEncontrado = estilosDaBiblioteca.find((estilo: any) => 
-        estilo.name.endsWith(`/${nomeEstilo}`) || 
-        estilo.name.toLowerCase().endsWith(`/${nomeEstilo.toLowerCase()}`)
-      );
-      
-      // Se ainda não encontrou, tentar por correspondência parcial
-      if (!estiloEncontrado) {
-        for (const estilo of estilosDaBiblioteca) {
-          // Quebrar os nomes em partes e verificar se têm componentes em comum
-          const partesNomeOriginal = nomeEstilo.toLowerCase().split('/');
-          const partesNomeEstilo = estilo.name.toLowerCase().split('/');
           
-          // Verificar se pelo menos 2 partes coincidem
-          let partesCoincidentes = 0;
-          for (const parte of partesNomeOriginal) {
-            if (partesNomeEstilo.includes(parte) && parte.length > 2) {
-              partesCoincidentes++;
+          if (estiloEncontrado) {
+            console.log(`Encontrado estilo correspondente: "${estiloEncontrado.name}"`);
+            
+            try {
+              // @ts-ignore - API pode não estar nas tipagens
+              const estiloImportado = await figma.importTextStyleByKeyAsync(estiloEncontrado.key);
+              
+              if (estiloImportado) {
+                console.log(`Estilo "${estiloEncontrado.name}" importado com sucesso`);
+                
+                // Aplicar o estilo
+                node.textStyleId = estiloImportado.id;
+                
+                // Forçar atualização visual
+                node.setRelaunchData({ update: '' });
+                
+                return {
+                  sucesso: true,
+                  mensagem: "Estilo importado e aplicado com sucesso",
+                  nomeEstilo: estiloImportado.name
+                };
+              }
+            } catch (importErr) {
+              console.warn(`Erro ao importar estilo encontrado: ${importErr}`);
             }
           }
-          
-          if (partesCoincidentes >= 2) {
-            estiloEncontrado = estilo;
-            console.log(`Encontrada correspondência parcial para estilo de texto: "${estilo.name}"`);
-            break;
-          }
         }
       }
+    } catch (libraryErr) {
+      console.warn(`Erro ao buscar estilos da biblioteca: ${libraryErr}`);
     }
     
-    if (!estiloEncontrado) {
-      return { 
-        sucesso: false, 
-        mensagem: `Não foi encontrado estilo de texto com nome "${nomeEstilo}" na biblioteca "${nomeBiblioteca}"` 
-      };
-    }
-    
-    console.log(`Encontrado estilo de texto: "${estiloEncontrado.name}" (key: ${estiloEncontrado.key || 'N/A'})`);
-    
-    // 5. Importar o estilo encontrado
+    // Método 3: Buscar estilos localmente
     try {
-      let estiloImportado: any = null;
+      console.log("Tentando encontrar um estilo local com nome similar...");
       
-      // Método 1: Tentar importStyleByKeyAsync se disponível e tivermos a key
-      // @ts-ignore
-      if (estiloEncontrado.key && figma.importStyleByKeyAsync && typeof figma.importStyleByKeyAsync === 'function') {
-        try {
-          // @ts-ignore
-          estiloImportado = await figma.importStyleByKeyAsync(estiloEncontrado.key);
-          console.log("Estilo importado com sucesso usando importStyleByKeyAsync");
-        } catch (err) {
-          console.warn(`Erro ao importar estilo via importStyleByKeyAsync: ${err}`);
-        }
-      }
+      const estilosLocais = await figma.getLocalTextStylesAsync();
+      console.log(`Encontrados ${estilosLocais.length} estilos de texto locais`);
       
-      // Método 2: Tentar usar importStyleByIdAsync se disponível
-      // @ts-ignore
-      if (!estiloImportado && estiloEncontrado.id && figma.importStyleByIdAsync && typeof figma.importStyleByIdAsync === 'function') {
-        try {
-          // @ts-ignore
-          estiloImportado = await figma.importStyleByIdAsync(estiloEncontrado.id);
-          console.log("Estilo importado com sucesso usando importStyleByIdAsync");
-        } catch (err) {
-          console.warn(`Erro ao importar estilo via importStyleByIdAsync: ${err}`);
-        }
-      }
+      let melhorEstilo = null;
+      let melhorPontuacao = 0;
       
-      // Método 3: Tentar com importStylesFromLibraryAsync
-      // @ts-ignore
-      if (!estiloImportado && figma.importStylesFromLibraryAsync && typeof figma.importStylesFromLibraryAsync === 'function') {
-        try {
-          const estiloBuscado = {
-            libraryName: estiloEncontrado.libraryName || nomeBiblioteca,
-            styleName: estiloEncontrado.name,
-            styleType: "TEXT"
-          };
+      for (const estilo of estilosLocais) {
+        // Calcular similaridade
+        let pontuacao = 0;
+        
+        // Verificar se os nomes são exatamente iguais
+        if (estilo.name === nomeEstilo) {
+          pontuacao = 100;
+        } 
+        // Verificar último segmento do nome
+        else {
+          const ultimoSegmentoOriginal = nomeEstilo.split('/').pop() || '';
+          const ultimoSegmentoEstilo = estilo.name.split('/').pop() || '';
           
-          // @ts-ignore
-          const estilosImportados = await figma.importStylesFromLibraryAsync([estiloBuscado]);
-          
-          if (estilosImportados && estilosImportados.length > 0) {
-            estiloImportado = estilosImportados[0];
-            console.log("Estilo importado com sucesso usando importStylesFromLibraryAsync");
+          if (ultimoSegmentoOriginal === ultimoSegmentoEstilo && ultimoSegmentoOriginal.length > 0) {
+            pontuacao = 80;
           }
-        } catch (err) {
-          console.warn(`Erro ao importar estilo via importStylesFromLibraryAsync: ${err}`);
+          else if (ultimoSegmentoEstilo.includes(ultimoSegmentoOriginal) || 
+                   ultimoSegmentoOriginal.includes(ultimoSegmentoEstilo)) {
+            pontuacao = 60;
+          }
+        }
+        
+        if (pontuacao > melhorPontuacao) {
+          melhorPontuacao = pontuacao;
+          melhorEstilo = estilo;
         }
       }
       
-      if (!estiloImportado) {
-        return { 
-          sucesso: false, 
-          mensagem: `Não foi possível importar o estilo de texto "${estiloEncontrado.name}" - APIs indisponíveis` 
+      if (melhorEstilo && melhorPontuacao >= 60) {
+        console.log(`Encontrado estilo local similar: "${melhorEstilo.name}" (pontuação: ${melhorPontuacao})`);
+        
+        // Aplicar o estilo local
+        node.textStyleId = melhorEstilo.id;
+        
+        // Forçar atualização visual
+        node.setRelaunchData({ update: '' });
+        
+        return {
+          sucesso: true,
+          mensagem: "Estilo local similar aplicado com sucesso",
+          nomeEstilo: melhorEstilo.name
         };
       }
-      
-      console.log(`Estilo de texto "${estiloEncontrado.name}" importado com sucesso (ID: ${estiloImportado.id})`);
-      
-      // 6. Aplicar o estilo ao nó
-      const nodeText = node as TextNode;
-      nodeText.textStyleId = estiloImportado.id;
-      
-      // Forçar atualização visual
-      nodeText.setRelaunchData({ update: '' });
-      
-      return { 
-        sucesso: true, 
-        mensagem: "Estilo aplicado com sucesso", 
-        nomeEstilo: estiloImportado.name 
-      };
-    } catch (importErr) {
-      console.warn(`Erro ao importar estilo de texto: ${importErr}`);
-      
-      return { 
-        sucesso: false, 
-        mensagem: `Erro ao importar estilo: ${String(importErr)}` 
-      };
+    } catch (localErr) {
+      console.warn(`Erro ao buscar estilos locais: ${localErr}`);
     }
+    
+    // Se chegou aqui, nenhum método funcionou
+    return { 
+      sucesso: false, 
+      mensagem: `Não foi possível encontrar ou aplicar o estilo de texto "${nomeEstilo}" da biblioteca "${nomeBiblioteca}"` 
+    };
   } catch (err) {
-    console.error(`Erro ao buscar e aplicar estilo de texto: ${err}`);
+    console.error(`Erro geral ao buscar e aplicar estilo de texto: ${err}`);
     
     return { 
       sucesso: false, 
