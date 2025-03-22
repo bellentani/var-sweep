@@ -2334,317 +2334,78 @@ async function substituirVariaveisNoEscopo(
       });
     }
     
-    // 5. Encontrar correspondências reais baseadas em estruturas de nome similares
-    const variaveisCorrespondentes = new Map<string, any>(); // Mapa de ID variável original -> variável da biblioteca
-    
-    // Agrupar variáveis por categorias para melhor correspondência
-    const categorizarNome = (nome: string): { categoria: string, componente: string, variante: string, prefixo: string } => {
-      let categoria = "";
-      let componente = "";
-      let variante = "";
-      let prefixo = "";
-      
-      if (nome.includes('/')) {
-        const partes = nome.split('/');
-        prefixo = partes[0] || "";
-        
-        if (partes.length >= 3) {
-          // Ex: bg/button/primary/default
-          categoria = partes[0] || ""; // bg
-          componente = partes[1] || ""; // button
-          variante = partes.slice(2).join('/'); // primary/default
-        } else if (partes.length === 2) {
-          // Ex: bg/button
-          categoria = partes[0] || ""; // bg
-          componente = partes[1] || ""; // button
-        } else {
-          // Apenas uma parte
-          categoria = partes[0] || "";
-        }
-      } else {
-        // Sem separadores, usar o nome completo como categoria
-        categoria = nome;
-      }
-      
-      return { categoria, componente, variante, prefixo };
-    };
-    
-    // Agrupar variáveis da biblioteca por nome completo para busca direta
-    const variaveisPorNome = new Map<string, any>();
-    const variaveisPorComponente = new Map<string, any[]>();
-    
-    // Criar índices para busca mais eficiente
-    for (const varBiblioteca of variaveisDaColecao) {
-      if (!varBiblioteca.name || typeof varBiblioteca.name !== 'string') continue;
-      
-      // Índice por nome completo (para busca exata)
-      variaveisPorNome.set(varBiblioteca.name.toLowerCase(), varBiblioteca);
-      
-      // Índice por componente (button, card, etc)
-      const { componente } = categorizarNome(varBiblioteca.name);
-      if (componente) {
-        if (!variaveisPorComponente.has(componente.toLowerCase())) {
-          variaveisPorComponente.set(componente.toLowerCase(), []);
-        }
-        variaveisPorComponente.get(componente.toLowerCase())?.push(varBiblioteca);
-      }
-    }
-    
-    console.log(`Biblioteca "${bibliotecaSelecionada.name}", Coleção "${colecaoSelecionada.name}": ${variaveisPorNome.size} variáveis indexadas`);
-    
-    // Agrupar variáveis da biblioteca por categoria para busca alternativa
-    const variaveisPorCategoria = new Map<string, any[]>();
-    
-    for (const varBiblioteca of variaveisDaColecao) {
-      if (!varBiblioteca.name || typeof varBiblioteca.name !== 'string') continue;
-      
-      const { categoria } = categorizarNome(varBiblioteca.name);
-      
-      if (!variaveisPorCategoria.has(categoria.toLowerCase())) {
-        variaveisPorCategoria.set(categoria.toLowerCase(), []);
-      }
-      
-      variaveisPorCategoria.get(categoria.toLowerCase())?.push(varBiblioteca);
-    }
-    
-    console.log(`Variáveis agrupadas em ${variaveisPorCategoria.size} categorias para busca alternativa`);
-    
-    // Mostrar categorias disponíveis
-    if (variaveisPorCategoria.size > 0) {
-      console.log("Categorias disponíveis na biblioteca:");
-      Array.from(variaveisPorCategoria.keys()).forEach((cat, i) => {
-        const count = variaveisPorCategoria.get(cat)?.length || 0;
-        console.log(`  ${i+1}. ${cat} (${count} variáveis)`);
-      });
-    }
-    
-    // Componentes disponíveis
-    if (variaveisPorComponente.size > 0) {
-      console.log("Componentes disponíveis na biblioteca:");
-      Array.from(variaveisPorComponente.keys()).forEach((comp, i) => {
-        const count = variaveisPorComponente.get(comp)?.length || 0;
-        console.log(`  ${i+1}. ${comp} (${count} variáveis)`);
-      });
-    }
-    
-    for (const varOriginal of variaveisEfetivas) {
-      // Skip variáveis sem nome
-      if (!varOriginal.name) continue;
-      
-      const { categoria, componente, variante, prefixo } = categorizarNome(varOriginal.name);
-      
-      console.log(`\nBuscando correspondência para variável: "${varOriginal.name}"`);
-      console.log(`  → Categoria: "${categoria}", Componente: "${componente}", Variante: "${variante}"`);
-      console.log(`  → Biblioteca: "${bibliotecaSelecionada.name}", Coleção: "${colecaoSelecionada.name}"`);
-      
-      let melhorCorrespondencia: any = null;
-      let pontuacaoMaxima = 0;
-      let tipoCorrespondencia = "";
-      
-      // Estratégia 1: Busca direta pelo nome exato na biblioteca selecionada
-      if (variaveisPorNome.has(varOriginal.name.toLowerCase())) {
-        melhorCorrespondencia = variaveisPorNome.get(varOriginal.name.toLowerCase());
-        pontuacaoMaxima = 100;
-        tipoCorrespondencia = "Exata";
-        console.log(`  → Encontrada correspondência exata por nome: "${melhorCorrespondencia.name}"`);
-      } 
-      // Estratégia 2: Busca por nome sem considerar maiúsculas/minúsculas
-      else {
-        // Buscar correspondência adaptativa para "action" -> "bg" e outros casos especiais
-        let contemCorrespondenciaEspecial = false;
-        
-        // Caso especial: Verificar o componente (button, card, etc.)
-        if (componente) {
-          // Pegar todas as variáveis com o mesmo componente
-          const variaveisDoComponente = variaveisPorComponente.get(componente.toLowerCase()) || [];
-          
-          if (variaveisDoComponente.length > 0) {
-            console.log(`  → Encontradas ${variaveisDoComponente.length} variáveis com o componente "${componente}"`);
-            
-            let melhorMatchComponente = null;
-            let pontuacaoComponente = 0;
-            
-            for (const varComponente of variaveisDoComponente) {
-              const detalhesVar = categorizarNome(varComponente.name);
-              let pontuacao = 40; // Base por ter o mesmo componente
-              
-              // Se a variante for similar
-              if (variante && detalhesVar.variante) {
-                // Verificar se contém as mesmas partes
-                const partesOriginais = variante.toLowerCase().split('/');
-                const partesVar = detalhesVar.variante.toLowerCase().split('/');
-                
-                // Verificar se alguma parte coincide
-                for (const parte of partesOriginais) {
-                  if (partesVar.includes(parte)) {
-                    pontuacao += 10;
-                  }
-                }
-                
-                // Se o último segmento for igual (default, hover, etc)
-                const ultimoOriginal = partesOriginais[partesOriginais.length - 1];
-                const ultimoVar = partesVar[partesVar.length - 1];
-                
-                if (ultimoOriginal === ultimoVar) {
-                  pontuacao += 20;
-                }
-              }
-              
-              // Para correspondências de cores
-              if (categoria === 'bg' && detalhesVar.categoria === 'bg') {
-                pontuacao += 30; // Bonus por ser da mesma categoria de cor
-              }
-              // Para texto
-              else if ((categoria === 'txt' || categoria === 'text') && 
-                       (detalhesVar.categoria === 'txt' || detalhesVar.categoria === 'text')) {
-                pontuacao += 30;
-              }
-              // Entre categorias especiais - action para bg
-              else if (categoria === 'action' && detalhesVar.categoria === 'bg') {
-                pontuacao += 20;
-              }
-              // Entre categorias especiais - action para txt
-              else if (categoria === 'action' && (detalhesVar.categoria === 'txt' || detalhesVar.categoria === 'text')) {
-                pontuacao += 20;
-              }
-              
-              if (pontuacao > pontuacaoComponente) {
-                melhorMatchComponente = varComponente;
-                pontuacaoComponente = pontuacao;
-              }
-            }
-            
-            if (melhorMatchComponente && pontuacaoComponente >= 60) {
-              melhorCorrespondencia = melhorMatchComponente;
-              pontuacaoMaxima = pontuacaoComponente;
-              tipoCorrespondencia = "Componente e contexto";
-              contemCorrespondenciaEspecial = true;
-              console.log(`  → Encontrada correspondência por componente e contexto: "${melhorMatchComponente.name}" (pontuação: ${pontuacaoComponente})`);
-            }
-          }
-        }
-        
-        // Caso especial: Se a categoria for 'action' mas não encontrou correspondência específica, procurar nas categorias relacionadas
-        if (!contemCorrespondenciaEspecial && categoria === 'action') {
-          const categoriasRelacionadas = ['bg', 'text', 'txt'];
-          
-          for (const catRelacionada of categoriasRelacionadas) {
-            const variaveisDaCategoria = variaveisPorCategoria.get(catRelacionada) || [];
-            
-            for (const varCat of variaveisDaCategoria) {
-              const detalhesVar = categorizarNome(varCat.name);
-              
-              if (componente && detalhesVar.componente && 
-                  componente.toLowerCase() === detalhesVar.componente.toLowerCase()) {
-                // Encontrou o mesmo componente em uma categoria relacionada
-                melhorCorrespondencia = varCat;
-                pontuacaoMaxima = 70;
-                tipoCorrespondencia = "Categoria relacionada";
-                contemCorrespondenciaEspecial = true;
-                console.log(`  → Encontrada correspondência em categoria relacionada: "${varCat.name}"`);
-                break;
-              }
-            }
-            
-            if (contemCorrespondenciaEspecial) break;
-          }
-        }
-        
-        // Se ainda não encontrou, procurar variáveis com prefixo de nome similar 
-        if (!contemCorrespondenciaEspecial) {
-          for (const [nome, varBiblioteca] of variaveisPorNome.entries()) {
-            // Verificar se o início do nome é similar (bg/button vs bg/button/*)
-            if (nome.startsWith(varOriginal.name.toLowerCase()) || 
-                varOriginal.name.toLowerCase().startsWith(nome)) {
-              melhorCorrespondencia = varBiblioteca;
-              pontuacaoMaxima = 80;
-              tipoCorrespondencia = "Prefixo";
-              contemCorrespondenciaEspecial = true;
-              console.log(`  → Encontrada correspondência por prefixo de nome: "${varBiblioteca.name}"`);
-              break;
-            }
-          }
-        }
-      }
-      
-      // Registrar o resultado
-      if (melhorCorrespondencia) {
-        variaveisCorrespondentes.set(varOriginal.id, melhorCorrespondencia);
-        
-        // Obter um valor da variável para o log, se disponível
-        let valorVariavel = null;
-        if (melhorCorrespondencia.valuesByMode) {
-          // Pegar o primeiro modo disponível
-          const primeiroModoId = Object.keys(melhorCorrespondencia.valuesByMode)[0];
-          if (primeiroModoId) {
-            valorVariavel = melhorCorrespondencia.valuesByMode[primeiroModoId];
-          }
-        }
-        
-        // Log detalhado da correspondência
-        logCorrespondenciaVariaveis(
-          varOriginal, 
-          melhorCorrespondencia, 
-          colecaoSelecionada.name,
-          valorVariavel,
-          tipoCorrespondencia,
-          bibliotecaSelecionada.name
-        );
-      } else {
-        console.warn(`❌ Nenhuma correspondência encontrada para "${varOriginal.name}" em "${bibliotecaSelecionada.name}/${colecaoSelecionada.name}"`);
-        // Log para variável sem correspondência
-        logCorrespondenciaVariaveis(
-          varOriginal,
-          null,
-          colecaoSelecionada.name,
-          null,
-          "Sem correspondência",
-          bibliotecaSelecionada.name
-        );
-      }
-    }
-    
-    console.log(`\nEncontradas ${variaveisCorrespondentes.size} correspondências para as ${variaveisEfetivas.length} variáveis originais`);
-    
-    // 6. Importar as variáveis correspondentes da biblioteca
+    // 5. IMPORTAR as variáveis e armazená-las em um mapa para uso posterior
+    // Importante: usar o NOME da variável como chave, não o ID
+    // Isso permitirá que encontremos variáveis por nome durante a aplicação
+    console.log("Importando variáveis da biblioteca para o documento...");
     const variaveisImportadas = new Map<string, Variable>();
     
-    for (const [idOriginal, varBiblioteca] of variaveisCorrespondentes.entries()) {
-      try {
-        console.log(`Importando variável "${varBiblioteca.name}" (key: ${varBiblioteca.key})...`);
+    // Primeiro criar um índice de variáveis por nome para acesso rápido
+    const variaveisPorNome = new Map<string, any>();
+    for (const v of variaveisDaColecao) {
+      variaveisPorNome.set(v.name, v);
+    }
+    
+    // Para cada variável que precisa ser substituída, encontrar e importar a correspondente
+    for (const varOriginal of variaveisEfetivas) {
+      if (!varOriginal.name) continue;
+      
+      // Buscar a variável da biblioteca com o MESMO NOME que a variável original
+      const varBiblioteca = variaveisPorNome.get(varOriginal.name);
+      
+      if (varBiblioteca) {
+        console.log(`Encontrada variável na biblioteca com nome "${varBiblioteca.name}"`);
         
-        // @ts-ignore - API pode não estar nas tipagens
-        const variavelImportada = await figma.variables.importVariableByKeyAsync(varBiblioteca.key);
-        
-        if (variavelImportada) {
-          // IMPORTANTE: Armazenar usando o nome da variável como chave, não o ID original
-          // Assim podemos buscar diretamente pelo nome ao substituir
-          variaveisImportadas.set(varBiblioteca.name, variavelImportada);
-          console.log(`✅ Variável importada com sucesso: "${variavelImportada.name}"`);
-          sucessos++;
-        } else {
-          console.warn(`❌ Falha ao importar variável: "${varBiblioteca.name}"`);
-          falhas++;
+        try {
+          // Importar a variável da biblioteca
+          // @ts-ignore - API pode não estar nas tipagens
+          const variavelImportada = await figma.variables.importVariableByKeyAsync(varBiblioteca.key);
+          
+          if (variavelImportada) {
+            // ARMAZENAR USANDO O NOME como chave, não o ID original
+            // Isso é crucial para recuperar a variável durante a aplicação
+            variaveisImportadas.set(varOriginal.name, variavelImportada);
+            console.log(`Variável "${varBiblioteca.name}" importada com sucesso e armazenada com chave "${varOriginal.name}"`);
+          } else {
+            console.warn(`Não foi possível importar a variável "${varBiblioteca.name}"`);
+          }
+        } catch (err) {
+          console.warn(`Erro ao importar variável "${varBiblioteca.name}": ${err}`);
         }
-      } catch (importErr) {
-        console.error(`❌ Erro ao importar variável: "${varBiblioteca.name}"`, importErr);
-        falhas++;
+      } else {
+        console.warn(`Não foi encontrada variável na biblioteca com nome "${varOriginal.name}"`);
       }
     }
     
-    console.log(`Importadas ${variaveisImportadas.size} variáveis da biblioteca`);
+    console.log(`Importadas ${variaveisImportadas.size} variáveis da biblioteca para uso local`);
     
-    // 7. Aplicar as variáveis importadas aos nós
-    if (variaveisImportadas.size > 0) {
-      for (const node of nodes) {
-        try {
-          const resultado = await aplicarVariaveisAoNo(node, variaveisEfetivas, variaveisImportadas);
-          sucessos += resultado.sucessos;
-          falhas += resultado.falhas;
-        } catch (nodeErr) {
-          console.error(`Erro ao processar nó ${node.id}:`, nodeErr);
-          falhas++;
+    // 6. MODIFICAR esta parte para aplicar as variáveis aos nós
+    // Processar cada nó na seleção e aplicar as variáveis importadas
+    for (const node of nodes) {
+      try {
+        // Aplicar as variáveis a este nó
+        const resultadoNo = await aplicarVariaveisAoNo(node, variaveisEfetivas, variaveisImportadas);
+        
+        // Acumular estatísticas
+        sucessos += resultadoNo.sucessos;
+        falhas += resultadoNo.falhas;
+        
+        // Se for um frame ou grupo, processar também os filhos (recursivo)
+        if ('children' in node) {
+          for (const childNode of node.children) {
+            try {
+              const resultadoFilho = await aplicarVariaveisAoNo(childNode, variaveisEfetivas, variaveisImportadas);
+              sucessos += resultadoFilho.sucessos;
+              falhas += resultadoFilho.falhas;
+            } catch (nodeErr) {
+              console.warn(`Erro ao processar nó filho ${childNode.id}:`, nodeErr);
+              falhas++;
+            }
+          }
         }
+      } catch (err) {
+        console.warn(`Erro ao processar nó ${node.id}:`, err);
+        falhas++;
       }
     }
     
@@ -2795,69 +2556,12 @@ async function aplicarVariaveisAoNo(
   
   // 2. Para cada variável aplicada, encontrar a correspondente na biblioteca e substituir
   for (const varAplicada of variaveisAplicadas) {
-    // Encontrar a variável importada correspondente com o MESMO NOME, não pelo ID original
+    // CORREÇÃO: Buscar a variável importada pelo NOME, não pelo ID
     console.log(`  → Buscando correspondência para variável aplicada: "${varAplicada.name}"`);
     
-    // Procurar nos variaveisImportadas por uma variável com nome similar
-    let varImportadaCorreta: Variable | undefined = undefined;
-    let melhorMatchScore = 0;
+    // Procurar no mapa de variáveis importadas pelo NOME EXATO da variável aplicada
+    const varImportadaCorreta = variaveisImportadas.get(varAplicada.name);
     
-    // IMPORTANTE: Procurar por um nome EXATAMENTE igual (incluindo prefixo como bg/, txt/, etc.)
-    console.log(`  → Buscando correspondência EXATA para variável aplicada: "${varAplicada.name}" na biblioteca de referência`);
-
-    // Primeiro, procurar correspondência exata de nome na biblioteca de referência
-    let encontrouCorrespondenciaExata = false;
-    for (const [idOriginal, varImportada] of variaveisImportadas.entries()) {
-      // Procurar por nome exatamente igual
-      if (varImportada.name === varAplicada.name) {
-        varImportadaCorreta = varImportada;
-        console.log(`  → Encontrada correspondência EXATA: "${varImportada.name}"`);
-        encontrouCorrespondenciaExata = true;
-        break;
-      }
-    }
-
-    // Se não encontrou nome exatamente igual, procurar nome com case insensitive
-    if (!encontrouCorrespondenciaExata) {
-      for (const [idOriginal, varImportada] of variaveisImportadas.entries()) {
-        if (varImportada.name.toLowerCase() === varAplicada.name.toLowerCase()) {
-          varImportadaCorreta = varImportada;
-          console.log(`  → Encontrada correspondência exata (case insensitive): "${varImportada.name}"`);
-          encontrouCorrespondenciaExata = true;
-          break;
-        }
-      }
-    }
-
-    // Se ainda não encontrou, procurar variável com o mesmo prefixo (bg/, txt/) e componente
-    if (!encontrouCorrespondenciaExata) {
-      const { categoria, componente, variante } = categorizarNome(varAplicada.name);
-      
-      // Primeiro procurar variáveis com o mesmo prefixo E componente E variante
-      for (const [idOriginal, varImportada] of variaveisImportadas.entries()) {
-        const detalhesImportada = categorizarNome(varImportada.name);
-        
-        // Verificar se tem o mesmo prefixo (mesma categoria - bg, txt, etc)
-        if (categoria.toLowerCase() === detalhesImportada.categoria.toLowerCase()) {
-          
-          // Verificar se tem o mesmo componente (button, card, etc)
-          if (componente.toLowerCase() === detalhesImportada.componente.toLowerCase()) {
-            
-            // Verificar se tem a mesma variante (primary, secondary, etc)
-            if (variante.toLowerCase() === detalhesImportada.variante.toLowerCase()) {
-              varImportadaCorreta = varImportada;
-              console.log(`  → Encontrada correspondência exata por partes (categoria/componente/variante): "${varImportada.name}"`);
-              encontrouCorrespondenciaExata = true;
-              break;
-            }
-          }
-        }
-      }
-    }
-
-    // Se ainda não encontrou, NÃO VAMOS TROCAR para uma variável de outra categoria
-    // Isto evita trocar bg/ por txt/ e vice-versa, já que são propriedades diferentes
-
     // Se não encontrou uma correspondência válida, não aplicar nada
     if (!varImportadaCorreta) {
       console.log(`  ❌ Não foi encontrada variável correspondente a "${varAplicada.name}" na biblioteca de referência`);
@@ -2898,55 +2602,46 @@ async function aplicarVariaveisAoNo(
               const newStrokes = [...node.strokes];
               newStrokes[strokeIndex] = strokeObj;
               node.strokes = newStrokes;
-              
-              // Forçar atualização visual
-              node.setRelaunchData({ update: '' });
               aplicado = true;
             }
           } catch (err) {
-            console.warn(`  → Erro ao aplicar variável ao stroke: ${err}`);
+            console.warn(`  → Erro ao aplicar variável a stroke[${strokeIndex}]:`, err);
           }
         }
-      } else if (varAplicada.property === 'text' && 'textStyleId' in node) {
-        // Variável de estilo de texto
-        try {
-          // Obter o estilo de texto correspondente
-          const estilos = await figma.getLocalTextStylesAsync();
-          const estiloEncontrado = estilos.find(s => s.name === varImportadaCorreta.name);
-          
-          if (estiloEncontrado) {
-            node.textStyleId = estiloEncontrado.id;
-            aplicado = true;
+      } else if (varAplicada.property === 'strokes') {
+        // Lógica para aplicar ao primeiro stroke
+        if ('strokes' in node && node.strokes.length > 0) {
+          try {
+            const strokeObj = {...node.strokes[0]};
+            if (strokeObj.type === 'SOLID') {
+              strokeObj.boundVariables = {
+                color: {
+                  type: 'VARIABLE_ALIAS',
+                  id: varImportadaCorreta.id
+                }
+              };
+              
+              const newStrokes = [...node.strokes];
+              newStrokes[0] = strokeObj;
+              node.strokes = newStrokes;
+              aplicado = true;
+            }
+          } catch (err) {
+            console.warn(`  → Erro ao aplicar variável ao primeiro stroke:`, err);
           }
-        } catch (err) {
-          console.warn(`  → Erro ao aplicar estilo de texto: ${err}`);
         }
       }
       
       if (aplicado) {
-        console.log(`  ✅ Variável aplicada com sucesso: "${varImportadaCorreta.name}" na propriedade ${varAplicada.property}`);
+        console.log(`  ✓ Variável "${varImportadaCorreta.name}" aplicada com sucesso`);
         sucessosNo++;
       } else {
-        console.warn(`  ❌ Falha ao aplicar variável: "${varImportadaCorreta.name}" na propriedade ${varAplicada.property}`);
+        console.log(`  ❌ Não foi possível aplicar a variável "${varImportadaCorreta.name}"`);
         falhasNo++;
       }
     } catch (err) {
-      console.error(`  ❌ Erro ao substituir variável: ${err}`);
+      console.warn(`  → Erro ao aplicar variável "${varImportadaCorreta.name}":`, err);
       falhasNo++;
-    }
-  }
-  
-  // 3. Processar nós filhos recursivamente
-  if ('children' in node) {
-    for (const child of node.children) {
-      try {
-        const resultadoFilho = await aplicarVariaveisAoNo(child as SceneNode, variaveisOriginais, variaveisImportadas);
-        sucessosNo += resultadoFilho.sucessos;
-        falhasNo += resultadoFilho.falhas;
-      } catch (childErr) {
-        console.error(`Erro ao processar nó filho: ${child.id}`, childErr);
-        falhasNo++;
-      }
     }
   }
   
