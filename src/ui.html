@@ -1051,19 +1051,19 @@
     const updateButton = document.getElementById('update-button');
     const errorContainerUpdate = document.getElementById('error-container-update');
     const infoContainerUpdate = document.getElementById('info-container-update');
-    const librarySelectVar = document.getElementById('library-select-var');
+      const librarySelectVar = document.getElementById('library-select-var');
     const collectionSelectVar = document.getElementById('collection-select-var');
-    const previewContentVar = document.getElementById('preview-content-var');
-    const updateButtonVar = document.getElementById('update-button-var');
-    const errorContainerVar = document.getElementById('error-container-var');
-    const infoContainerVar = document.getElementById('info-container-var');
-    const loadingPreviewVar = document.getElementById('loading-preview-var');
-    const searchVariablesBtn = document.getElementById('searchVariablesBtn');
-    const variablePreview = document.getElementById('variable-preview');
+      const previewContentVar = document.getElementById('preview-content-var');
+      const updateButtonVar = document.getElementById('update-button-var');
+      const errorContainerVar = document.getElementById('error-container-var');
+      const infoContainerVar = document.getElementById('info-container-var');
+      const loadingPreviewVar = document.getElementById('loading-preview-var');
+      const searchVariablesBtn = document.getElementById('searchVariablesBtn');
+      const variablePreview = document.getElementById('variable-preview');
+      
+      // Variável para armazenar as variáveis encontradas
+      let foundVariables = [];
     
-    // Variável para armazenar as variáveis encontradas
-    let foundVariables = [];
-
     // Função para alternar entre abas
     function switchTab(tabId) {
         // Ocultar todos os conteúdos de abas
@@ -1200,27 +1200,27 @@
 
     // Evento para o seletor de bibliotecas
     if (librarySelect) {
-      librarySelect.addEventListener('change', () => {
-        const selectedLibraryId = librarySelect.value;
-        
-        if (!selectedLibraryId) {
-          showCollectionsLoading();
-          return;
-        }
-        
-        // Limpar e mostrar loading
-        clearCollectionsList();
+    librarySelect.addEventListener('change', () => {
+      const selectedLibraryId = librarySelect.value;
+      
+      if (!selectedLibraryId) {
         showCollectionsLoading();
-        collectionsLoading.textContent = "Carregando coleções...";
-        
-        // Solicitar coleções da biblioteca selecionada
-        parent.postMessage({ 
-          pluginMessage: { 
-            type: 'carregarColecoes', 
-            libraryId: selectedLibraryId
-          } 
-        }, '*');
-      });
+        return;
+      }
+      
+      // Limpar e mostrar loading
+      clearCollectionsList();
+      showCollectionsLoading();
+      collectionsLoading.textContent = "Carregando coleções...";
+      
+      // Solicitar coleções da biblioteca selecionada
+      parent.postMessage({ 
+        pluginMessage: { 
+          type: 'carregarColecoes', 
+          libraryId: selectedLibraryId
+        } 
+      }, '*');
+    });
     }
     
       // Evento para o seletor de bibliotecas da aba Update Collections
@@ -1259,20 +1259,20 @@
       }
     });
     
-    // Evento para o seletor de bibliotecas da aba Update Variables
-    librarySelectVar.addEventListener('change', () => {
-      const selectedLibraryId = librarySelectVar.value;
-      
-      if (!selectedLibraryId) {
+      // Evento para o seletor de bibliotecas da aba Update Variables
+      librarySelectVar.addEventListener('change', () => {
+        const selectedLibraryId = librarySelectVar.value;
+        
+        if (!selectedLibraryId) {
         // Reset do select de coleções
         collectionSelectVar.innerHTML = '<option value="">Selecione uma biblioteca primeiro</option>';
         collectionSelectVar.disabled = true;
         
-        previewContentVar.textContent = "Ainda não há nada para pré-visualizar.\nSelecione uma biblioteca.";
-        updateButtonVar.disabled = true;
-        return;
-      }
-      
+          previewContentVar.textContent = "Ainda não há nada para pré-visualizar.\nSelecione uma biblioteca.";
+          updateButtonVar.disabled = true;
+          return;
+        }
+        
       // Reset do select de coleções e mostrar loading
       collectionSelectVar.innerHTML = '<option value="">Carregando coleções...</option>';
       collectionSelectVar.disabled = true;
@@ -1281,15 +1281,15 @@
       previewContentVar.textContent = "Carregando coleções da biblioteca...";
       loadingPreviewVar.style.display = 'block';
       updateButtonVar.disabled = true;
-      
-      // Solicitar coleções da biblioteca selecionada
-      parent.postMessage({ 
-        pluginMessage: { 
-          type: 'carregarColecoes', 
-          libraryId: selectedLibraryId
-        } 
-      }, '*');
-    });
+        
+        // Solicitar coleções da biblioteca selecionada
+        parent.postMessage({ 
+          pluginMessage: { 
+            type: 'carregarColecoes', 
+            libraryId: selectedLibraryId
+          } 
+        }, '*');
+      });
     
     // Evento para o seletor de coleções
     collectionSelectVar.addEventListener('change', () => {
@@ -1304,87 +1304,87 @@
       // Atualizar a prévia com a nova coleção selecionada
       updatePreviewVar();
     });
-    
-    // Evento para os radio buttons da aba Update Variables
-    document.querySelectorAll('input[name="scope"]').forEach(radio => {
-      radio.addEventListener('change', updatePreviewVar);
-    });
-    
-    // Evento para o botão de atualizar
-    updateButtonVar.addEventListener('click', () => {
-      const libraryId = librarySelectVar.value;
-      const collectionId = collectionSelectVar.value;
-      const scope = document.querySelector('input[name="scope"]:checked').value;
       
+      // Evento para os radio buttons da aba Update Variables
+      document.querySelectorAll('input[name="scope"]').forEach(radio => {
+        radio.addEventListener('change', updatePreviewVar);
+      });
+      
+      // Evento para o botão de atualizar
+      updateButtonVar.addEventListener('click', () => {
+        const libraryId = librarySelectVar.value;
+      const collectionId = collectionSelectVar.value;
+        const scope = document.querySelector('input[name="scope"]:checked').value;
+        
       if (!libraryId || !collectionId) {
         alert('Selecione uma biblioteca e uma coleção!');
-        return;
-      }
-      
-      // Mostrar loading enquanto processa a substituição
-      loadingPreviewVar.style.display = 'block';
-      
-      // Enviar mensagem para substituir variáveis
+          return;
+        }
+        
+        // Mostrar loading enquanto processa a substituição
+        loadingPreviewVar.style.display = 'block';
+        
+        // Enviar mensagem para substituir variáveis
       parent.postMessage({ 
         pluginMessage: { 
           type: 'substituirVariaveis',
           libraryId: libraryId,
           collectionId: collectionId,
-          scope: scope,
-          variables: foundVariables
+            scope: scope,
+            variables: foundVariables
         } 
       }, '*');
     });
     
     // Função para atualizar a prévia quando a biblioteca e coleção são selecionadas
-    function updatePreviewVar() {
-      const libraryId = librarySelectVar.value;
+      function updatePreviewVar() {
+        const libraryId = librarySelectVar.value;
       const collectionId = collectionSelectVar.value;
-      const scope = document.querySelector('input[name="scope"]:checked').value;
-      
+        const scope = document.querySelector('input[name="scope"]:checked').value;
+        
       if (!libraryId || !collectionId) {
         previewContentVar.textContent = "Ainda não há nada para pré-visualizar.\nSelecione uma biblioteca e uma coleção.";
-        updateButtonVar.disabled = true;
-        return;
-      }
-      
-      // Mostrar loading enquanto processa a prévia
-      previewContentVar.textContent = "Procurando variáveis e estilos na seleção atual...";
-      loadingPreviewVar.style.display = 'block';
-      
+          updateButtonVar.disabled = true;
+          return;
+        }
+        
+        // Mostrar loading enquanto processa a prévia
+        previewContentVar.textContent = "Procurando variáveis e estilos na seleção atual...";
+        loadingPreviewVar.style.display = 'block';
+        
       // Enviar mensagem para pré-visualizar variáveis com a biblioteca e coleção selecionadas
-      parent.postMessage({
-        pluginMessage: {
-          type: 'search-variables',
-          libraryId: libraryId,
+        parent.postMessage({
+          pluginMessage: {
+            type: 'search-variables',
+            libraryId: libraryId,
           collectionId: collectionId,
           scope: scope,
           checkMatch: true, // Flag para verificar correspondências
           matchByName: true // Verificar match pelo nome e não pelo ID
-        }
-      }, '*');
-    }
-    
-    // Função para mostrar erro na aba Update Variables
-    function showErrorVar(message) {
-      errorContainerVar.textContent = message || "Ocorreu um erro desconhecido";
-      errorContainerVar.style.display = "block";
-    }
-    
-    // Função para esconder erro na aba Update Variables
-    function hideErrorVar() {
-      errorContainerVar.style.display = "none";
-    }
-    
-    // Função para mostrar informação na aba Update Variables
-    function showInfoVar(message) {
-      infoContainerVar.textContent = message || "";
-      infoContainerVar.style.display = message ? "block" : "none";
-    }
-    
-    // Função para formatar a lista de variáveis
-    function formatVariablesList(variables) {
-      if (!variables || variables.length === 0) {
+          }
+        }, '*');
+      }
+      
+      // Função para mostrar erro na aba Update Variables
+      function showErrorVar(message) {
+        errorContainerVar.textContent = message || "Ocorreu um erro desconhecido";
+        errorContainerVar.style.display = "block";
+      }
+      
+      // Função para esconder erro na aba Update Variables
+      function hideErrorVar() {
+        errorContainerVar.style.display = "none";
+      }
+      
+      // Função para mostrar informação na aba Update Variables
+      function showInfoVar(message) {
+        infoContainerVar.textContent = message || "";
+        infoContainerVar.style.display = message ? "block" : "none";
+      }
+      
+      // Função para formatar a lista de variáveis
+      function formatVariablesList(variables) {
+        if (!variables || variables.length === 0) {
         return '<p>Nenhuma variável ou estilo encontrado nos elementos selecionados.</p>';
       }
       
@@ -1398,15 +1398,15 @@
       // Organizar variáveis por tipo
       const variablesByType = {
         colors: variables.filter(v => v.type === 'COLOR' && v.isRealVariable === true),
-        fills: variables.filter(v => v.property === 'fill'),
-        strokes: variables.filter(v => v.property === 'stroke'),
+          fills: variables.filter(v => v.property === 'fill'),
+          strokes: variables.filter(v => v.property === 'stroke'),
         numbers: variables.filter(v => v.type === 'FLOAT'),
         texts: variables.filter(v => v.type === 'STRING'),
-        effects: variables.filter(v => v.property === 'effect'),
-        textStyles: variables.filter(v => v.property === 'text'),
-        grids: variables.filter(v => v.property === 'grid')
-      };
-      
+          effects: variables.filter(v => v.property === 'effect'),
+          textStyles: variables.filter(v => v.property === 'text'),
+          grids: variables.filter(v => v.property === 'grid')
+        };
+
       // Adicionar cada tipo de variável
       for (const [type, vars] of Object.entries(variablesByType)) {
         if (vars.length === 0) continue;
@@ -1441,23 +1441,23 @@
       }
       
       return html;
-    }
+      }
 
-    // Variável para armazenar as variáveis completas por grupo
-    let variablesByGroup = {};
+      // Variável para armazenar as variáveis completas por grupo
+      let variablesByGroup = {};
 
-    // Evento de clique no botão de procurar variáveis
-    searchVariablesBtn.addEventListener('click', function() {
-      searchVariablesBtn.disabled = true;
-      variablePreview.classList.remove('hidden');
-      previewContentVar.innerHTML = '<div class="loading">Procurando variáveis e estilos...</div>';
+      // Evento de clique no botão de procurar variáveis
+      searchVariablesBtn.addEventListener('click', function() {
+        searchVariablesBtn.disabled = true;
+        variablePreview.classList.remove('hidden');
+        previewContentVar.innerHTML = '<div class="loading">Procurando variáveis e estilos...</div>';
       
       // Obtém a biblioteca e coleção selecionadas
       const libraryId = librarySelectVar.value;
       const collectionId = collectionSelectVar.value;
       const scope = document.querySelector('input[name="scope"]:checked').value;
-      
-      // Envia mensagem para o plugin procurar as variáveis
+        
+        // Envia mensagem para o plugin procurar as variáveis
       parent.postMessage({ 
         pluginMessage: { 
           type: 'search-variables',
@@ -1468,94 +1468,94 @@
           matchByName: true // Verificar match pelo nome e não pelo ID
         } 
       }, '*');
-    });
+      });
 
-    // Manipulador de mensagens do plugin
+      // Manipulador de mensagens do plugin
     window.onmessage = async (event) => {
-      const message = event.data.pluginMessage;
-      console.log('Mensagem recebida:', message);
+        const message = event.data.pluginMessage;
+        console.log('Mensagem recebida:', message);
 
-      if (!message) return;
+        if (!message) return;
 
-      switch (message.type) {
-        case 'variables-found':
-          searchVariablesBtn.disabled = false;
-          updateButtonVar.disabled = false;
-          // Armazena as variáveis encontradas para uso posterior
-          foundVariables = message.variables;
-          
-          // Organiza as variáveis por grupo para o carregamento posterior
-          variablesByGroup = {
+        switch (message.type) {
+          case 'variables-found':
+            searchVariablesBtn.disabled = false;
+            updateButtonVar.disabled = false;
+            // Armazena as variáveis encontradas para uso posterior
+            foundVariables = message.variables;
+            
+            // Organiza as variáveis por grupo para o carregamento posterior
+            variablesByGroup = {
             colors: foundVariables.filter(v => v.type === 'COLOR' && v.isRealVariable === true),
-            numbers: foundVariables.filter(v => v.type === 'FLOAT'),
-            texts: foundVariables.filter(v => v.type === 'STRING'),
-            booleans: foundVariables.filter(v => v.type === 'BOOLEAN'),
-            fills: foundVariables.filter(v => v.property === 'fill'),
-            strokes: foundVariables.filter(v => v.property === 'stroke'),
-            effects: foundVariables.filter(v => v.property === 'effect'),
-            textStyles: foundVariables.filter(v => v.property === 'text'),
-            grids: foundVariables.filter(v => v.property === 'grid')
-          };
-          
-          previewContentVar.innerHTML = formatVariablesList(message.variables);
-          
-          // Adiciona os event listeners para os botões de carregar mais
-          document.querySelectorAll('.load-more-button').forEach(button => {
-            button.addEventListener('click', handleLoadMoreClick);
-          });
-          
-          // Esconde o loading
-          loadingPreviewVar.style.display = 'none';
-          break;
-
-        case 'no-variables-found':
-          searchVariablesBtn.disabled = false;
-          updateButtonVar.disabled = true;
-          // Limpa as variáveis encontradas
-          foundVariables = [];
-          variablesByGroup = {};
-          previewContentVar.innerHTML = '<p>Nenhuma variável ou estilo encontrado nos elementos selecionados.</p>';
-          // Esconde o loading
-          loadingPreviewVar.style.display = 'none';
-          break;
-          
-        case 'preview-correspondencias':
-          // Atualizar a pré-visualização das correspondências
-          if (message.hasMatches) {
-            // Armazenar as correspondências para usar na substituição
-            window.matchesData = message.matches;
-            
-            updateButton.disabled = false;
-            
-            // Reiniciar estado da paginação
-            window.paginationState = {
-              currentPage: 1,
-              itemsPerPage: 30,
-              showingAll: false
+              numbers: foundVariables.filter(v => v.type === 'FLOAT'),
+              texts: foundVariables.filter(v => v.type === 'STRING'),
+              booleans: foundVariables.filter(v => v.type === 'BOOLEAN'),
+              fills: foundVariables.filter(v => v.property === 'fill'),
+              strokes: foundVariables.filter(v => v.property === 'stroke'),
+              effects: foundVariables.filter(v => v.property === 'effect'),
+              textStyles: foundVariables.filter(v => v.property === 'text'),
+              grids: foundVariables.filter(v => v.property === 'grid')
             };
             
-            // Atualizar a exibição usando a função de paginação
-            updateMatchesDisplay();
-          } else {
-            // Limpar as correspondências armazenadas
-            window.matchesData = [];
+            previewContentVar.innerHTML = formatVariablesList(message.variables);
             
-            updateButton.disabled = true;
-            previewContent.innerHTML = `<p class="warning">${message.message || 'Não há correspondências'}</p>`;
-            if (message.error) {
-              previewContent.innerHTML += `<p class="error">${message.error}</p>`;
+            // Adiciona os event listeners para os botões de carregar mais
+            document.querySelectorAll('.load-more-button').forEach(button => {
+              button.addEventListener('click', handleLoadMoreClick);
+            });
+            
+            // Esconde o loading
+            loadingPreviewVar.style.display = 'none';
+            break;
+
+          case 'no-variables-found':
+            searchVariablesBtn.disabled = false;
+            updateButtonVar.disabled = true;
+            // Limpa as variáveis encontradas
+            foundVariables = [];
+            variablesByGroup = {};
+            previewContentVar.innerHTML = '<p>Nenhuma variável ou estilo encontrado nos elementos selecionados.</p>';
+            // Esconde o loading
+            loadingPreviewVar.style.display = 'none';
+            break;
+            
+          case 'preview-correspondencias':
+            // Atualizar a pré-visualização das correspondências
+            if (message.hasMatches) {
+              // Armazenar as correspondências para usar na substituição
+              window.matchesData = message.matches;
+              
+              updateButton.disabled = false;
+              
+              // Reiniciar estado da paginação
+              window.paginationState = {
+                currentPage: 1,
+                itemsPerPage: 30,
+                showingAll: false
+              };
+              
+              // Atualizar a exibição usando a função de paginação
+              updateMatchesDisplay();
+            } else {
+              // Limpar as correspondências armazenadas
+              window.matchesData = [];
+              
+              updateButton.disabled = true;
+              previewContent.innerHTML = `<p class="warning">${message.message || 'Não há correspondências'}</p>`;
+              if (message.error) {
+                previewContent.innerHTML += `<p class="error">${message.error}</p>`;
+              }
             }
-          }
-          break;
-          
+            break;
+            
         case 'collections-data':
           // Preencher o select de coleções
           if (message.collections && Array.isArray(message.collections)) {
             collectionSelectVar.innerHTML = '<option value="">Selecione uma coleção</option>';
             
-            message.collections.forEach(collection => {
-              const option = document.createElement('option');
-              option.value = collection.id;
+              message.collections.forEach(collection => {
+                const option = document.createElement('option');
+                option.value = collection.id;
               option.textContent = collection.name + (collection.type ? ` (${collection.type})` : '');
               collectionSelectVar.appendChild(option);
             });
@@ -1573,15 +1573,15 @@
           
           loadingPreviewVar.style.display = 'none';
           previewContentVar.textContent = "Selecione uma coleção para visualizar variáveis.";
-          break;
-          
-        case 'libraries-data':
+            break;
+
+          case 'libraries-data':
           const libraries = message.libraries || [];
           
-          // Limpar e preencher o select com as bibliotecas
+            // Limpar e preencher o select com as bibliotecas
           if (librarySelect) librarySelect.innerHTML = '';
           librarySelectUpdate.innerHTML = '';
-          librarySelectVar.innerHTML = '';
+            librarySelectVar.innerHTML = '';
           
           // Adicionar opção padrão
           const defaultOption = document.createElement('option');
@@ -1591,8 +1591,8 @@
             : 'Nenhuma biblioteca disponível';
           
           if (librarySelect) librarySelect.appendChild(defaultOption.cloneNode(true));
-          librarySelectUpdate.appendChild(defaultOption.cloneNode(true));
-          librarySelectVar.appendChild(defaultOption.cloneNode(true));
+            librarySelectUpdate.appendChild(defaultOption.cloneNode(true));
+            librarySelectVar.appendChild(defaultOption.cloneNode(true));
           
           // Adicionar opções para cada biblioteca
           libraries.forEach(library => {
@@ -1601,9 +1601,9 @@
             option.textContent = library.name;
               
             if (librarySelect) librarySelect.appendChild(option.cloneNode(true));
-            librarySelectUpdate.appendChild(option.cloneNode(true));
-            librarySelectVar.appendChild(option.cloneNode(true));
-          });
+              librarySelectUpdate.appendChild(option.cloneNode(true));
+              librarySelectVar.appendChild(option.cloneNode(true));
+            });
           
           // Mostrar bibliotecas no container principal
           componentsContainer.innerHTML = '';
@@ -1643,8 +1643,8 @@
             
             componentsContainer.appendChild(libraryElement);
           });
-          break;
-          
+            break;
+
         case 'local-collections-data':
           // Atualizar o dropdown de coleções locais
           localCollectionSelect.innerHTML = '';
@@ -1679,15 +1679,15 @@
           }
           break;
           
-        case 'update-collections-result':
-          // Atualizar o resultado da substituição de variáveis na coleção
-          if (message.success) {
-            showInfoUpdate(message.message);
-          } else {
-            showErrorUpdate(message.message);
-          }
-          updateButton.disabled = false;
-          break;
+          case 'update-collections-result':
+            // Atualizar o resultado da substituição de variáveis na coleção
+            if (message.success) {
+              showInfoUpdate(message.message);
+            } else {
+              showErrorUpdate(message.message);
+            }
+            updateButton.disabled = false;
+            break;
 
         case 'substituicao-concluida':
           // Atualizar o resultado da substituição de variáveis
@@ -1701,25 +1701,25 @@
             showErrorVar(message.message || "Erro ao substituir variáveis");
           }
           break;
-      }
-    };
-    
-    // Informa ao plugin que a UI está pronta
-    parent.postMessage({ pluginMessage: { type: 'ui-ready' } }, '*');
-    
-    // Solicita especificamente as coleções locais
-    setTimeout(() => {
-      parent.postMessage({ pluginMessage: { type: 'carregarColecoesLocais' } }, '*');
-    }, 500);
+        }
+      };
+      
+      // Informa ao plugin que a UI está pronta
+      parent.postMessage({ pluginMessage: { type: 'ui-ready' } }, '*');
+      
+      // Solicita especificamente as coleções locais
+      setTimeout(() => {
+        parent.postMessage({ pluginMessage: { type: 'carregarColecoesLocais' } }, '*');
+      }, 500);
 
     // Manipulador para o botão "carregar mais"
-    function handleLoadMoreClick(event) {
+      function handleLoadMoreClick(event) {
       // Evita a propagação do evento
       event.preventDefault();
       event.stopPropagation();
       
       // Obtém o botão clicado
-      const button = event.target;
+        const button = event.target;
       const groupId = button.getAttribute('data-group');
       const groupType = button.getAttribute('data-type');
       
@@ -1746,9 +1746,9 @@
           
         li.innerHTML = `
           ${matchIndicator}
-          <span class="var-name" title="${item.name}">${item.name}</span>
+            <span class="var-name" title="${item.name}">${item.name}</span>
           ${groupType !== 'colors' && groupType !== 'numbers' ? `<span class="var-type ${groupType.slice(0, -1)}">${item.type}</span>` : ''}
-          ${item.collection ? `<span class="var-collection" title="${item.collection}">${item.collection}</span>` : ''}
+            ${item.collection ? `<span class="var-collection" title="${item.collection}">${item.collection}</span>` : ''}
         `;
         ulElement.appendChild(li);
       }
@@ -1793,181 +1793,181 @@
       liMore.className = 'more-items';
       const items = variablesByGroup[groupType];
       liMore.innerHTML = `
-        <button class="load-more-button" data-group="${groupId}" data-type="${groupType}">
+            <button class="load-more-button" data-group="${groupId}" data-type="${groupType}">
           Mostrar +${items.length - 5} itens
-        </button>
-      `;
+            </button>
+          `;
       ulElement.appendChild(liMore);
       
       // Adiciona manipulador de evento para o novo botão "mostrar mais"
       const moreButton = liMore.querySelector('button');
       moreButton.addEventListener('click', handleLoadMoreClick);
-    }
+      }
 
-    // Função para formatar e mostrar as correspondências com paginação
-    function formatMatchesList(matches, page = 1, itemsPerPage = 30) {
-      // Agrupar correspondências por nome de variável local
-      const groupedMatches = {};
-      matches.forEach(match => {
-        if (!groupedMatches[match.localName]) {
-          groupedMatches[match.localName] = [];
-        }
-        groupedMatches[match.localName].push(match);
-      });
-      
-      // Transformar o objeto agrupado em array para paginação
-      const groupedArray = Object.keys(groupedMatches).map(varName => {
-        return {
-          name: varName,
-          matches: groupedMatches[varName]
-        };
-      });
-      
-      // Calcular páginas e total
-      const totalItems = groupedArray.length;
-      const totalPages = Math.ceil(totalItems / itemsPerPage);
-      
-      // Garantir que a página está dentro dos limites
-      page = Math.max(1, Math.min(page, totalPages || 1));
-      
-      // Índices para seleção
-      const startIndex = (page - 1) * itemsPerPage;
-      const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
-      
-      // Selecionar itens da página atual
-      const currentItems = groupedArray.slice(startIndex, endIndex);
-      
-      // Construir HTML
-      let html = `<div class="preview-header">Preview</div>`;
-      html += `<div class="matches-count">Encontradas ${totalItems} correspondências</div>`;
-      
-      // Conteúdo principal
-      html += '<div class="matches-container">';
-      
-      if (currentItems.length === 0) {
-        html += '<p>Nenhuma correspondência encontrada.</p>';
+      // Função para formatar e mostrar as correspondências com paginação
+      function formatMatchesList(matches, page = 1, itemsPerPage = 30) {
+        // Agrupar correspondências por nome de variável local
+        const groupedMatches = {};
+        matches.forEach(match => {
+          if (!groupedMatches[match.localName]) {
+            groupedMatches[match.localName] = [];
+          }
+          groupedMatches[match.localName].push(match);
+        });
+        
+        // Transformar o objeto agrupado em array para paginação
+        const groupedArray = Object.keys(groupedMatches).map(varName => {
+          return {
+            name: varName,
+            matches: groupedMatches[varName]
+          };
+        });
+        
+        // Calcular páginas e total
+        const totalItems = groupedArray.length;
+        const totalPages = Math.ceil(totalItems / itemsPerPage);
+        
+        // Garantir que a página está dentro dos limites
+        page = Math.max(1, Math.min(page, totalPages || 1));
+        
+        // Índices para seleção
+        const startIndex = (page - 1) * itemsPerPage;
+        const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
+        
+        // Selecionar itens da página atual
+        const currentItems = groupedArray.slice(startIndex, endIndex);
+        
+        // Construir HTML
+        let html = `<div class="preview-header">Preview</div>`;
+        html += `<div class="matches-count">Encontradas ${totalItems} correspondências</div>`;
+        
+        // Conteúdo principal
+        html += '<div class="matches-container">';
+        
+        if (currentItems.length === 0) {
+          html += '<p>Nenhuma correspondência encontrada.</p>';
+            } else {
+          currentItems.forEach(group => {
+            html += `
+              <div class="match-item">
+                <div class="variavel">${group.name}</div>
+                
+                <div class="modes-container">
+                  <div class="modes-title">Modes</div>
+                  <div class="modes-list">
+            `;
+            
+            // Verificar se há informações de modos
+            if (group.matches[0].modes && group.matches[0].modes.length > 0) {
+              group.matches[0].modes.forEach(mode => {
+                html += `
+                  <div class="mode-row">
+                    <span class="mode-name">${mode.name}</span>
+                    <span class="mode-value">${mode.value}</span>
+                  </div>
+                `;
+              });
           } else {
-        currentItems.forEach(group => {
-          html += `
-            <div class="match-item">
-              <div class="variavel">${group.name}</div>
-              
-              <div class="modes-container">
-                <div class="modes-title">Modes</div>
-                <div class="modes-list">
-          `;
-          
-          // Verificar se há informações de modos
-          if (group.matches[0].modes && group.matches[0].modes.length > 0) {
-            group.matches[0].modes.forEach(mode => {
+              // Fallback para exibir pelo menos o tipo da variável se não houver informações de modo
               html += `
                 <div class="mode-row">
-                  <span class="mode-name">${mode.name}</span>
-                  <span class="mode-value">${mode.value}</span>
+                  <span class="mode-name">modeName</span>
+                  <span class="mode-value">variableValue</span>
+                </div>
+                <div class="mode-row">
+                  <span class="mode-name">modeName</span>
+                  <span class="mode-value">variableValue</span>
                 </div>
               `;
-            });
-        } else {
-            // Fallback para exibir pelo menos o tipo da variável se não houver informações de modo
+            }
+            
             html += `
-              <div class="mode-row">
-                <span class="mode-name">modeName</span>
-                <span class="mode-value">variableValue</span>
-              </div>
-              <div class="mode-row">
-                <span class="mode-name">modeName</span>
-                <span class="mode-value">variableValue</span>
-              </div>
-            `;
-          }
-          
-          html += `
+                  </div>
                 </div>
               </div>
+            `;
+          });
+        }
+        
+        html += '</div>';
+        
+        // Informações de paginação simplificadas
+        if (totalPages > 1) {
+          html += `
+            <div class="matches-pagination">
+              <span>Página ${page} de ${totalPages}</span>
+              ${page > 1 ? '<button class="pagination-button" id="prev-page">Próxima</button>' : ''}
+              <button class="pagination-button" id="show-more">Ver Mais 30</button>
+              <button class="pagination-button" id="show-all">Ver Todas</button>
             </div>
           `;
-        });
+        }
+        
+        return html;
       }
-      
-      html += '</div>';
-      
-      // Informações de paginação simplificadas
-      if (totalPages > 1) {
-        html += `
-          <div class="matches-pagination">
-            <span>Página ${page} de ${totalPages}</span>
-            ${page > 1 ? '<button class="pagination-button" id="prev-page">Próxima</button>' : ''}
-            <button class="pagination-button" id="show-more">Ver Mais 30</button>
-            <button class="pagination-button" id="show-all">Ver Todas</button>
-          </div>
-        `;
-      }
-      
-      return html;
-    }
 
-    // Inicializar variáveis de paginação
-    window.paginationState = {
-      currentPage: 1,
-      itemsPerPage: 30,
-      showingAll: false
-    };
+      // Inicializar variáveis de paginação
+      window.paginationState = {
+        currentPage: 1,
+        itemsPerPage: 30,
+        showingAll: false
+      };
 
-    // Adicionar função para configurar os eventos da paginação
-    function setupPaginationEvents() {
-      // Botão Ver Anterior
-      const prevButton = document.getElementById('prev-page');
-      if (prevButton) {
-        prevButton.addEventListener('click', () => {
-          window.paginationState.currentPage--;
-          updateMatchesDisplay();
-        });
+      // Adicionar função para configurar os eventos da paginação
+      function setupPaginationEvents() {
+        // Botão Ver Anterior
+        const prevButton = document.getElementById('prev-page');
+        if (prevButton) {
+          prevButton.addEventListener('click', () => {
+            window.paginationState.currentPage--;
+            updateMatchesDisplay();
+          });
+        }
+        
+        // Botão Ver Mais 30
+        const showMoreButton = document.getElementById('show-more');
+        if (showMoreButton) {
+          showMoreButton.addEventListener('click', () => {
+            window.paginationState.itemsPerPage += 30;
+            updateMatchesDisplay();
+          });
+        }
+        
+        // Botão Ver Todas
+        const showAllButton = document.getElementById('show-all');
+        if (showAllButton) {
+          showAllButton.addEventListener('click', () => {
+            window.paginationState.showingAll = true;
+            updateMatchesDisplay();
+          });
+        }
       }
-      
-      // Botão Ver Mais 30
-      const showMoreButton = document.getElementById('show-more');
-      if (showMoreButton) {
-        showMoreButton.addEventListener('click', () => {
-          window.paginationState.itemsPerPage += 30;
-          updateMatchesDisplay();
-        });
-      }
-      
-      // Botão Ver Todas
-      const showAllButton = document.getElementById('show-all');
-      if (showAllButton) {
-        showAllButton.addEventListener('click', () => {
-          window.paginationState.showingAll = true;
-          updateMatchesDisplay();
-        });
-      }
-    }
 
-    // Função para atualizar a exibição de correspondências
-    function updateMatchesDisplay() {
-      if (!window.matchesData || !Array.isArray(window.matchesData)) {
-        previewContent.innerHTML = '<p class="warning">Não há correspondências disponíveis</p>';
-        return;
+      // Função para atualizar a exibição de correspondências
+      function updateMatchesDisplay() {
+        if (!window.matchesData || !Array.isArray(window.matchesData)) {
+          previewContent.innerHTML = '<p class="warning">Não há correspondências disponíveis</p>';
+          return;
+        }
+        
+        // Se estiver mostrando todas
+        if (window.paginationState.showingAll) {
+          previewContent.innerHTML = formatMatchesList(
+            window.matchesData, 
+            1, 
+            window.matchesData.length
+          );
+        } else {
+          previewContent.innerHTML = formatMatchesList(
+            window.matchesData, 
+            window.paginationState.currentPage,
+            window.paginationState.itemsPerPage
+          );
+        }
+        
+        // Configurar eventos após atualizar o conteúdo
+        setupPaginationEvents();
       }
-      
-      // Se estiver mostrando todas
-      if (window.paginationState.showingAll) {
-        previewContent.innerHTML = formatMatchesList(
-          window.matchesData, 
-          1, 
-          window.matchesData.length
-        );
-      } else {
-        previewContent.innerHTML = formatMatchesList(
-          window.matchesData, 
-          window.paginationState.currentPage,
-          window.paginationState.itemsPerPage
-        );
-      }
-      
-      // Configurar eventos após atualizar o conteúdo
-      setupPaginationEvents();
-    }
 
     // Elemento do modal
     const confirmModal = document.getElementById('confirm-modal');
@@ -2187,7 +2187,7 @@
     
     // Evento para o botão de atualizar variáveis
     updateButtonVar.addEventListener('click', showConfirmModal);
-  });
-</script>
+    });
+  </script>
 </body>
 </html> 
