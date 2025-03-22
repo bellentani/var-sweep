@@ -2384,7 +2384,7 @@ async function substituirVariaveisNoEscopo(
     for (const node of nodes) {
       try {
         // Aplicar as variáveis a este nó
-        const resultadoNo = await aplicarVariaveisAoNo(node, variaveisEfetivas, variaveisImportadas);
+        const resultadoNo = await aplicarVariaveisAoNo(node, variaveisEfetivas, variaveisImportadas, bibliotecaSelecionada.name);
         
         // Acumular estatísticas
         sucessos += resultadoNo.sucessos;
@@ -2394,7 +2394,7 @@ async function substituirVariaveisNoEscopo(
         if ('children' in node) {
           for (const childNode of node.children) {
             try {
-              const resultadoFilho = await aplicarVariaveisAoNo(childNode, variaveisEfetivas, variaveisImportadas);
+              const resultadoFilho = await aplicarVariaveisAoNo(childNode, variaveisEfetivas, variaveisImportadas, bibliotecaSelecionada.name);
               sucessos += resultadoFilho.sucessos;
               falhas += resultadoFilho.falhas;
             } catch (nodeErr) {
@@ -2430,7 +2430,8 @@ async function aplicarVariaveisAoNo(
     property?: string,
     nodeId?: string
   }>,
-  variaveisImportadas: Map<string, Variable>
+  variaveisImportadas: Map<string, Variable>,
+  nomeBiblioteca: string
 ): Promise<{ sucessos: number, falhas: number }> {
   let sucessosNo = 0;
   let falhasNo = 0;
@@ -2558,6 +2559,30 @@ async function aplicarVariaveisAoNo(
   for (const varAplicada of variaveisAplicadas) {
     // CORREÇÃO: Buscar a variável importada pelo NOME, não pelo ID
     console.log(`  → Buscando correspondência para variável aplicada: "${varAplicada.name}"`);
+    
+    // Verificar se é um estilo de texto
+    if (varAplicada.property === 'text') {
+      // Para estilos de texto, usamos uma lógica diferente
+      console.log(`  → Identificado estilo de texto: "${varAplicada.name}"`);
+      try {
+        // Buscar o estilo de texto correspondente na biblioteca selecionada
+        const resultado = await buscarEAplicarEstiloTexto(node, varAplicada.name, nomeBiblioteca);
+        if (resultado.sucesso) {
+          console.log(`  ✓ Estilo de texto "${varAplicada.name}" substituído por "${resultado.nomeEstilo}" da biblioteca "${nomeBiblioteca}"`);
+          sucessosNo++;
+        } else {
+          console.log(`  ❌ Não foi possível encontrar ou aplicar o estilo de texto "${varAplicada.name}" da biblioteca "${nomeBiblioteca}"`);
+          console.log(`     Motivo: ${resultado.mensagem}`);
+          falhasNo++;
+        }
+      } catch (err) {
+        console.warn(`  → Erro ao processar estilo de texto "${varAplicada.name}":`, err);
+        falhasNo++;
+      }
+      
+      // Continuamos para o próximo item, pois tratamos estilos de texto separadamente
+      continue;
+    }
     
     // Procurar no mapa de variáveis importadas pelo NOME EXATO da variável aplicada
     const varImportadaCorreta = variaveisImportadas.get(varAplicada.name);
@@ -2930,5 +2955,136 @@ function logCorrespondenciaVariaveis(
     console.log(`  → Biblioteca consultada: "${bibliotecaNome}"`);
     console.log(`  → Coleção consultada: "${colecaoNome}"`);
     console.log(`  → Tipo de correspondência: ${tipoCorrespondencia}`);
+  }
+}
+
+// Nova função para buscar e aplicar estilos de texto de uma biblioteca
+async function buscarEAplicarEstiloTexto(
+  node: SceneNode, 
+  nomeEstilo: string, 
+  nomeBiblioteca: string
+): Promise<{ sucesso: boolean, mensagem: string, nomeEstilo?: string }> {
+  if (!('textStyleId' in node)) {
+    return { 
+      sucesso: false, 
+      mensagem: "O nó não suporta estilos de texto" 
+    };
+  }
+  
+  try {
+    console.log(`Buscando estilo de texto "${nomeEstilo}" na biblioteca "${nomeBiblioteca}"...`);
+    
+    // 1. Obter todos os estilos de texto disponíveis nas bibliotecas
+    // @ts-ignore - API pode não estar nas tipagens
+    const estilosDisponiveis = await figma.teamLibrary.getAvailableTextStylesAsync();
+    
+    if (!estilosDisponiveis || !Array.isArray(estilosDisponiveis) || estilosDisponiveis.length === 0) {
+      return { 
+        sucesso: false, 
+        mensagem: "Não foi possível obter estilos de texto das bibliotecas ou nenhum estilo encontrado" 
+      };
+    }
+    
+    console.log(`Encontrados ${estilosDisponiveis.length} estilos de texto em todas as bibliotecas`);
+    
+    // 2. Filtrar estilos da biblioteca especificada
+    const estilosDaBiblioteca = estilosDisponiveis.filter((estilo: any) => {
+      return estilo.libraryName === nomeBiblioteca;
+    });
+    
+    if (estilosDaBiblioteca.length === 0) {
+      return { 
+        sucesso: false, 
+        mensagem: `Não foram encontrados estilos de texto na biblioteca "${nomeBiblioteca}"` 
+      };
+    }
+    
+    console.log(`Encontrados ${estilosDaBiblioteca.length} estilos de texto na biblioteca "${nomeBiblioteca}"`);
+    
+    // 3. Procurar pelo estilo com o nome exato
+    let estiloEncontrado = estilosDaBiblioteca.find((estilo: any) => estilo.name === nomeEstilo);
+    
+    // 4. Se não encontrar pelo nome exato, tentar com correspondência parcial
+    if (!estiloEncontrado) {
+      // Primeiro tentar encontrar um estilo que termina com o nome do estilo original
+      estiloEncontrado = estilosDaBiblioteca.find((estilo: any) => 
+        estilo.name.endsWith(`/${nomeEstilo}`) || 
+        estilo.name.toLowerCase().endsWith(`/${nomeEstilo.toLowerCase()}`)
+      );
+      
+      // Se ainda não encontrou, tentar por correspondência parcial
+      if (!estiloEncontrado) {
+        for (const estilo of estilosDaBiblioteca) {
+          // Quebrar os nomes em partes e verificar se têm componentes em comum
+          const partesNomeOriginal = nomeEstilo.toLowerCase().split('/');
+          const partesNomeEstilo = estilo.name.toLowerCase().split('/');
+          
+          // Verificar se pelo menos 2 partes coincidem
+          let partesCoincidentes = 0;
+          for (const parte of partesNomeOriginal) {
+            if (partesNomeEstilo.includes(parte) && parte.length > 2) {
+              partesCoincidentes++;
+            }
+          }
+          
+          if (partesCoincidentes >= 2) {
+            estiloEncontrado = estilo;
+            console.log(`Encontrada correspondência parcial para estilo de texto: "${estilo.name}"`);
+            break;
+          }
+        }
+      }
+    }
+    
+    if (!estiloEncontrado) {
+      return { 
+        sucesso: false, 
+        mensagem: `Não foi encontrado estilo de texto com nome "${nomeEstilo}" na biblioteca "${nomeBiblioteca}"` 
+      };
+    }
+    
+    console.log(`Encontrado estilo de texto: "${estiloEncontrado.name}" (key: ${estiloEncontrado.key})`);
+    
+    // 5. Importar o estilo encontrado
+    try {
+      // @ts-ignore - API pode não estar nas tipagens
+      const estiloImportado = await figma.importStyleByKeyAsync(estiloEncontrado.key);
+      
+      if (!estiloImportado) {
+        return { 
+          sucesso: false, 
+          mensagem: `Não foi possível importar o estilo de texto "${estiloEncontrado.name}"` 
+        };
+      }
+      
+      console.log(`Estilo de texto "${estiloEncontrado.name}" importado com sucesso (ID: ${estiloImportado.id})`);
+      
+      // 6. Aplicar o estilo ao nó
+      const nodeText = node as TextNode;
+      nodeText.textStyleId = estiloImportado.id;
+      
+      // Forçar atualização visual
+      nodeText.setRelaunchData({ update: '' });
+      
+      return { 
+        sucesso: true, 
+        mensagem: "Estilo aplicado com sucesso", 
+        nomeEstilo: estiloImportado.name 
+      };
+    } catch (importErr) {
+      console.warn(`Erro ao importar estilo de texto: ${importErr}`);
+      
+      return { 
+        sucesso: false, 
+        mensagem: `Erro ao importar estilo: ${String(importErr)}` 
+      };
+    }
+  } catch (err) {
+    console.error(`Erro ao buscar e aplicar estilo de texto: ${err}`);
+    
+    return { 
+      sucesso: false, 
+      mensagem: `Erro geral: ${String(err)}` 
+    };
   }
 }
