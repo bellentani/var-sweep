@@ -2908,7 +2908,8 @@ async function aplicarVariaveisAoNo(
     name: string,
     type?: string,
     property?: string,
-    nodeId?: string
+    nodeId?: string,
+    hasMatch?: boolean
   }>,
   variaveisImportadas: Map<string, Variable>,
   nomeBiblioteca: string
@@ -3077,6 +3078,14 @@ async function aplicarVariaveisAoNo(
     // Verificar se é uma variável FLOAT
     if (varOriginal.type === 'FLOAT') {
       console.log(`  → Processando variável FLOAT: "${varOriginal.name}"`);
+      
+      // Verificar se a variável tem match e se é para ser aplicada
+      if (varOriginal.hasMatch === false) {
+        console.log(`  → Variável FLOAT "${varOriginal.name}" não tem correspondência na biblioteca (hasMatch: false). Ignorando aplicação.`);
+        falhasNo++;
+        continue;
+      }
+      
       // Verificar se temos uma variável importada correspondente
       const varImportada = variaveisImportadas.get(varOriginal.name);
       
@@ -3127,11 +3136,11 @@ async function aplicarVariaveisAoNo(
             }
             else if (varName.includes('border') || varName.includes('stroke')) {
               // Tentar propriedades de borda
-              if ('strokeWeight' in node && varName.includes('width')) {
+              if ('strokeWeight' in node && (varName.includes('width') || varName.includes('espessura'))) {
                 console.log(`  → Tentando aplicar à propriedade strokeWeight`);
                 tentativaAlternativa = aplicarVariavelPropriedade(node, { id: varImportada.id }, 'strokeWeight');
               }
-              if ('cornerRadius' in node && (varName.includes('radius') || varName.includes('corner'))) {
+              if ('cornerRadius' in node && (varName.includes('radius') || varName.includes('corner') || varName.includes('arredondamento'))) {
                 console.log(`  → Tentando aplicar à propriedade cornerRadius`);
                 tentativaAlternativa = aplicarVariavelPropriedade(node, { id: varImportada.id }, 'cornerRadius') || tentativaAlternativa;
               }
@@ -3160,6 +3169,13 @@ async function aplicarVariaveisAoNo(
     
     // Processar variáveis COLOR (código existente)
     if (varOriginal.type === 'COLOR') {
+      // Verificar se a variável tem match
+      if (varOriginal.hasMatch === false) {
+        console.log(`  → Variável COLOR "${varOriginal.name}" não tem correspondência na biblioteca (hasMatch: false). Ignorando aplicação.`);
+        falhasNo++;
+        continue;
+      }
+      
       // Verificar se temos uma variável importada correspondente
       const varImportada = variaveisImportadas.get(varOriginal.name);
       
@@ -3465,80 +3481,103 @@ async function vincularVariavelNumericaExistente(node: SceneNode, variavel: Vari
   try {
     console.log(`Tentando vincular variável numérica: ${variavel.name} (ID: ${variavel.id}) ao nó ${node.name}`);
     
-    // Identificar qual propriedade numérica vincular com base no nome da variável
+    // Identificar quais propriedades numéricas vincular com base no nome da variável
     const nomeVar = variavel.name.toLowerCase();
-    let propriedade = '';
+    let propriedades: string[] = [];
     
-    // Mapear nomes comuns para propriedades
+    // Mapear nomes comuns para propriedades - EXPANDIDO PARA INCLUIR MAIS CASOS
     if (nomeVar.includes('radius') || nomeVar.includes('corner')) {
-      propriedade = 'cornerRadius';
+      propriedades.push('cornerRadius');
     } else if (nomeVar.includes('opacity') || nomeVar.includes('transparencia')) {
-      propriedade = 'opacity';
-    } else if (nomeVar.includes('spacing') || nomeVar.includes('espaco')) {
-      propriedade = 'itemSpacing';
+      propriedades.push('opacity');
+    } else if (nomeVar.includes('spacing') || nomeVar.includes('espaco') || nomeVar.includes('gap')) {
+      propriedades.push('itemSpacing');
+    } else if (nomeVar.includes('stroke') && nomeVar.includes('width')) {
+      propriedades.push('strokeWeight');
+    } else if (nomeVar.includes('border') && nomeVar.includes('width')) {
+      propriedades.push('strokeWeight');
     } else if (nomeVar.includes('width') || nomeVar.includes('largura')) {
-      propriedade = 'width';
+      propriedades.push('width');
     } else if (nomeVar.includes('height') || nomeVar.includes('altura')) {
-      propriedade = 'height';
+      propriedades.push('height');
     } else if (nomeVar.includes('size') || nomeVar.includes('tamanho')) {
       // Verificar se é um texto para definir o tamanho da fonte
       if (node.type === 'TEXT') {
-        propriedade = 'fontSize';
+        propriedades.push('fontSize');
       } else {
         // Para outros tipos, tenta primeiro largura
-        propriedade = 'width';
+        propriedades.push('width');
+      }
+    } else if (nomeVar.includes('padding')) {
+      // Tratamento mais detalhado para paddings
+      if (nomeVar.includes('vertical') || nomeVar.includes('top') || nomeVar.includes('y')) {
+        propriedades.push('paddingTop');
+        if (nomeVar.includes('vertical') || nomeVar.includes('bottom')) {
+          propriedades.push('paddingBottom');
+        }
+      }
+      
+      if (nomeVar.includes('horizontal') || nomeVar.includes('left') || nomeVar.includes('x')) {
+        propriedades.push('paddingLeft');
+        if (nomeVar.includes('horizontal') || nomeVar.includes('right')) {
+          propriedades.push('paddingRight');
+        }
+      }
+      
+      // Se não foi especificado direção, tenta aplicar a todos os paddings
+      if (!propriedades.length) {
+        propriedades = ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft'];
       }
     }
     
-    if (!propriedade) {
+    if (propriedades.length === 0) {
       console.warn(`❌ Não foi possível identificar qual propriedade numérica vincular para: ${variavel.name}`);
       return false;
     }
     
-    console.log(`Tentando vincular à propriedade: ${propriedade}`);
+    console.log(`Tentando vincular às propriedades: ${propriedades.join(', ')}`);
     
     let vinculado = false;
     
-    // Método 1: Tentar vincular a variável diretamente
-    try {
-      if (propriedade in node) {
-        // @ts-ignore - API pode não estar nas tipagens mais antigas
-        node.boundVariables = {
-          ...node.boundVariables,
-          [propriedade]: {
-            id: variavel.id,
-            type: 'VARIABLE_ALIAS'
-          }
-        };
+    // Iterar sobre todas as propriedades identificadas e tentar aplicar a cada uma
+    for (const propriedade of propriedades) {
+      console.log(`\n→ Tentando aplicar variável à propriedade "${propriedade}"`);
+      
+      // Verificar se a propriedade existe no nó
+      if (!(propriedade in node)) {
+        console.log(`  > ✗ Propriedade "${propriedade}" não existe no nó`);
+        continue; // Tentar a próxima propriedade
+      }
+      
+      // Verificar se é uma propriedade de auto-layout
+      const autoLayoutProps = ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'itemSpacing'];
+      const isAutoLayoutProp = autoLayoutProps.includes(propriedade);
+      
+      // Verificar se o nó tem o tipo correto para aplicar a propriedade
+      if (isAutoLayoutProp && !('layoutMode' in node)) {
+        console.log(`  > ✗ Nó não suporta propriedades de auto-layout (não tem layoutMode)`);
+        continue; // Tentar a próxima propriedade
+      }
+      
+      // Aplicar via função dedicada
+      const aplicado = aplicarVariavelPropriedade(node, { id: variavel.id }, propriedade);
+      
+      if (aplicado) {
+        console.log(`  ✓ Variável numérica aplicada com sucesso à propriedade ${propriedade}`);
         vinculado = true;
-        console.log(`✅ Método 1: Variável vinculada à propriedade ${propriedade} do nó ${node.name}`);
-      }
-    } catch (err) {
-      console.warn(`⚠️ Método 1 falhou: ${err}`);
-    }
-    
-    // Método 2: Usar a API oficial do Figma
-    if (!vinculado) {
-      try {
-        if (propriedade in node) {
-          // @ts-ignore - API pode não estar nas tipagens
-          figma.variables.setBoundVariable(node, propriedade, variavel);
-          vinculado = true;
-          console.log(`✅ Método 2: Variável vinculada à propriedade ${propriedade} do nó ${node.name}`);
-        }
-      } catch (err) {
-        console.warn(`⚠️ Método 2 falhou: ${err}`);
       }
     }
     
-    // Forçar atualização visual
     if (vinculado) {
-      // @ts-ignore
-      node.setRelaunchData({ update: '' });
+      // Forçar atualização visual adicional
+      if ('setRelaunchData' in node) {
+        // @ts-ignore
+        node.setRelaunchData({ update: '' });
+      }
       return true;
     }
     
-    console.warn(`❌ Não foi possível vincular a variável numérica ao nó ${node.name} (tipo: ${node.type})`);
+    console.warn(`❌ Não foi possível vincular a variável numérica ${variavel.name} ao nó ${node.name} (tipo: ${node.type})`);
     return false;
   } catch (err) {
     console.error(`Erro ao vincular variável numérica: ${err}`);
