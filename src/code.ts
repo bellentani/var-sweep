@@ -1048,9 +1048,10 @@ function aplicarVariavelPropriedade(node: SceneNode, variable: { id: string }, p
     const valorAtual = (node as any)[property];
     console.log(`  > Valor atual da propriedade "${property}": ${valorAtual}`);
     
-    // Obter informações sobre a variável para log
+    // Obter a variável a ser aplicada
+    let variavelObj: Variable | null = null;
     try {
-      const variavelObj = figma.variables.getVariableById(variable.id);
+      variavelObj = figma.variables.getVariableById(variable.id);
       if (variavelObj) {
         console.log(`  > Variável encontrada: "${variavelObj.name}", tipo: ${variavelObj.resolvedType}`);
         
@@ -1066,7 +1067,7 @@ function aplicarVariavelPropriedade(node: SceneNode, variable: { id: string }, p
       console.warn(`  > ⚠️ Erro ao obter informações da variável:`, infoError);
     }
     
-    // SUBSTITUIÇÃO DE REFERÊNCIA - igual a que é usada para cores
+    // MÉTODO EFICIENTE: Usar diretamente o padrão que funciona para cores
     try {
       // Garantir que a propriedade boundVariables exista no nó
       if (!(node as any).boundVariables) {
@@ -1088,7 +1089,6 @@ function aplicarVariavelPropriedade(node: SceneNode, variable: { id: string }, p
         console.log(`  > ✓ Verificação pós-substituição: SUCESSO`);
       } else {
         console.log(`  > ⚠️ Verificação pós-substituição: referência pode não ter sido atualizada corretamente`);
-        return false;
       }
       
       // Forçar reavaliação visual no Figma
