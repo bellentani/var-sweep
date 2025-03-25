@@ -1305,38 +1305,14 @@
       updatePreviewVar();
     });
       
-      // Evento para os radio buttons da aba Update Variables
+      // Adicionar event listeners aos botões de rádio para atualizar a prévia
       document.querySelectorAll('input[name="scope"]').forEach(radio => {
         radio.addEventListener('change', updatePreviewVar);
       });
       
-      // Evento para o botão de atualizar
-      updateButtonVar.addEventListener('click', () => {
-        const libraryId = librarySelectVar.value;
-      const collectionId = collectionSelectVar.value;
-        const scope = document.querySelector('input[name="scope"]:checked').value;
-        
-      if (!libraryId || !collectionId) {
-        alert('Selecione uma biblioteca e uma coleção!');
-          return;
-        }
-        
-        // Mostrar loading enquanto processa a substituição
-        loadingPreviewVar.style.display = 'block';
-        
-        // Enviar mensagem para substituir variáveis
-      parent.postMessage({ 
-        pluginMessage: { 
-          type: 'substituirVariaveis',
-          libraryId: libraryId,
-          collectionId: collectionId,
-            scope: scope,
-            variables: foundVariables
-        } 
-      }, '*');
-    });
-    
-    // Função para atualizar a prévia quando a biblioteca e coleção são selecionadas
+      // Evento para o botão de atualizar - REMOVIDO PARA USAR APENAS O MODAL DE CONFIRMAÇÃO
+      
+      // Função para atualizar a prévia quando a biblioteca e coleção são selecionadas
       function updatePreviewVar() {
         const libraryId = librarySelectVar.value;
       const collectionId = collectionSelectVar.value;

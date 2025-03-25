@@ -2948,10 +2948,10 @@ async function aplicarVariaveisAoNo(
     return { categoria, componente, variante, prefixo };
   };
   
-  console.log(`\nExaminando nó: ${node.name || node.id}`);
+  console.log(`\n### Examinando nó: ${node.name || node.id} (Tipo: ${node.type})`);
   
   // 1. Obter as variáveis atualmente aplicadas a este nó
-  let variaveisAplicadas: { id: string, name: string, property: string }[] = [];
+  let variaveisAplicadas: { id: string, name: string, property: string, type?: string }[] = [];
   
   // Verificar fills para variáveis de cor
   if ('fills' in node && node.fills) {
@@ -2968,7 +2968,8 @@ async function aplicarVariaveisAoNo(
                 variaveisAplicadas.push({
                   id: boundVars.color.id,
                   name: variavelAtual.name,
-                  property: `fills[${index}]`
+                  property: `fills[${index}]`,
+                  type: 'COLOR'
                 });
                 console.log(`  → Variável aplicada encontrada no fill[${index}]: "${variavelAtual.name}" (ID: ${boundVars.color.id})`);
               }
@@ -2994,7 +2995,8 @@ async function aplicarVariaveisAoNo(
                 variaveisAplicadas.push({
                   id: boundVars.color.id,
                   name: variavelAtual.name,
-                  property: `strokes[${index}]`
+                  property: `strokes[${index}]`,
+                  type: 'COLOR'
                 });
                 console.log(`  → Variável aplicada encontrada no stroke[${index}]: "${variavelAtual.name}" (ID: ${boundVars.color.id})`);
               }
@@ -3004,6 +3006,35 @@ async function aplicarVariaveisAoNo(
           }
         }
       });
+    }
+  }
+  
+  // Verificar propriedades numéricas (FLOAT) como padding e border
+  const propriedadesFloat = ['paddingTop', 'paddingBottom', 'paddingLeft', 'paddingRight', 
+                             'itemSpacing', 'cornerRadius', 'strokeWeight'];
+  
+  if ('boundVariables' in node) {
+    const boundVars = (node as any).boundVariables;
+    if (boundVars) {
+      // Verificar cada propriedade de boundVariables
+      for (const prop in boundVars) {
+        if (propriedadesFloat.includes(prop) && boundVars[prop] && boundVars[prop].id) {
+          try {
+            const variavelAtual = figma.variables.getVariableById(boundVars[prop].id);
+            if (variavelAtual) {
+              variaveisAplicadas.push({
+                id: boundVars[prop].id,
+                name: variavelAtual.name,
+                property: prop,
+                type: 'FLOAT'
+              });
+              console.log(`  → Variável FLOAT aplicada encontrada em ${prop}: "${variavelAtual.name}" (ID: ${boundVars[prop].id})`);
+            }
+          } catch (err) {
+            console.warn(`  → Erro ao obter variável de ${prop}:`, err);
+          }
+        }
+      }
     }
   }
   
@@ -3019,7 +3050,8 @@ async function aplicarVariaveisAoNo(
         variaveisAplicadas.push({
           id: textStyleIdString,
           name: estiloTexto.name,
-          property: 'text'
+          property: 'text',
+          type: 'style'
         });
         console.log(`  → Estilo de texto aplicado: "${estiloTexto.name}" (ID: ${textStyleIdString})`);
       }
@@ -3035,7 +3067,127 @@ async function aplicarVariaveisAoNo(
     console.log(`  → Total de ${variaveisAplicadas.length} variáveis aplicadas a este nó.`);
   }
   
-  // 2. Para cada variável aplicada, encontrar a correspondente na biblioteca e substituir
+  // 2. Processar as variáveis importadas para substituição - incluindo FLOAT
+  // Verificar as variáveis originais (as que queremos substituir)
+  console.log(`  → Processando ${variaveisOriginais.length} variáveis para possível substituição`);
+  
+  for (const varOriginal of variaveisOriginais) {
+    console.log(`\n  → Verificando variável original: "${varOriginal.name}" (Tipo: ${varOriginal.type || 'desconhecido'})`);
+    
+    // Verificar se é uma variável FLOAT
+    if (varOriginal.type === 'FLOAT') {
+      console.log(`  → Processando variável FLOAT: "${varOriginal.name}"`);
+      // Verificar se temos uma variável importada correspondente
+      const varImportada = variaveisImportadas.get(varOriginal.name);
+      
+      if (varImportada) {
+        console.log(`  → Encontrada variável importada correspondente para "${varOriginal.name}"`);
+        
+        // Tentar aplicar variável FLOAT
+        let aplicado = false;
+        
+        // Usar a função de aplicação de variáveis FLOAT existente
+        console.log(`  → Tentando aplicar variável FLOAT "${varOriginal.name}" ao nó "${node.name}"`);
+        try {
+          aplicado = await vincularVariavelNumericaExistente(node, varImportada);
+          
+          if (aplicado) {
+            console.log(`  ✓ Variável FLOAT "${varOriginal.name}" aplicada com sucesso ao nó "${node.name}"`);
+            sucessosNo++;
+          } else {
+            console.log(`  ✗ Não foi possível aplicar variável FLOAT "${varOriginal.name}" diretamente`);
+            
+            // Tentar método alternativo com propriedades específicas
+            const varName = varOriginal.name.toLowerCase();
+            let tentativaAlternativa = false;
+            
+            // Mapear nome de variável para possíveis propriedades
+            if (varName.includes('padding') || varName.includes('spacing')) {
+              // Tentar propriedades de padding
+              if ('paddingTop' in node && (varName.includes('vertical') || varName.includes('top'))) {
+                console.log(`  → Tentando aplicar à propriedade paddingTop`);
+                tentativaAlternativa = aplicarVariavelPropriedade(node, { id: varImportada.id }, 'paddingTop');
+              }
+              if ('paddingBottom' in node && (varName.includes('vertical') || varName.includes('bottom'))) {
+                console.log(`  → Tentando aplicar à propriedade paddingBottom`);
+                tentativaAlternativa = aplicarVariavelPropriedade(node, { id: varImportada.id }, 'paddingBottom') || tentativaAlternativa;
+              }
+              if ('paddingLeft' in node && (varName.includes('horizontal') || varName.includes('left'))) {
+                console.log(`  → Tentando aplicar à propriedade paddingLeft`);
+                tentativaAlternativa = aplicarVariavelPropriedade(node, { id: varImportada.id }, 'paddingLeft') || tentativaAlternativa;
+              }
+              if ('paddingRight' in node && (varName.includes('horizontal') || varName.includes('right'))) {
+                console.log(`  → Tentando aplicar à propriedade paddingRight`);
+                tentativaAlternativa = aplicarVariavelPropriedade(node, { id: varImportada.id }, 'paddingRight') || tentativaAlternativa;
+              }
+              if ('itemSpacing' in node) {
+                console.log(`  → Tentando aplicar à propriedade itemSpacing`);
+                tentativaAlternativa = aplicarVariavelPropriedade(node, { id: varImportada.id }, 'itemSpacing') || tentativaAlternativa;
+              }
+            }
+            else if (varName.includes('border') || varName.includes('stroke')) {
+              // Tentar propriedades de borda
+              if ('strokeWeight' in node && varName.includes('width')) {
+                console.log(`  → Tentando aplicar à propriedade strokeWeight`);
+                tentativaAlternativa = aplicarVariavelPropriedade(node, { id: varImportada.id }, 'strokeWeight');
+              }
+              if ('cornerRadius' in node && (varName.includes('radius') || varName.includes('corner'))) {
+                console.log(`  → Tentando aplicar à propriedade cornerRadius`);
+                tentativaAlternativa = aplicarVariavelPropriedade(node, { id: varImportada.id }, 'cornerRadius') || tentativaAlternativa;
+              }
+            }
+            
+            if (tentativaAlternativa) {
+              console.log(`  ✓ Variável FLOAT "${varOriginal.name}" aplicada com método alternativo`);
+              sucessosNo++;
+            } else {
+              console.log(`  ✗ Não foi possível aplicar variável FLOAT "${varOriginal.name}" com nenhum método`);
+              falhasNo++;
+            }
+          }
+        } catch (err) {
+          console.error(`  ✗ Erro ao aplicar variável FLOAT "${varOriginal.name}":`, err);
+          falhasNo++;
+        }
+        
+        continue; // Pular para a próxima variável após processar FLOAT
+      } else {
+        console.log(`  ✗ Não foi encontrada variável importada para "${varOriginal.name}"`);
+        falhasNo++;
+        continue;
+      }
+    }
+    
+    // Processar variáveis COLOR (código existente)
+    if (varOriginal.type === 'COLOR') {
+      // Verificar se temos uma variável importada correspondente
+      const varImportada = variaveisImportadas.get(varOriginal.name);
+      
+      if (varImportada) {
+        console.log(`  → Encontrada variável COLOR importada para "${varOriginal.name}"`);
+        
+        // Procurar correspondência para aplicação
+        for (const varAplicada of variaveisAplicadas) {
+          if (varAplicada.name === varOriginal.name) {
+            console.log(`  → Buscando correspondência para variável aplicada: "${varAplicada.name}"`);
+            
+            // Processar o código existente para COLOR...
+            
+            // Resto do código para cor...
+          }
+        }
+      } else {
+        console.log(`  ✗ Não foi encontrada variável COLOR importada para "${varOriginal.name}"`);
+        falhasNo++;
+      }
+      
+      continue; // Pular para próxima após processar COLOR
+    }
+    
+    // Processar outros tipos de variáveis...
+  }
+  
+  // 3. Para cada variável aplicada, encontrar a correspondente na biblioteca e substituir
   for (const varAplicada of variaveisAplicadas) {
     // CORREÇÃO: Buscar a variável importada pelo NOME, não pelo ID
     console.log(`  → Buscando correspondência para variável aplicada: "${varAplicada.name}"`);
@@ -3152,6 +3304,8 @@ async function aplicarVariaveisAoNo(
   
   return { sucessos: sucessosNo, falhas: falhasNo };
 }
+
+// Função auxiliar para aplicar uma variável a uma propriedade específica
 
 // ... existing code ...
 
