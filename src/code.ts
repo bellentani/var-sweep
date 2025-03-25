@@ -750,52 +750,532 @@ const VAR_TYPE_STRING: VariableValueType = "STRING";
 async function substituirVariaveisEEstilos(node: SceneNode, variables: Array<{
   type?: string,
   property?: string,
-  id: string
+  id: string,
+  name?: string, // Adicionado nome para facilitar o mapeamento
+  hasMatch?: boolean // Indica se a variável tem correspondência na biblioteca
 }>) {
   try {
+    console.log(`Substituindo variáveis para nó: ${node.name}`);
+    let sucessos = 0;
+    let falhas = 0;
+    
     for (const variable of variables) {
+      console.log(`Processando variável: ${variable.name || variable.id}, tipo: ${variable.type || 'estilo'}`);
+      
+      // Verificar se a variável está marcada para aplicação (tem correspondência)
+      if (variable.hasMatch === false) {
+        console.log(`Variável ${variable.name} ignorada, não tem correspondência`);
+        continue;
+      }
+      
+      let aplicado = false;
+      
+      // Tratar variáveis FLOAT separadamente
+      if (variable.type === 'FLOAT') {
+        console.log(`Aplicando variável FLOAT: ${variable.name}`);
+        aplicado = await aplicarVariavelFloat(node, variable);
+        if (aplicado) {
+          console.log(`✓ Variável FLOAT "${variable.name}" aplicada com sucesso`);
+          sucessos++;
+        } else {
+          console.log(`✗ Falha ao aplicar variável FLOAT "${variable.name}"`);
+          falhas++;
+        }
+        continue; // Pular para a próxima variável
+      }
+      
+      if (variable.type === 'COLOR') {
+        console.log(`Aplicando variável COLOR: ${variable.name}`);
+        aplicado = await aplicarVariavelColor(node, variable);
+        if (aplicado) {
+          console.log(`✓ Variável COLOR "${variable.name}" aplicada com sucesso`);
+          sucessos++;
+        } else {
+          console.log(`✗ Falha ao aplicar variável COLOR "${variable.name}"`);
+          falhas++;
+        }
+        continue; // Pular para a próxima variável
+      }
+      
       if (variable.type) {
-        // Substituir variáveis
+        // Substituir outros tipos de variáveis
         const boundVars = (node as any).boundVariables;
         if (boundVars && variable.property && boundVars[variable.property]) {
+          console.log(`Aplicando variável à propriedade: ${variable.property}`);
           boundVars[variable.property] = {
             type: 'VARIABLE_ALIAS',
             id: variable.id
           };
+          sucessos++;
+          aplicado = true;
+        } else {
+          console.log(`Não foi possível aplicar variável: propriedade ${variable.property} não encontrada em boundVars`);
+          falhas++;
         }
       } else if (variable.property) {
         // Substituir estilos
         switch (variable.property) {
           case 'fill':
             if ('fills' in node) {
+              console.log(`Aplicando estilo de fill: ${variable.id}`);
               (node as any).fillStyleId = variable.id;
+              sucessos++;
+              aplicado = true;
+            } else {
+              falhas++;
             }
             break;
           case 'stroke':
             if ('strokes' in node) {
+              console.log(`Aplicando estilo de stroke: ${variable.id}`);
               (node as any).strokeStyleId = variable.id;
+              sucessos++;
+              aplicado = true;
+            } else {
+              falhas++;
             }
             break;
           case 'effect':
             if ('effects' in node) {
+              console.log(`Aplicando estilo de efeito: ${variable.id}`);
               (node as any).effectStyleId = variable.id;
+              sucessos++;
+              aplicado = true;
+            } else {
+              falhas++;
             }
             break;
           case 'text':
             if ('textStyleId' in node) {
+              console.log(`Aplicando estilo de texto: ${variable.id}`);
               (node as any).textStyleId = variable.id;
+              sucessos++;
+              aplicado = true;
+            } else {
+              falhas++;
             }
-                    break;
+            break;
           case 'grid':
             if ('layoutGrids' in node) {
+              console.log(`Aplicando estilo de grid: ${variable.id}`);
               (node as any).gridStyleId = variable.id;
+              sucessos++;
+              aplicado = true;
+            } else {
+              falhas++;
             }
-                      break;
-                    }
-                  }
-                }
+            break;
+          default:
+            falhas++;
+            break;
+        }
+      }
+
+      if (aplicado) {
+        console.log(`✓ Variável "${variable.name}" aplicada com sucesso`);
+      } else {
+        console.log(`✗ Falha ao aplicar variável "${variable.name}"`);
+      }
+    }
+    
+    console.log(`Substituição concluída para nó ${node.name}: ${sucessos} sucessos, ${falhas} falhas`);
+    return { sucessos, falhas };
   } catch (error) {
     console.error('Erro ao substituir variáveis/estilos:', error);
+    return { sucessos: 0, falhas: 0 };
+  }
+}
+
+// Nova função para aplicar variáveis do tipo FLOAT
+async function aplicarVariavelFloat(node: SceneNode, variable: { id: string, name?: string, property?: string }) {
+  try {
+    console.log(`\n>>> APLICANDO VARIÁVEL FLOAT: "${variable.name || variable.id}"`);
+    console.log(`>>> Propriedade original: "${variable.property}"`);
+    console.log(`>>> Node tipo: ${node.type}, nome: "${node.name}"`);
+    
+    // Verificar se o nó tem boundVariables
+    if (!('boundVariables' in node)) {
+      console.log(`>>> ERRO: Nó não suporta boundVariables`);
+      return false;
+    }
+    
+    // Verificar propriedades específicas do nó
+    const nodeProps = Object.keys(node).filter(prop => 
+      !['id', 'parent', 'children', 'name', 'type'].includes(prop)
+    );
+    console.log(`>>> Propriedades disponíveis: ${nodeProps.join(', ')}`);
+    
+    // Verificar propriedades de layout
+    const layoutProps = [];
+    if ('layoutMode' in node) layoutProps.push(`layoutMode: ${(node as any).layoutMode}`);
+    if ('paddingTop' in node) layoutProps.push(`paddingTop: ${(node as any).paddingTop}`);
+    if ('paddingBottom' in node) layoutProps.push(`paddingBottom: ${(node as any).paddingBottom}`);
+    if ('paddingLeft' in node) layoutProps.push(`paddingLeft: ${(node as any).paddingLeft}`);
+    if ('paddingRight' in node) layoutProps.push(`paddingRight: ${(node as any).paddingRight}`);
+    if ('itemSpacing' in node) layoutProps.push(`itemSpacing: ${(node as any).itemSpacing}`);
+    
+    if (layoutProps.length > 0) {
+      console.log(`>>> Propriedades de layout: ${layoutProps.join(', ')}`);
+    } else {
+      console.log(`>>> Nó não tem propriedades de layout`);
+    }
+    
+    // Garantir que boundVariables exista
+    if (!(node as any).boundVariables) {
+      (node as any).boundVariables = {};
+      console.log(`>>> Criado objeto boundVariables no nó`);
+    }
+    
+    // Mapear o nome da variável para a propriedade correta do Figma
+    const varName = variable.name?.toLowerCase() || '';
+    console.log(`>>> Procurando propriedade para variável: "${varName}"`);
+    
+    // Array de possíveis propriedades para testar
+    const possiveisPropriedades = [];
+    
+    // Mapear nomes de variáveis para propriedades do Figma
+    if (varName.includes('padding') || varName.includes('spacing')) {
+      if (varName.includes('vertical') || varName.includes('top') || varName.includes('bottom')) {
+        if ('paddingTop' in node) {
+          possiveisPropriedades.push('paddingTop');
+        } 
+        if ('paddingBottom' in node) {
+          possiveisPropriedades.push('paddingBottom');
+        }
+        if ('itemSpacing' in node) {
+          possiveisPropriedades.push('itemSpacing');
+        }
+      } 
+      else if (varName.includes('horizontal') || varName.includes('left') || varName.includes('right')) {
+        if ('paddingLeft' in node) {
+          possiveisPropriedades.push('paddingLeft');
+        } 
+        if ('paddingRight' in node) {
+          possiveisPropriedades.push('paddingRight');
+        }
+        if ('itemSpacing' in node && (node as any).layoutMode === 'HORIZONTAL') {
+          possiveisPropriedades.push('itemSpacing');
+        }
+      }
+      else {
+        // Padding genérico - tentar todas as propriedades de padding
+        ['paddingTop', 'paddingBottom', 'paddingLeft', 'paddingRight', 'itemSpacing'].forEach(prop => {
+          if (prop in node) {
+            possiveisPropriedades.push(prop);
+          }
+        });
+      }
+    } 
+    else if (varName.includes('border') || varName.includes('stroke')) {
+      if (varName.includes('width')) {
+        if ('strokeWeight' in node) {
+          possiveisPropriedades.push('strokeWeight');
+        }
+      } 
+      else if (varName.includes('radius') || varName.includes('corner')) {
+        if ('cornerRadius' in node) {
+          possiveisPropriedades.push('cornerRadius');
+        }
+        // Verificar cantos específicos
+        if ('topLeftRadius' in node) {
+          possiveisPropriedades.push('topLeftRadius');
+        }
+        if ('topRightRadius' in node) {
+          possiveisPropriedades.push('topRightRadius');
+        }
+        if ('bottomLeftRadius' in node) {
+          possiveisPropriedades.push('bottomLeftRadius');
+        }
+        if ('bottomRightRadius' in node) {
+          possiveisPropriedades.push('bottomRightRadius');
+        }
+      }
+    } 
+    else if (variable.property) {
+      // Se a propriedade já foi especificada, usá-la diretamente
+      possiveisPropriedades.push(variable.property);
+    }
+    
+    console.log(`>>> Possíveis propriedades: ${possiveisPropriedades.length > 0 ? possiveisPropriedades.join(', ') : 'nenhuma encontrada'}`);
+    
+    // Tentar aplicar a todas as propriedades possíveis
+    let sucesso = false;
+    for (const prop of possiveisPropriedades) {
+      console.log(`>>> Tentando aplicar à propriedade: "${prop}"`);
+      if (aplicarVariavelPropriedade(node, variable, prop)) {
+        console.log(`>>> ✓ SUCESSO: Variável "${varName}" aplicada à propriedade "${prop}"`);
+        sucesso = true;
+      } else {
+        console.log(`>>> ✗ FALHA: Não foi possível aplicar à propriedade "${prop}"`);
+      }
+    }
+    
+    if (!sucesso) {
+      console.log(`>>> ✗ RESULTADO FINAL: Falha ao aplicar variável FLOAT "${varName}"`);
+    } else {
+      console.log(`>>> ✓ RESULTADO FINAL: Variável FLOAT "${varName}" aplicada com sucesso`);
+    }
+    
+    return sucesso;
+  } catch (error) {
+    console.error(`>>> ✗ ERRO ao aplicar variável FLOAT "${variable.name || variable.id}":`, error);
+    return false;
+  }
+}
+
+// Função auxiliar para aplicar uma variável a uma propriedade específica
+function aplicarVariavelPropriedade(node: SceneNode, variable: { id: string }, property: string): boolean {
+  try {
+    console.log(`  > Tentando aplicar variável à propriedade "${property}"`);
+    
+    // Verificar se a propriedade existe no nó
+    if (!(property in node)) {
+      console.log(`  > ✗ Propriedade "${property}" não existe no nó`);
+      return false;
+    }
+    
+    // Verificar se é uma propriedade de auto-layout
+    const autoLayoutProps = ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'itemSpacing'];
+    const isAutoLayoutProp = autoLayoutProps.includes(property);
+    
+    // Verificar se o nó tem o tipo correto para aplicar a propriedade
+    if (isAutoLayoutProp && !('layoutMode' in node)) {
+      console.log(`  > ✗ Nó não suporta propriedades de auto-layout (não tem layoutMode)`);
+      return false;
+    }
+    
+    // Garantir que boundVariables exista
+    if (!(node as any).boundVariables) {
+      console.log(`  > Criando objeto boundVariables`);
+      (node as any).boundVariables = {};
+    }
+    
+    // Debug - mostrar valor atual antes de aplicar a variável
+    const valorAtual = (node as any)[property];
+    console.log(`  > Valor atual da propriedade "${property}": ${valorAtual}`);
+    
+    // Obter informações sobre a variável
+    try {
+      const variavelObj = figma.variables.getVariableById(variable.id);
+      if (variavelObj) {
+        console.log(`  > Variável encontrada: "${variavelObj.name}", tipo: ${variavelObj.resolvedType}`);
+        
+        const colecao = figma.variables.getVariableCollectionById(variavelObj.variableCollectionId);
+        if (colecao) {
+          console.log(`  > Coleção: "${colecao.name}" (${colecao.modes.length} modos)`);
+        }
+      } else {
+        console.log(`  > ⚠️ Não foi possível obter informações sobre a variável ${variable.id}`);
+      }
+    } catch (infoError) {
+      console.warn(`  > ⚠️ Erro ao obter informações da variável:`, infoError);
+    }
+    
+    // Aplicar a variável à propriedade
+    try {
+      // Aplicar diretamente via boundVariables
+      console.log(`  > Aplicando variável diretamente via boundVariables["${property}"]`);
+      (node as any).boundVariables[property] = {
+        type: 'VARIABLE_ALIAS',
+        id: variable.id
+      };
+      
+      console.log(`  > ✓ Variável aplicada com sucesso à propriedade "${property}"`);
+      
+      // Forçar a atualização do nó - isso pode ser necessário para que o Figma registre a mudança
+      if ('resize' in node) {
+        console.log(`  > Forçando atualização do nó via resize`);
+        const width = node.width;
+        const height = node.height;
+        if (width > 0 && height > 0) {
+          // Fazer um resize imperceptível para forçar atualização
+          node.resize(width, height);
+        }
+      }
+      
+      // Verificar o resultado novamente - veja se a variável foi de fato aplicada
+      if ((node as any).boundVariables && 
+          (node as any).boundVariables[property] && 
+          (node as any).boundVariables[property].id === variable.id) {
+        console.log(`  > ✓ Verificação pós-aplicação: SUCESSO`);
+      } else {
+        console.log(`  > ⚠️ Verificação pós-aplicação: variável pode não ter sido aplicada corretamente`);
+      }
+      
+      return true;
+    } catch (applyError) {
+      console.error(`  > ✗ Erro ao aplicar variável à propriedade "${property}":`, applyError);
+      
+      // Tente outro método - definir diretamente na propriedade (pode não vincular como variável)
+      try {
+        console.log(`  > Tentando método alternativo para aplicar variável...`);
+        
+        // Obter a variável para extrair seu valor
+        const variavelObj = figma.variables.getVariableById(variable.id);
+        if (variavelObj) {
+          const colecao = figma.variables.getVariableCollectionById(variavelObj.variableCollectionId);
+          if (colecao && colecao.modes.length > 0) {
+            const modoAtual = colecao.modes[0].modeId;
+            const valor = variavelObj.valuesByMode[modoAtual];
+            
+            if (valor !== undefined) {
+              console.log(`  > Aplicando valor direto ${valor} à propriedade "${property}"`);
+              (node as any)[property] = valor;
+              console.log(`  > ✓ Valor aplicado diretamente com sucesso`);
+              return true;
+            } else {
+              console.log(`  > ✗ Valor da variável é undefined para o modo atual`);
+            }
+          } else {
+            console.log(`  > ✗ Coleção não encontrada ou sem modos`);
+          }
+        } else {
+          console.log(`  > ✗ Variável não encontrada`);
+        }
+      } catch (directError) {
+        console.error(`  > ✗ Método alternativo também falhou:`, directError);
+      }
+      
+      return false;
+    }
+  } catch (error) {
+    console.error(`  > ✗ Erro ao processar propriedade "${property}":`, error);
+    return false;
+  }
+}
+
+// Nova função para aplicar variáveis do tipo COLOR
+async function aplicarVariavelColor(node: SceneNode, variable: { id: string, name?: string, property?: string }) {
+  try {
+    console.log(`Aplicando variável COLOR: ${variable.name || variable.id}, propriedade: ${variable.property}`);
+    
+    // Verificar propriedade específica
+    const prop = variable.property || '';
+    
+    if (prop.startsWith('fills[')) {
+      const match = prop.match(/\[(\d+)\]/);
+      if (match && 'fills' in node) {
+        const fillIndex = parseInt(match[1], 10);
+        try {
+          if (node.fills && Array.isArray(node.fills) && node.fills.length > fillIndex) {
+            const fillObj = {...node.fills[fillIndex]};
+            if (fillObj.type === 'SOLID') {
+              // Certifique-se de que boundVariables exista no fill
+              if (!('boundVariables' in fillObj)) {
+                (fillObj as any).boundVariables = {};
+              }
+              
+              (fillObj as any).boundVariables = {
+                color: {
+                  type: 'VARIABLE_ALIAS',
+                  id: variable.id
+                }
+              };
+              
+              const newFills = [...node.fills];
+              newFills[fillIndex] = fillObj;
+              node.fills = newFills;
+              console.log(`Variável de cor aplicada ao fill[${fillIndex}]`);
+              return true;
+            }
+          }
+        } catch (err) {
+          console.warn(`Erro ao aplicar variável a fill[${fillIndex}]:`, err);
+        }
+      }
+    } 
+    else if (prop.startsWith('strokes[')) {
+      const match = prop.match(/\[(\d+)\]/);
+      if (match && 'strokes' in node) {
+        const strokeIndex = parseInt(match[1], 10);
+        try {
+          if (node.strokes && Array.isArray(node.strokes) && node.strokes.length > strokeIndex) {
+            const strokeObj = {...node.strokes[strokeIndex]};
+            if (strokeObj.type === 'SOLID') {
+              if (!('boundVariables' in strokeObj)) {
+                (strokeObj as any).boundVariables = {};
+              }
+              
+              (strokeObj as any).boundVariables = {
+                color: {
+                  type: 'VARIABLE_ALIAS',
+                  id: variable.id
+                }
+              };
+              
+              const newStrokes = [...node.strokes];
+              newStrokes[strokeIndex] = strokeObj;
+              node.strokes = newStrokes;
+              console.log(`Variável de cor aplicada ao stroke[${strokeIndex}]`);
+              return true;
+            }
+          }
+        } catch (err) {
+          console.warn(`Erro ao aplicar variável a stroke[${strokeIndex}]:`, err);
+        }
+      }
+    }
+    else if (prop === 'fills' && 'fills' in node) {
+      // Aplicar ao primeiro fill
+      try {
+        if (node.fills && Array.isArray(node.fills) && node.fills.length > 0) {
+          const fillObj = {...node.fills[0]};
+          if (fillObj.type === 'SOLID') {
+            if (!('boundVariables' in fillObj)) {
+              (fillObj as any).boundVariables = {};
+            }
+            
+            (fillObj as any).boundVariables = {
+              color: {
+                type: 'VARIABLE_ALIAS',
+                id: variable.id
+              }
+            };
+            
+            const newFills = [...node.fills];
+            newFills[0] = fillObj;
+            node.fills = newFills;
+            console.log(`Variável de cor aplicada ao primeiro fill`);
+            return true;
+          }
+        }
+      } catch (err) {
+        console.warn(`Erro ao aplicar variável ao primeiro fill:`, err);
+      }
+    }
+    else if (prop === 'strokes' && 'strokes' in node) {
+      // Aplicar ao primeiro stroke
+      try {
+        if (node.strokes && Array.isArray(node.strokes) && node.strokes.length > 0) {
+          const strokeObj = {...node.strokes[0]};
+          if (strokeObj.type === 'SOLID') {
+            if (!('boundVariables' in strokeObj)) {
+              (strokeObj as any).boundVariables = {};
+            }
+            
+            (strokeObj as any).boundVariables = {
+              color: {
+                type: 'VARIABLE_ALIAS',
+                id: variable.id
+              }
+            };
+            
+            const newStrokes = [...node.strokes];
+            newStrokes[0] = strokeObj;
+            node.strokes = newStrokes;
+            console.log(`Variável de cor aplicada ao primeiro stroke`);
+            return true;
+          }
+        }
+      } catch (err) {
+        console.warn(`Erro ao aplicar variável ao primeiro stroke:`, err);
+      }
+    }
+    
+    return false;
+  } catch (error) {
+    console.error(`Erro ao aplicar variável COLOR:`, error);
+    return false;
   }
 }
 
@@ -1065,85 +1545,37 @@ async function procurarVariaveisEEstilos(options: {scope: 'selection' | 'page', 
       return;
     }
     
-    const variables = await buscarVariaveisEEstilos(options.scope);
+    // Buscar variáveis e estilos nos nós selecionados
+    const foundVariables = await buscarVariaveisEEstilos(options.scope);
     
-    console.log(`Encontradas ${variables.length} variáveis e estilos`);
-    
-    // Processar valores de cor para exibição na UI
-    const processedVariables = await Promise.all(variables.map(async variable => {
-      // Se for uma variável real do tipo COLOR, buscar seu valor real
-      if (variable.type === 'COLOR' && variable.isRealVariable) {
-        try {
-          // Obter a variável diretamente pelo ID
-          const variableObj = figma.variables.getVariableById(variable.collection);
-          
-          if (variableObj) {
-            // Filtrar por coleção específica, se fornecida
-            if (options.collectionId && options.collectionId !== variableObj.variableCollectionId) {
-              console.log(`Variável ${variable.name} ignorada - não pertence à coleção ${options.collectionId}`);
-              return null; // Ignorar esta variável se não pertencer à coleção selecionada
-            }
-            
-            // Obter a coleção para acessar os modos
-            const collection = figma.variables.getVariableCollectionById(variableObj.variableCollectionId);
-            
-            if (collection && collection.modes.length > 0) {
-              // Usar o primeiro modo disponível (geralmente é o padrão)
-              const modeId = collection.modes[0].modeId;
-              
-              // Obter o valor da variável neste modo
-              const value = variableObj.valuesByMode[modeId];
-              
-              console.log(`Processando variável ${variable.name}, valor:`, value);
-              
-              // Se o valor for um objeto de cor
-              if (value && typeof value === 'object' && 'r' in value &&
-                  'g' in value && 'b' in value) {
-                // Verificar se temos o valor alpha
-                const alpha = 'a' in value ? value.a : 1;
-                const rgba = `rgba(${Math.round(value.r * 255)}, ${Math.round(value.g * 255)}, ${Math.round(value.b * 255)}, ${alpha})`;
-                
-                console.log(`Processada variável de cor: ${variable.name} com valor: ${rgba}`);
-                
-                return {
-                  ...variable,
-                  colorValue: rgba
-                };
-              }
-            }
-          }
-        } catch (err) {
-          console.warn(`Erro ao processar valor de cor da variável ${variable.name}:`, err);
-        }
-      }
-      return variable;
-    }));
-    
-    // Filtrar as variáveis nulas (que foram excluídas pelo filtro de coleção)
-    const filteredVariables = processedVariables.filter(v => v !== null);
-    
-    if (filteredVariables.length > 0) {
-      console.log("Enviando variáveis encontradas para a UI");
-      
-      // Adicionando logs para debug
-      const colorVars = filteredVariables.filter(v => v.type === 'COLOR' && v.isRealVariable === true);
-      console.log(`Variáveis de cor reais encontradas: ${colorVars.length}`);
-      colorVars.forEach(v => console.log(`  - ${v.name} (${v.collection})`));
-      
-      figma.ui.postMessage({
-        type: 'variables-found',
-        variables: filteredVariables
-      });
-    } else {
+    if (foundVariables.length === 0) {
+      console.log("Nenhuma variável ou estilo encontrado");
       figma.ui.postMessage({
         type: 'no-variables-found'
       });
+      return;
     }
+
+    console.log(`Processando ${foundVariables.length} variáveis encontradas para verificar correspondências`);
+    
+    // Enviar as variáveis/estilos encontrados para a UI
+    figma.ui.postMessage({
+      type: 'variables-found',
+      variables: foundVariables.map(v => ({
+        name: v.name,
+        type: v.type,
+        nodeId: v.nodeId,
+        property: v.property,
+        colorValue: v.colorValue,
+        isRealVariable: v.isRealVariable,
+        variableCollectionId: v.variableCollectionId
+      }))
+    });
   } catch (error) {
-    console.error('Erro ao buscar variáveis:', error);
+    console.error("Erro ao procurar variáveis e estilos:", error);
     figma.ui.postMessage({
       type: 'error',
-      error: 'Erro ao buscar variáveis e estilos.'
+      message: 'Erro ao procurar variáveis e estilos: ' + (error as Error).message
     });
   }
 }
@@ -2091,7 +2523,8 @@ figma.ui.onmessage = async (msg) => {
     }
   }
   else if (msg.type === 'substituirVariaveis') {
-    console.log('Substituindo variáveis e estilos em nós...');
+    console.log('### Iniciando substituição de variáveis...');
+    console.log('Variáveis recebidas:', JSON.stringify(msg.variables, null, 2));
     // Obtém a seleção com base no escopo
     const scope = msg.scope || 'selection';
     let nodesToProcess: SceneNode[] = [];
@@ -2108,26 +2541,73 @@ figma.ui.onmessage = async (msg) => {
     if (nodesToProcess.length > 0 && msg.variables && Array.isArray(msg.variables)) {
       console.log(`Substituindo variáveis para biblioteca ID: ${msg.libraryId}, coleção ID: ${msg.collectionId}`);
       console.log(`Escopo: ${scope}, Nós para processar: ${nodesToProcess.length}`);
+      console.log(`Total de variáveis recebidas: ${msg.variables.length}`);
       
-      // Filtrar variáveis pela coleção, se especificada
-      let variablesToApply = msg.variables;
-      if (msg.collectionId) {
-        variablesToApply = msg.variables.filter((v: VariableInfo) => {
-          // Se a variável tiver informação de coleção, verificar se corresponde
-          if (v.variableCollectionId) {
-            return v.variableCollectionId === msg.collectionId;
-          }
-          return true; // Manter variáveis sem informação de coleção
-        });
-        console.log(`Variáveis após filtro de coleção: ${variablesToApply.length} de ${msg.variables.length}`);
-      }
+      // Adicionar informação detalhada sobre cada variável recebida
+      console.log('Detalhes das variáveis recebidas:');
+      msg.variables.forEach((v: any, i: number) => {
+        console.log(`Variável ${i+1}: "${v.name}" (${v.type}, ${v.property}, hasMatch: ${v.hasMatch})`);
+      });
+      
+      // FILTRO CRÍTICO: Garantir que todas as variáveis com correspondência sejam processadas
+      let variaveisParaAplicar = msg.variables.filter((v: any) => {
+        // Se hasMatch for explicitamente false, ignorar
+        if (v.hasMatch === false) {
+          console.log(`Variável ignorada por não ter correspondência: ${v.name}`);
+          return false;
+        }
+        
+        // Se hasMatch for true ou undefined, incluir para processamento
+        console.log(`Variável incluída para processamento: ${v.name} (${v.type})`);
+        return true;
+      });
+      
+      console.log(`Variáveis selecionadas para processamento: ${variaveisParaAplicar.length} de ${msg.variables.length}`);
+      
+      // Preparar as variáveis para aplicação
+      const variaveisCompletas = variaveisParaAplicar.map((v: any) => ({
+        id: v.id,
+        name: v.name,
+        type: v.type,
+        property: v.property,
+        hasMatch: true // Forçar hasMatch para true para todas variáveis selecionadas
+      }));
+      
+      // Log detalhado das variáveis que serão aplicadas
+      console.log('Variáveis preparadas para aplicação:');
+      variaveisCompletas.forEach((v: { id: string, name?: string, type?: string, property?: string, hasMatch?: boolean }, i: number) => {
+        console.log(`  ${i+1}. "${v.name}" (${v.type}, ${v.property})`);
+      });
+      
+      // Processar cada nó
+      let sucessoTotal = 0;
+      let falhasTotal = 0;
       
       for (const node of nodesToProcess) {
-        await substituirVariaveisEEstilos(node, variablesToApply);
+        console.log(`\n### Processando nó: ${node.name}, tipo: ${node.type}`);
+        const resultado = await substituirVariaveisEEstilos(node, variaveisCompletas);
+        sucessoTotal += resultado.sucessos;
+        falhasTotal += resultado.falhas;
       }
-      figma.notify(`Variáveis e estilos substituídos com sucesso!`);
+      
+      // Relatar resultados
+      console.log(`\n### Substituição concluída: ${sucessoTotal} variáveis aplicadas com sucesso, ${falhasTotal} falhas`);
+      figma.notify(`Variáveis substituídas: ${sucessoTotal} sucessos, ${falhasTotal} falhas`);
+      
+      // Enviar resultado para a UI
+      figma.ui.postMessage({
+        type: 'substituicao-concluida',
+        success: true,
+        message: `Substituição concluída! ${sucessoTotal} variáveis substituídas, ${falhasTotal} falhas.`
+      });
     } else {
+      console.log('Nenhum nó selecionado ou nenhuma variável para substituir.');
       figma.notify(`Nenhum nó selecionado ou nenhuma variável para substituir.`);
+      figma.ui.postMessage({
+        type: 'substituicao-concluida',
+        success: false,
+        message: 'Nenhum nó selecionado ou nenhuma variável para substituir.'
+      });
     }
   }
   else if (msg.type === 'substituirVariaveisEmColecao') {
@@ -3208,3 +3688,83 @@ async function buscarEAplicarEstiloTexto(
     };
   }
 }
+
+// ... existing code ...
+
+// Função para obter variáveis de uma coleção específica
+async function obterVariaveisDeColecao(libraryId: string, collectionId: string): Promise<{
+  variables: Array<{ id: string, name: string, type: string }>,
+  collection: { id: string, name: string }
+}> {
+  try {
+    console.log(`Buscando variáveis na biblioteca ${libraryId}, coleção ${collectionId}`);
+    
+    // Verificar se é uma biblioteca válida
+    const bibliotecasMap = await obterTodasBibliotecas();
+    const bibliotecas = Array.from(bibliotecasMap.values());
+    const biblioteca = bibliotecas.find(b => b.id === libraryId);
+    
+    if (!biblioteca) {
+      throw new Error(`Biblioteca com ID ${libraryId} não encontrada`);
+    }
+    
+    console.log(`Biblioteca encontrada: ${biblioteca.name}`);
+    
+    // Obter coleções disponíveis
+    // @ts-ignore - API pode não estar nas tipagens
+    const colecoes = await figma.teamLibrary.getAvailableLibraryVariableCollectionsAsync();
+    
+    if (!colecoes || !Array.isArray(colecoes)) {
+      throw new Error('Falha ao obter coleções de variáveis');
+    }
+    
+    // Encontrar a coleção específica
+    // @ts-ignore - Os campos extra podem não estar nas tipagens
+    const colecao = colecoes.find((c: any) => c.id === collectionId && c.libraryName === biblioteca.name);
+    
+    if (!colecao) {
+      throw new Error(`Coleção com ID ${collectionId} não encontrada na biblioteca ${biblioteca.name}`);
+    }
+    
+    // @ts-ignore - O campo name pode não estar nas tipagens
+    console.log(`Coleção encontrada: ${colecao.name}`);
+    
+    // Obter variáveis da coleção
+    // @ts-ignore - API pode não estar nas tipagens
+    const variaveis = await figma.teamLibrary.getVariablesInLibraryCollectionAsync(collectionId);
+    
+    if (!variaveis || !Array.isArray(variaveis)) {
+      // @ts-ignore - O campo name pode não estar nas tipagens
+      throw new Error(`Falha ao obter variáveis da coleção ${colecao.name}`);
+    }
+    
+    console.log(`Encontradas ${variaveis.length} variáveis na coleção`);
+    
+    // Mapear variáveis para o formato esperado, incluindo o nome
+    const variaveisMapeadas = variaveis.map((v: any) => ({
+      id: v.id,
+      name: v.name,
+      type: v.resolvedType
+    }));
+    
+    // Exemplo das primeiras 5 variáveis para debug
+    console.log("Exemplos de variáveis disponíveis na coleção:");
+    variaveisMapeadas.slice(0, 5).forEach((v, i) => {
+      console.log(`${i + 1}. ${v.name} (key: ${v.id})`);
+    });
+    
+    return {
+      variables: variaveisMapeadas,
+      collection: {
+        id: collectionId,
+        // @ts-ignore - O campo name pode não estar nas tipagens
+        name: colecao.name || 'Coleção sem nome'
+      }
+    };
+  } catch (error) {
+    console.error('Erro ao obter variáveis da coleção:', error);
+    throw error;
+  }
+}
+
+// ... existing code ...
