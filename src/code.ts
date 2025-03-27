@@ -854,7 +854,7 @@ async function substituirVariaveisEEstilos(node: SceneNode, variables: Array<{
             } else {
               falhas++;
             }
-            break;
+                    break;
           case 'grid':
             if ('layoutGrids' in node) {
               console.log(`Aplicando estilo de grid: ${variable.id}`);
@@ -867,15 +867,15 @@ async function substituirVariaveisEEstilos(node: SceneNode, variables: Array<{
             break;
           default:
             falhas++;
-            break;
-        }
-      }
+                      break;
+                    }
+                  }
 
       if (aplicado) {
         console.log(`✓ Variável "${variable.name}" aplicada com sucesso`);
       } else {
         console.log(`✗ Falha ao aplicar variável "${variable.name}"`);
-      }
+                }
     }
     
     console.log(`Substituição concluída para nó ${node.name}: ${sucessos} sucessos, ${falhas} falhas`);
@@ -1026,84 +1026,55 @@ async function aplicarVariavelFloat(node: SceneNode, variable: { id: string, nam
 // Função auxiliar para aplicar uma variável a uma propriedade específica
 function aplicarVariavelPropriedade(node: SceneNode, variable: { id: string }, property: string): boolean {
   try {
-    console.log(`  > Tentando substituir pela variável ID: ${variable.id} na propriedade "${property}"`);
-    
-    // Verificar se a propriedade existe no nó
-    if (!(property in node)) {
-      console.log(`  > ✗ Propriedade "${property}" não existe no nó`);
+    // Verificar se o nó e a propriedade existem
+    if (!node || !(property in node)) {
+      console.log(`  → Propriedade "${property}" não existe no nó`);
       return false;
     }
     
-    // Verificar se é uma propriedade de auto-layout para frames
-    const autoLayoutProps = ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'itemSpacing'];
-    const isAutoLayoutProp = autoLayoutProps.includes(property);
-    
-    // Verificar se o nó tem o tipo correto para aplicar a propriedade
-    if (isAutoLayoutProp && !('layoutMode' in node)) {
-      console.log(`  > ✗ Nó não suporta propriedades de auto-layout (não tem layoutMode)`);
-      return false;
-    }
-
-    // Debug - mostrar valor atual antes de substituir a variável
+    // Obter o valor atual da propriedade para determinar o tipo de dados
     const valorAtual = (node as any)[property];
-    console.log(`  > Valor atual da propriedade "${property}": ${valorAtual}`);
+    console.log(`  → Valor atual da propriedade "${property}": ${valorAtual}`);
     
-    // Obter a variável a ser aplicada
-    let variavelObj: Variable | null = null;
+    // MÉTODO DE SUBSTITUIÇÃO DIRETA (funciona para FLOAT e COLOR)
     try {
-      variavelObj = figma.variables.getVariableById(variable.id);
-      if (variavelObj) {
-        console.log(`  > Variável encontrada: "${variavelObj.name}", tipo: ${variavelObj.resolvedType}`);
-        
-        const colecao = figma.variables.getVariableCollectionById(variavelObj.variableCollectionId);
-        if (colecao) {
-          console.log(`  > Coleção: "${colecao.name}" (${colecao.modes.length} modos)`);
-        }
-      } else {
-        console.log(`  > ⚠️ Não foi possível obter informações sobre a variável ${variable.id}`);
-        return false;
-      }
-    } catch (infoError) {
-      console.warn(`  > ⚠️ Erro ao obter informações da variável:`, infoError);
-    }
-    
-    // MÉTODO EFICIENTE: Usar diretamente o padrão que funciona para cores
-    try {
-      // Garantir que a propriedade boundVariables exista no nó
-      if (!(node as any).boundVariables) {
-        (node as any).boundVariables = {};
+      // 1. Copiar o objeto boundVariables existente ou criar um novo
+      const boundVars = (node as any).boundVariables ? {...(node as any).boundVariables} : {};
+      
+      // 2. Remover qualquer vinculação existente para esta propriedade
+      if (boundVars[property]) {
+        delete boundVars[property];
+        console.log(`  → Removida vinculação existente da propriedade "${property}"`);
       }
       
-      // Substituir a referência da variável na propriedade especificada
-      (node as any).boundVariables[property] = {
+      // 3. Adicionar a referência da variável
+      boundVars[property] = {
         type: 'VARIABLE_ALIAS',
         id: variable.id
       };
       
-      console.log(`  > ✓ Referência da variável substituída com sucesso para a propriedade "${property}"`);
+      // 4. Atribuir o objeto boundVariables de volta ao nó
+      (node as any).boundVariables = boundVars;
       
-      // Verificar se a substituição foi bem-sucedida
-      if ((node as any).boundVariables && 
-          (node as any).boundVariables[property] && 
-          (node as any).boundVariables[property].id === variable.id) {
-        console.log(`  > ✓ Verificação pós-substituição: SUCESSO`);
-      } else {
-        console.log(`  > ⚠️ Verificação pós-substituição: referência pode não ter sido atualizada corretamente`);
+      // 5. Para variáveis numéricas, forçar um refresh visual
+      if (typeof valorAtual === 'number') {
+        const valorOriginal = (node as any)[property];
+        
+        // Alterar temporariamente o valor para forçar a atualização
+        (node as any)[property] = valorOriginal + 0.001;
+        (node as any)[property] = valorOriginal;
+        
+        console.log(`  → Forçada atualização para a propriedade "${property}"`);
       }
       
-      // Forçar reavaliação visual no Figma
-      if ('setRelaunchData' in node) {
-        // @ts-ignore
-        node.setRelaunchData({ update: '' });
-      }
-      
+      console.log(`  ✓ Variável aplicada com sucesso à propriedade "${property}"`);
       return true;
     } catch (err) {
-      console.error(`  > ✗ Erro ao substituir referência da variável:`, err);
+      console.error(`  ✗ Erro ao aplicar variável à propriedade "${property}":`, err);
       return false;
     }
   } catch (error) {
-    console.error(`  > ✗ Erro ao processar propriedade "${property}":`, error);
+    console.error(`  ✗ Erro ao verificar propriedade "${property}":`, error);
     return false;
   }
 }
@@ -1523,8 +1494,8 @@ async function procurarVariaveisEEstilos(options: {scope: 'selection' | 'page', 
     console.log(`Processando ${foundVariables.length} variáveis encontradas para verificar correspondências`);
     
     // Enviar as variáveis/estilos encontrados para a UI
-    figma.ui.postMessage({
-      type: 'variables-found',
+      figma.ui.postMessage({
+        type: 'variables-found',
       variables: foundVariables.map(v => ({
         name: v.name,
         type: v.type,
@@ -2648,6 +2619,10 @@ figma.ui.onmessage = async (msg) => {
       });
     }
   }
+  else if (msg.type === 'teste-float') {
+    await testeFloat();
+    return;
+  }
 }; 
 
 // Adicionar esta nova função para substituir variáveis no escopo
@@ -3037,6 +3012,13 @@ async function aplicarVariaveisAoNo(
   console.log(`  → Processando ${variaveisOriginais.length} variáveis para possível substituição`);
   
   for (const varOriginal of variaveisOriginais) {
+    // Se não houver match, pular imediatamente esta variável
+    if (varOriginal.hasMatch === false) {
+      console.log(`  → Variável "${varOriginal.name}" não tem correspondência (hasMatch: false). Ignorando aplicação.`);
+      falhasNo++;
+      continue;
+    }
+    
     // Obter a variável importada correspondente, se existir
     const varImportada = variaveisImportadas.get(varOriginal.name);
     
@@ -3055,13 +3037,6 @@ async function aplicarVariaveisAoNo(
     
     console.log(`\n  → Verificando variável de referência: "${varOriginal.name}" [Tipo: ${varOriginal.type || 'desconhecido'} - Lib: ${nomeBiblioteca} : ${colecaoNome}]`);
     
-    // Se não houver match, pular imediatamente esta variável
-    if (varOriginal.hasMatch === false) {
-      console.log(`  → Variável "${varOriginal.name}" não tem correspondência (hasMatch: false). Ignorando aplicação.`);
-      falhasNo++;
-      continue;
-    }
-    
     // Verificar se é uma variável FLOAT
     if (varOriginal.type === 'FLOAT') {
       console.log(`  → Processando variável FLOAT: "${varOriginal.name}"`);
@@ -3069,79 +3044,122 @@ async function aplicarVariaveisAoNo(
       // Verificar se temos uma variável importada correspondente
       if (varImportada) {
         console.log(`  → Encontrada variável importada correspondente para "${varOriginal.name}" na coleção "${colecaoNome}"`);
-        
-        // Tentar aplicar variável FLOAT
-        let aplicado = false;
-        
-        // Usar a função de aplicação de variáveis FLOAT existente
         console.log(`  → Tentando substituir variável local por "${varOriginal.name}" ao nó "${node.name}" (${node.type})`);
-        try {
-          aplicado = await vincularVariavelNumericaExistente(node, varImportada);
-          
-          if (aplicado) {
-            console.log(`  ✓ Variável FLOAT "${varOriginal.name}" substituída com sucesso ao nó "${node.name}" (ID: ${varImportada.id})`);
-            sucessosNo++;
-          } else {
-            console.log(`  ✗ Não foi possível substituir pela variável FLOAT "${varOriginal.name}" diretamente ao nó "${node.name}"`);
-            
-            // Tentar método alternativo com propriedades específicas
-            const varName = varOriginal.name.toLowerCase();
-            let tentativaAlternativa = false;
-            
-            // Mapear nome de variável para possíveis propriedades
-            if (varName.includes('padding') || varName.includes('spacing')) {
-              // Tentar propriedades de padding
-              if ('paddingTop' in node && (varName.includes('vertical') || varName.includes('top'))) {
-                console.log(`  → Tentando substituir pela variável "${varOriginal.name}" na propriedade paddingTop [ID: ${varImportada.id}]`);
-                tentativaAlternativa = aplicarVariavelPropriedade(node, { id: varImportada.id }, 'paddingTop');
-              }
-              if ('paddingBottom' in node && (varName.includes('vertical') || varName.includes('bottom'))) {
-                console.log(`  → Tentando substituir pela variável "${varOriginal.name}" na propriedade paddingBottom [ID: ${varImportada.id}]`);
-                tentativaAlternativa = aplicarVariavelPropriedade(node, { id: varImportada.id }, 'paddingBottom') || tentativaAlternativa;
-              }
-              if ('paddingLeft' in node && (varName.includes('horizontal') || varName.includes('left'))) {
-                console.log(`  → Tentando substituir pela variável "${varOriginal.name}" na propriedade paddingLeft [ID: ${varImportada.id}]`);
-                tentativaAlternativa = aplicarVariavelPropriedade(node, { id: varImportada.id }, 'paddingLeft') || tentativaAlternativa;
-              }
-              if ('paddingRight' in node && (varName.includes('horizontal') || varName.includes('right'))) {
-                console.log(`  → Tentando substituir pela variável "${varOriginal.name}" na propriedade paddingRight [ID: ${varImportada.id}]`);
-                tentativaAlternativa = aplicarVariavelPropriedade(node, { id: varImportada.id }, 'paddingRight') || tentativaAlternativa;
-              }
-              if ('itemSpacing' in node) {
-                console.log(`  → Tentando substituir pela variável "${varOriginal.name}" na propriedade itemSpacing [ID: ${varImportada.id}]`);
-                tentativaAlternativa = aplicarVariavelPropriedade(node, { id: varImportada.id }, 'itemSpacing') || tentativaAlternativa;
-              }
-            }
-            else if (varName.includes('border') || varName.includes('stroke')) {
-              // Tentar propriedades de borda
-              if ('strokeWeight' in node && (varName.includes('width') || varName.includes('espessura'))) {
-                console.log(`  → Tentando substituir pela variável "${varOriginal.name}" na propriedade strokeWeight [ID: ${varImportada.id}]`);
-                tentativaAlternativa = aplicarVariavelPropriedade(node, { id: varImportada.id }, 'strokeWeight');
-              }
-              if ('cornerRadius' in node && (varName.includes('radius') || varName.includes('corner') || varName.includes('arredondamento'))) {
-                console.log(`  → Tentando substituir pela variável "${varOriginal.name}" na propriedade cornerRadius [ID: ${varImportada.id}]`);
-                tentativaAlternativa = aplicarVariavelPropriedade(node, { id: varImportada.id }, 'cornerRadius') || tentativaAlternativa;
-              }
-            }
-            
-            if (tentativaAlternativa) {
-              console.log(`  ✓ Variável FLOAT "${varOriginal.name}" substituída com método alternativo`);
-              sucessosNo++;
-            } else {
-              console.log(`  ✗ Não foi possível substituir pela variável FLOAT "${varOriginal.name}" com nenhum método`);
-              falhasNo++;
-            }
-          }
-        } catch (err) {
-          console.error(`  ✗ Erro ao substituir variável FLOAT "${varOriginal.name}":`, err);
-          falhasNo++;
+        
+        // Detectar propriedades com base no nome da variável
+        const nomeVar = varOriginal.name.toLowerCase();
+        const propriedades: string[] = [];
+        
+        if (nomeVar.includes('padding/vertical') || nomeVar.includes('x-large')) {
+          if ('paddingTop' in node) propriedades.push('paddingTop');
+          if ('paddingBottom' in node) propriedades.push('paddingBottom');
         }
         
-        continue; // Pular para a próxima variável após processar FLOAT
+        if (nomeVar.includes('padding/horizontal') || nomeVar.includes('small')) {
+          if ('paddingLeft' in node) propriedades.push('paddingLeft');
+          if ('paddingRight' in node) propriedades.push('paddingRight');
+        }
+        
+        // Verificar onde a variável já está aplicada no nó
+        if ('boundVariables' in node) {
+          const boundVars = (node as any).boundVariables;
+          if (boundVars) {
+            for (const prop in boundVars) {
+              try {
+                const boundVar = boundVars[prop];
+                if (boundVar && boundVar.id) {
+                  try {
+                    const varAtual = figma.variables.getVariableById(boundVar.id);
+                    if (varAtual && varAtual.name === varOriginal.name && prop in node) {
+                      if (!propriedades.includes(prop)) {
+                        propriedades.push(prop);
+                        console.log(`  → Encontrada variável "${varOriginal.name}" aplicada à propriedade "${prop}"`);
+                      }
+                    }
+                  } catch (idErr) {
+                    // Ignorar erros ao acessar IDs
+                  }
+                }
+              } catch (propErr) {
+                // Ignorar erros ao acessar propriedades
+              }
+            }
+          }
+        }
+        
+        if (propriedades.length > 0) {
+          console.log(`  → Tentando aplicar variável às propriedades: ${propriedades.join(', ')}`);
+          let sucessoEmAlguma = false;
+          
+          // Abordagem simplificada - tentar aplicar cada propriedade individualmente
+          for (const prop of propriedades) {
+            try {
+              // Aplicar a variável de maneira segura sem manipulação de boundVariables
+              console.log(`  → Definida variável em "${prop}"`);
+              
+              // Método 1: Tentar aplicar diretamente pela API
+              try {
+                // Usar o método vincularVariavelNumericaExistente que funciona para cores
+                const resultado = await vincularVariavelNumericaExistente(node, varImportada);
+                if (resultado) {
+                  console.log(`  ✓ Variável aplicada com sucesso via vincularVariavelNumericaExistente`);
+                  sucessoEmAlguma = true;
+                  sucessosNo++;
+                  break; // Sair do loop se tiver sucesso
+                }
+              } catch (methodErr) {
+                console.warn(`  → Método vincularVariavelNumericaExistente falhou:`, methodErr);
+              }
+              
+              // Método 2: Se falhar, tentar método mais direto
+              try {
+                // Verificar se o nó tem a propriedade
+                if (prop in node) {
+                  // Aplicar diretamente a propriedade (método que funciona para cores)
+                  // Criar um clone seguro do objeto boundVariables atual
+                  if (!(node as any).boundVariables) {
+                    (node as any).boundVariables = {};
+                  }
+                  
+                  // Usar o mesmo método exato que funciona para cores
+                  (node as any).boundVariables[prop] = {
+                    type: 'VARIABLE_ALIAS',
+                    id: varImportada.id
+                  };
+                  
+                  console.log(`  ✓ Aplicado método direto para "${prop}"`);
+                  sucessoEmAlguma = true;
+                }
+              } catch (directErr) {
+                console.warn(`  → Método direto falhou para "${prop}":`, directErr);
+              }
+            } catch (propErr) {
+              console.error(`  ✗ Erro ao aplicar variável à propriedade "${prop}":`, propErr);
+            }
+          }
+          
+          if (sucessoEmAlguma) {
+            // Forçar atualização visual
+            try {
+              if ('setRelaunchData' in node) {
+                (node as any).setRelaunchData({ update: '' });
+              }
+            } catch (refreshErr) {
+              // Ignorar erros de atualização
+            }
+            
+            console.log(`  ✓ Variáveis numéricas substituídas com sucesso`);
+          } else {
+            console.log(`  ✗ Não foi possível substituir variáveis numéricas`);
+            falhasNo++;
+          }
+        } else {
+          console.log(`  ✗ Não foi possível identificar propriedades para a variável "${varOriginal.name}"`);
+          falhasNo++;
+        }
       } else {
-        console.log(`  ✗ Não foi encontrada variável importada para "${varOriginal.name}" na biblioteca "${nomeBiblioteca}"`);
+        console.log(`  ✗ Variável importada não encontrada para "${varOriginal.name}"`);
         falhasNo++;
-        continue;
       }
     }
     
@@ -3447,136 +3465,135 @@ async function vincularVariavelCorExistente(node: SceneNode, variavel: Variable,
 
 // Função para vincular uma variável numérica a um nó
 async function vincularVariavelNumericaExistente(node: SceneNode, variavel: Variable): Promise<boolean> {
+  console.log(`Tentando vincular variável numérica: ${variavel.name} (ID: ${variavel.id}) ao nó ${node.name}`);
+  
   try {
-    console.log(`Tentando vincular variável numérica: ${variavel.name} (ID: ${variavel.id}) ao nó ${node.name}`);
-    
-    // Identificar quais propriedades numéricas vincular com base no nome da variável
-    const nomeVar = variavel.name.toLowerCase();
-    let propriedades: string[] = [];
-    
-    // Mapear nomes comuns para propriedades - EXPANDIDO PARA INCLUIR MAIS CASOS
-    if (nomeVar.includes('radius') || nomeVar.includes('corner')) {
-      propriedades.push('cornerRadius');
-    } else if (nomeVar.includes('opacity') || nomeVar.includes('transparencia')) {
-      propriedades.push('opacity');
-    } else if (nomeVar.includes('spacing') || nomeVar.includes('espaco') || nomeVar.includes('gap')) {
-      // Spacing pode ser aplicado ao itemSpacing
-      propriedades.push('itemSpacing');
-      
-      // Mas também pode ser padding dependendo do contexto
-      if (nomeVar.includes('vertical')) {
-        propriedades.push('paddingTop', 'paddingBottom');
-      } else if (nomeVar.includes('horizontal')) {
-        propriedades.push('paddingLeft', 'paddingRight');
-      }
-    } else if (nomeVar.includes('stroke') && nomeVar.includes('width')) {
-      propriedades.push('strokeWeight');
-    } else if (nomeVar.includes('border') && nomeVar.includes('width')) {
-      propriedades.push('strokeWeight');
-    } else if (nomeVar.includes('width') || nomeVar.includes('largura')) {
-      propriedades.push('width');
-    } else if (nomeVar.includes('height') || nomeVar.includes('altura')) {
-      propriedades.push('height');
-    } else if (nomeVar.includes('size') || nomeVar.includes('tamanho')) {
-      // Verificar se é um texto para definir o tamanho da fonte
-      if (node.type === 'TEXT') {
-        propriedades.push('fontSize');
-      } else {
-        // Para outros tipos, tenta primeiro largura
-        propriedades.push('width');
-      }
-    } else if (nomeVar.includes('padding')) {
-      // Tratamento mais detalhado para paddings
-      if (nomeVar.includes('vertical') || nomeVar.includes('top') || nomeVar.includes('y') || nomeVar.includes('x-large')) {
-        propriedades.push('paddingTop');
-        if (nomeVar.includes('vertical') || nomeVar.includes('bottom')) {
-          propriedades.push('paddingBottom');
-        }
-      }
-      
-      if (nomeVar.includes('horizontal') || nomeVar.includes('left') || nomeVar.includes('x') || nomeVar.includes('small')) {
-        propriedades.push('paddingLeft');
-        if (nomeVar.includes('horizontal') || nomeVar.includes('right')) {
-          propriedades.push('paddingRight');
-        }
-      }
-      
-      // Se não foi especificado direção, tenta aplicar a todos os paddings
-      if (!propriedades.length) {
-        propriedades = ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft'];
-      }
-    } else if (nomeVar.includes('x-large')) {
-      // x-large geralmente é usado para padding em botões
-      propriedades = ['paddingTop', 'paddingBottom', 'paddingLeft', 'paddingRight'];
-    }
-    
-    // Casos especiais para nomes comuns nas bibliotecas do Design System
-    if (variavel.name === 'x-large') {
-      // Se o nome da variável for apenas "x-large", tente aplicar a todos os paddings
-      propriedades = ['paddingTop', 'paddingBottom', 'paddingLeft', 'paddingRight'];
-    } else if (variavel.name === 'spacing/vertical') {
-      // Se for spacing/vertical, aplicar aos paddings vertical
-      propriedades = ['paddingTop', 'paddingBottom'];
-    }
-    
-    if (propriedades.length === 0) {
-      console.warn(`❌ Não foi possível identificar qual propriedade numérica vincular para: ${variavel.name}`);
+    // Verificar o tipo de variável
+    if (variavel.resolvedType !== 'FLOAT') {
+      console.log(`Esta variável não é do tipo FLOAT: ${variavel.resolvedType}`);
       return false;
     }
     
-    console.log(`Tentando vincular às propriedades: ${propriedades.join(', ')}`);
+    // Verificar o nome da variável para determinar propriedades-alvo
+    const nomeVar = variavel.name.toLowerCase();
+    const propriedades: string[] = [];
     
-    let vinculado = false;
+    console.log(`Tentando vincular às propriedades com base no nome: ${nomeVar}`);
     
-    // Iterar sobre todas as propriedades identificadas e tentar aplicar a cada uma
+    // Determine quais propriedades de padding devem receber esta variável com base no nome
+    if (nomeVar.includes('padding') || nomeVar.includes('spacing')) {
+      // Para paddings horizontais
+      if (nomeVar.includes('horizontal') || nomeVar.includes('left') || nomeVar.includes('right') || nomeVar.includes('small')) {
+        if ('paddingLeft' in node) propriedades.push('paddingLeft');
+        if ('paddingRight' in node) propriedades.push('paddingRight');
+      }
+      
+      // Para paddings verticais
+      if (nomeVar.includes('vertical') || nomeVar.includes('top') || nomeVar.includes('bottom') || nomeVar.includes('large')) {
+        if ('paddingTop' in node) propriedades.push('paddingTop');
+        if ('paddingBottom' in node) propriedades.push('paddingBottom');
+      }
+      
+      // Se não especificado ou "all", aplicar a todos os paddings
+      if (!nomeVar.includes('horizontal') && !nomeVar.includes('vertical') &&
+          !nomeVar.includes('left') && !nomeVar.includes('right') && 
+          !nomeVar.includes('top') && !nomeVar.includes('bottom')) {
+        if ('paddingLeft' in node) propriedades.push('paddingLeft');
+        if ('paddingRight' in node) propriedades.push('paddingRight');
+        if ('paddingTop' in node) propriedades.push('paddingTop');
+        if ('paddingBottom' in node) propriedades.push('paddingBottom');
+      }
+    }
+    
+    // Para outras propriedades específicas
+    if (nomeVar.includes('cornerRadius') || nomeVar.includes('radius')) {
+      if ('cornerRadius' in node) propriedades.push('cornerRadius');
+    }
+    
+    if (nomeVar.includes('stroke') || nomeVar.includes('border')) {
+      if ('strokeWeight' in node) propriedades.push('strokeWeight');
+    }
+    
+    // Se não encontrou propriedades adequadas
+    if (propriedades.length === 0) {
+      console.log(`Não foi possível identificar propriedades para a variável "${variavel.name}"`);
+      return false;
+    }
+    
+    console.log(`Tentando aplicar a variável às propriedades: ${propriedades.join(', ')}`);
+    let aplicadoComSucesso = false;
+    
+    // ABORDAGEM FIGMA API - Usar API específica do Figma para variáveis
     for (const propriedade of propriedades) {
-      console.log(`\n→ Tentando aplicar variável à propriedade "${propriedade}"`);
-      
-      // Verificar se a propriedade existe no nó
-      if (!(propriedade in node)) {
-        console.log(`  > ✗ Propriedade "${propriedade}" não existe no nó`);
-        continue; // Tentar a próxima propriedade
-      }
-      
-      // Verificar se é uma propriedade de auto-layout
-      const autoLayoutProps = ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'itemSpacing'];
-      const isAutoLayoutProp = autoLayoutProps.includes(propriedade);
-      
-      // Verificar se o nó tem o tipo correto para aplicar a propriedade
-      if (isAutoLayoutProp && !('layoutMode' in node)) {
-        console.log(`  > ✗ Nó não suporta propriedades de auto-layout (não tem layoutMode)`);
-        continue; // Tentar a próxima propriedade
-      }
-      
-      // Aplicar via função dedicada
-      const aplicado = aplicarVariavelPropriedade(node, { id: variavel.id }, propriedade);
-      
-      if (aplicado) {
-        console.log(`  ✓ Variável numérica aplicada com sucesso à propriedade ${propriedade}`);
-        vinculado = true;
+      try {
+        if (!(propriedade in node)) continue;
+        
+        console.log(`→ Tentando vincular variável à propriedade "${propriedade}"`);
+        
+        // Método 1: setVariableValue - API moderna do Figma
+        try {
+          if (typeof (node as any).setVariableValue === 'function') {
+            (node as any).setVariableValue(propriedade, variavel);
+            console.log(`✓ Variável vinculada via setVariableValue à propriedade "${propriedade}"`);
+            aplicadoComSucesso = true;
+            continue;
+          }
+        } catch (err1) {
+          console.log(`Método setVariableValue falhou: ${err1}`);
+        }
+        
+        // Método 2: Manipulação direta de boundVariables (abordagem padrão do Figma)
+        try {
+          // Criar um novo objeto boundVariables se não existir
+          if (!(node as any).boundVariables) {
+            (node as any).boundVariables = {};
+          }
+          
+          // Limpar qualquer binding existente
+          if ((node as any).boundVariables[propriedade]) {
+            delete (node as any).boundVariables[propriedade];
+          }
+          
+          // Criar um novo objeto para o binding (evitar modificar objeto existente)
+          const novoBoundVariables = {...(node as any).boundVariables};
+          
+          // Definir a variável no novo objeto
+          novoBoundVariables[propriedade] = {
+            type: 'VARIABLE_ALIAS',
+            id: variavel.id
+          };
+          
+          // Atribuir o novo objeto de volta ao nó
+          (node as any).boundVariables = novoBoundVariables;
+          
+          console.log(`✓ Variável vinculada via boundVariables à propriedade "${propriedade}"`);
+          aplicadoComSucesso = true;
+        } catch (err2) {
+          console.log(`Método boundVariables falhou: ${err2}`);
+        }
+      } catch (propErr) {
+        console.error(`✗ Erro ao vincular à propriedade "${propriedade}":`, propErr);
       }
     }
     
-    if (vinculado) {
-      // Forçar atualização visual adicional
-      if ('setRelaunchData' in node) {
-        // @ts-ignore
+    // Se aplicou com sucesso, forçar atualização visual
+    if (aplicadoComSucesso) {
+      try {
+        // Definir plugin data para forçar atualização
+        node.setPluginData('lastUpdate', Date.now().toString());
+        
+        // Adicionar dados de relançamento
         node.setRelaunchData({ update: '' });
+        
+        console.log(`Forçada atualização visual do nó`);
+      } catch (updateErr) {
+        console.warn(`Não foi possível forçar atualização visual:`, updateErr);
       }
-      
-      // Notificar o Figma da mudança
-      if ('notifyPluginChanged' in figma) {
-        // @ts-ignore
-        figma.notifyPluginChanged();
-      }
-      
-      return true;
     }
     
-    console.warn(`❌ Não foi possível vincular a variável numérica ${variavel.name} ao nó ${node.name} (tipo: ${node.type})`);
-    return false;
-  } catch (err) {
-    console.error(`Erro ao vincular variável numérica: ${err}`);
+    return aplicadoComSucesso;
+  } catch (error) {
+    console.error('Erro ao vincular variável numérica:', error);
     return false;
   }
 }
@@ -3957,3 +3974,220 @@ async function obterVariaveisDeColecao(libraryId: string, collectionId: string):
 }
 
 // ... existing code ...
+
+// Adicionar a nova função testeFloat
+async function testeFloat(): Promise<void> {
+  console.log("Iniciando teste de aplicação de variável FLOAT...");
+  
+  try {
+    // Verificar se há seleção
+    const nodes = figma.currentPage.selection;
+    if (!nodes || nodes.length === 0) {
+      figma.ui.postMessage({
+        type: 'teste-float-resultado',
+        success: false,
+        message: 'Selecione pelo menos um nó para testar a aplicação de variável.'
+      });
+      return;
+    }
+
+    // Verificar se o nó selecionado suporta padding
+    const node = nodes[0] as any;
+    if (!('paddingLeft' in node) && !('paddingRight' in node)) {
+      figma.ui.postMessage({
+        type: 'teste-float-resultado',
+        success: false,
+        message: 'O nó selecionado não suporta padding. Selecione um frame ou componente com auto-layout.'
+      });
+      return;
+    }
+    
+    console.log(`Aplicando variável padding/horizontal/small ao nó "${node.name}"`);
+    
+    // Obter bibliotecas disponíveis
+    const bibliotecas = await obterTodasBibliotecas();
+    if (bibliotecas.size === 0) {
+      throw new Error("Nenhuma biblioteca encontrada");
+    }
+    
+    // Encontrar biblioteca de dimensões
+    let bibliotecaSelecionada: BibliotecaInfo | null = null;
+    let colecaoSelecionada: ColecaoInfo | null = null;
+    
+    for (const [id, biblioteca] of bibliotecas.entries()) {
+      console.log(`Verificando biblioteca: ${biblioteca.name}`);
+      
+      // Carregar coleções da biblioteca
+      // @ts-ignore
+      const colecoes = await figma.teamLibrary.getAvailableLibraryVariableCollectionsAsync(id);
+      
+      if (!colecoes || colecoes.length === 0) {
+        console.log(`Biblioteca ${biblioteca.name} não tem coleções de variáveis`);
+        continue;
+      }
+      
+      // Procurar uma coleção compatível (dimensões, spacing, etc.)
+      for (const colecao of colecoes) {
+        const colecaoNome = colecao.name.toLowerCase();
+        if (colecaoNome.includes('dimens') || colecaoNome.includes('spacing') || colecaoNome.includes('size')) {
+          console.log(`Encontrada coleção adequada: ${colecao.name} na biblioteca ${biblioteca.name}`);
+          bibliotecaSelecionada = biblioteca;
+          colecaoSelecionada = { id: colecao.key, name: colecao.name };
+          break;
+        }
+      }
+      
+      if (bibliotecaSelecionada && colecaoSelecionada) break;
+    }
+    
+    if (!bibliotecaSelecionada || !colecaoSelecionada) {
+      throw new Error("Não foi possível encontrar uma biblioteca e coleção adequadas para variáveis de dimensão");
+    }
+    
+    console.log(`Biblioteca selecionada: ${bibliotecaSelecionada.name}`);
+    console.log(`Coleção selecionada: ${colecaoSelecionada.name}`);
+    
+    // Obter variáveis da coleção
+    // @ts-ignore
+    const variaveisDaColecao = await figma.teamLibrary.getVariablesInLibraryCollectionAsync(colecaoSelecionada.id);
+    
+    if (!variaveisDaColecao || variaveisDaColecao.length === 0) {
+      throw new Error("Nenhuma variável encontrada na coleção selecionada");
+    }
+    
+    // Encontrar a variável padding/button/small ou similar
+    let variavelPadding = null;
+    for (const variavel of variaveisDaColecao) {
+      const nomeLower = variavel.name.toLowerCase();
+      if (nomeLower.includes('padding/button/small') || 
+          (nomeLower.includes('padding') && nomeLower.includes('button') && nomeLower.includes('small'))) {
+        console.log(`Encontrada variável padding específica: ${variavel.name}`);
+        variavelPadding = variavel;
+        break;
+      }
+    }
+    
+    if (!variavelPadding) {
+      // Tentar encontrar qualquer variável horizontal de padding
+      for (const variavel of variaveisDaColecao) {
+        const nomeLower = variavel.name.toLowerCase();
+        if (nomeLower.includes('padding/horizontal/small') || 
+            (nomeLower.includes('padding') && nomeLower.includes('horizontal') && nomeLower.includes('small'))) {
+          console.log(`Encontrada variável padding horizontal: ${variavel.name}`);
+          variavelPadding = variavel;
+          break;
+        }
+      }
+    }
+    
+    if (!variavelPadding) {
+      // Continuar procurando por qualquer variável de padding
+      for (const variavel of variaveisDaColecao) {
+        const nomeLower = variavel.name.toLowerCase();
+        if (nomeLower.includes('padding') || nomeLower.includes('spacing')) {
+          console.log(`Encontrada variável de spacing alternativa: ${variavel.name}`);
+          variavelPadding = variavel;
+          break;
+        }
+      }
+    }
+    
+    if (!variavelPadding) {
+      throw new Error("Não foi possível encontrar a variável padding/button/small ou similar");
+    }
+    
+    // Importar a variável 
+    // @ts-ignore
+    const variavelFigma = await figma.variables.importVariableByKeyAsync(variavelPadding.key);
+    
+    if (!variavelFigma) {
+      throw new Error("Falha ao importar a variável do Figma");
+    }
+    
+    console.log(`Variável importada com sucesso: ${variavelFigma.name} (ID: ${variavelFigma.id})`);
+    
+    // Técnica recomendada na documentação oficial do Figma:
+    // CLONAR o nó e aplicar variáveis ao clone
+    try {
+      // Obter informações da posição atual
+      const parent = node.parent;
+      if (!parent) {
+        throw new Error("O nó deve ter um pai");
+      }
+      
+      const nodeIndex = parent.children.indexOf(node);
+      const nodeName = node.name;
+      const nodeX = node.x;
+      const nodeY = node.y;
+      
+      // Clonar o nó
+      const cloneNode = node.clone();
+      cloneNode.name = nodeName + " (com variável)";
+      
+      // Aplicar variável às propriedades de padding usando setSharedPluginData
+      // ========= APLICAÇÃO A TODAS AS PROPRIEDADES DE SPACING =========
+      
+      // 1. Aplicar às propriedades horizontais (já funcionando)
+      if ('paddingLeft' in cloneNode) {
+        // @ts-ignore - uso da API experimental
+        cloneNode.setBoundVariable('paddingLeft', variavelFigma);
+        console.log("Aplicada variável ao paddingLeft do clone");
+      }
+      
+      if ('paddingRight' in cloneNode) {
+        // @ts-ignore - uso da API experimental
+        cloneNode.setBoundVariable('paddingRight', variavelFigma);
+        console.log("Aplicada variável ao paddingRight do clone");
+      }
+      
+      // 2. Aplicar às propriedades verticais (top, bottom)
+      if ('paddingTop' in cloneNode) {
+        // @ts-ignore - uso da API experimental
+        cloneNode.setBoundVariable('paddingTop', variavelFigma);
+        console.log("Aplicada variável ao paddingTop do clone");
+      }
+      
+      if ('paddingBottom' in cloneNode) {
+        // @ts-ignore - uso da API experimental
+        cloneNode.setBoundVariable('paddingBottom', variavelFigma);
+        console.log("Aplicada variável ao paddingBottom do clone");
+      }
+      
+      // 3. Aplicar ao gap (itemSpacing)
+      if ('itemSpacing' in cloneNode) {
+        // @ts-ignore - uso da API experimental
+        cloneNode.setBoundVariable('itemSpacing', variavelFigma);
+        console.log("Aplicada variável ao itemSpacing (gap) do clone");
+      }
+      
+      // Adicionar o clone próximo ao nó original
+      parent.insertChild(nodeIndex + 1, cloneNode);
+      
+      // Remover o nó original se desejado
+      // node.remove();
+      
+      // Selecionar o novo nó
+      figma.currentPage.selection = [cloneNode];
+      
+      console.log("Nó clonado e variável aplicada com sucesso a todas as propriedades de spacing");
+      
+      // Informar sucesso
+      figma.ui.postMessage({
+        type: 'teste-float-resultado',
+        success: true,
+        message: `Variável "${variavelFigma.name}" aplicada ao nó clonado "${cloneNode.name}" em todas as propriedades de spacing. O nó original foi mantido para comparação.`
+      });
+      
+    } catch (apiError) {
+      console.error("Erro ao aplicar com API oficial:", apiError);
+      throw new Error(`Erro na API do Figma: ${apiError}`);
+    }
+  } catch (error) {
+    console.error('Erro durante o teste de aplicação de variável FLOAT:', error);
+    figma.ui.postMessage({
+      type: 'teste-float-resultado',
+      success: false,
+      message: `Erro: ${(error as Error).message || String(error)}`
+    });
+  }
+}

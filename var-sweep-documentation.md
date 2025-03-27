@@ -15,7 +15,7 @@ Esta funcionalidade permite substituir variáveis em elementos específicos do F
 1. **Seleção de Biblioteca**: O usuário seleciona a biblioteca externa que contém as variáveis de referência
 2. **Seleção de Coleção**: O usuário escolhe a coleção específica de variáveis dentro da biblioteca selecionada
 3. **Definição de Escopo**: O usuário determina se a substituição será aplicada apenas aos elementos selecionados ou a toda a página
-4. **Pesquisa de Variáveis**: O plugin identifica todas as variáveis nos elementos do escopo escolhido
+4. **Pesquisa de Variáveis**: O plugin identifica todas as variáveis e estilos nos elementos do escopo escolhido
 5. **Visualização**: O usuário pode visualizar todas as variáveis encontradas antes de aplicar a substituição
 6. **Substituição**: O plugin substitui as variáveis encontradas pelas correspondentes da biblioteca selecionada
 
@@ -24,6 +24,7 @@ Esta funcionalidade permite substituir variáveis em elementos específicos do F
 - **Variáveis de Cor (COLOR)**: Aplicadas a preenchimentos (fills) e contornos (strokes)
 - **Variáveis Numéricas (FLOAT)**: Para valores como opacidade, tamanho, etc.
 - **Variáveis de Texto (STRING)**: Para textos e conteúdos
+- **Estilos**: Estilos de preenchimento, contorno, texto, efeito e grade
 
 ### 2. Update Collections (Atualização de Coleções)
 
@@ -91,6 +92,10 @@ Para garantir que todos os arquivos de design usem as mesmas variáveis de uma b
 ### Substituição de Cores
 
 O plugin identifica variáveis de cor como `bg/button/secondary/pressed` e busca correspondência na biblioteca selecionada. Se encontrada, a variável original é substituída pela variável correspondente, mantendo a mesma aplicação (preenchimento, contorno, etc.).
+
+### Substituição de Estilos de Texto
+
+Para variáveis como `action/button/large` aplicadas a estilos de texto, o plugin busca o estilo correspondente na biblioteca e aplica ao elemento.
 
 ## Considerações Técnicas
 
