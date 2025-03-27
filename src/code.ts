@@ -2213,7 +2213,18 @@ async function substituirVariaveisEmColecao(matches: Array<{
 // Configurar o manipulador de mensagens
 figma.ui.onmessage = async (msg) => {
   console.log('Mensagem recebida:', msg);
-
+  
+  // Tratar a resposta de seleção de biblioteca e coleção
+  if (msg.type === 'resposta-selecao-biblioteca-colecao') {
+    // Esta mensagem é tratada internamente na função testeFloat
+    return;
+  }
+  
+  if (msg.type === 'teste-float') {
+    await testeFloat();
+    return;
+  }
+  
   if (msg.type === 'search-variables') {
     console.log('Procurando variáveis e estilos...');
     
@@ -2618,10 +2629,6 @@ figma.ui.onmessage = async (msg) => {
         message: `Erro ao processar substituição: ${(error as Error).message || String(error)}`
       });
     }
-  }
-  else if (msg.type === 'teste-float') {
-    await testeFloat();
-    return;
   }
 }; 
 
@@ -3465,8 +3472,8 @@ async function vincularVariavelCorExistente(node: SceneNode, variavel: Variable,
 
 // Função para vincular uma variável numérica a um nó
 async function vincularVariavelNumericaExistente(node: SceneNode, variavel: Variable): Promise<boolean> {
-  console.log(`Tentando vincular variável numérica: ${variavel.name} (ID: ${variavel.id}) ao nó ${node.name}`);
-  
+    console.log(`Tentando vincular variável numérica: ${variavel.name} (ID: ${variavel.id}) ao nó ${node.name}`);
+    
   try {
     // Verificar o tipo de variável
     if (variavel.resolvedType !== 'FLOAT') {
@@ -3583,7 +3590,7 @@ async function vincularVariavelNumericaExistente(node: SceneNode, variavel: Vari
         node.setPluginData('lastUpdate', Date.now().toString());
         
         // Adicionar dados de relançamento
-        node.setRelaunchData({ update: '' });
+      node.setRelaunchData({ update: '' });
         
         console.log(`Forçada atualização visual do nó`);
       } catch (updateErr) {
@@ -4002,185 +4009,315 @@ async function testeFloat(): Promise<void> {
       return;
     }
     
-    console.log(`Aplicando variável padding/horizontal/small ao nó "${node.name}"`);
+    console.log(`Aplicando variável padding/vertical/small ao nó "${node.name}"`);
     
-    // Obter bibliotecas disponíveis
-    const bibliotecas = await obterTodasBibliotecas();
-    if (bibliotecas.size === 0) {
-      throw new Error("Nenhuma biblioteca encontrada");
-    }
+    // 1. OBTENDO A BIBLIOTECA E COLEÇÃO SELECIONADAS PELO USUÁRIO NA UI
+    // Solicitar a biblioteca e coleção atualmente selecionadas na interface
+    figma.ui.postMessage({
+      type: 'solicitar-selecao-biblioteca-colecao'
+    });
     
-    // Encontrar biblioteca de dimensões
-    let bibliotecaSelecionada: BibliotecaInfo | null = null;
-    let colecaoSelecionada: ColecaoInfo | null = null;
-    
-    for (const [id, biblioteca] of bibliotecas.entries()) {
-      console.log(`Verificando biblioteca: ${biblioteca.name}`);
-      
-      // Carregar coleções da biblioteca
-      // @ts-ignore
-      const colecoes = await figma.teamLibrary.getAvailableLibraryVariableCollectionsAsync(id);
-      
-      if (!colecoes || colecoes.length === 0) {
-        console.log(`Biblioteca ${biblioteca.name} não tem coleções de variáveis`);
-        continue;
-      }
-      
-      // Procurar uma coleção compatível (dimensões, spacing, etc.)
-      for (const colecao of colecoes) {
-        const colecaoNome = colecao.name.toLowerCase();
-        if (colecaoNome.includes('dimens') || colecaoNome.includes('spacing') || colecaoNome.includes('size')) {
-          console.log(`Encontrada coleção adequada: ${colecao.name} na biblioteca ${biblioteca.name}`);
-          bibliotecaSelecionada = biblioteca;
-          colecaoSelecionada = { id: colecao.key, name: colecao.name };
-          break;
+    // Criar uma Promise que será resolvida quando o plugin receber a resposta da UI
+    const selecao = await new Promise<{libraryId: string, collectionId: string}>((resolve, reject) => {
+      const handler = (msg: any) => {
+        if (msg.type === 'resposta-selecao-biblioteca-colecao') {
+          figma.ui.off('message', handler); // Remover o listener após receber a resposta
+          
+          if (!msg.libraryId || !msg.collectionId) {
+            reject(new Error("Selecione uma biblioteca e uma coleção de variáveis na interface"));
+          } else {
+            resolve({
+              libraryId: msg.libraryId,
+              collectionId: msg.collectionId
+            });
+          }
         }
-      }
+      };
       
-      if (bibliotecaSelecionada && colecaoSelecionada) break;
+      // Adicionar o handler temporário para a resposta
+      figma.ui.on('message', handler);
+      
+      // Definir um timeout para rejeitar a Promise após 5 segundos
+      setTimeout(() => {
+        figma.ui.off('message', handler);
+        reject(new Error("Tempo esgotado ao aguardar seleção de biblioteca e coleção"));
+      }, 5000);
+    });
+    
+    // Obter todas as bibliotecas para encontrar a selecionada pelo ID
+    const todasBibliotecas = await obterTodasBibliotecas();
+    const bibliotecas = Array.from(todasBibliotecas.values());
+    const bibliotecaReferencia = bibliotecas.find(bib => bib.id === selecao.libraryId);
+    
+    if (!bibliotecaReferencia) {
+      throw new Error(`Biblioteca selecionada (ID: ${selecao.libraryId}) não encontrada`);
     }
     
-    if (!bibliotecaSelecionada || !colecaoSelecionada) {
-      throw new Error("Não foi possível encontrar uma biblioteca e coleção adequadas para variáveis de dimensão");
-    }
+    console.log(`Biblioteca de referência selecionada: ${bibliotecaReferencia.name} (${bibliotecaReferencia.id})`);
     
-    console.log(`Biblioteca selecionada: ${bibliotecaSelecionada.name}`);
-    console.log(`Coleção selecionada: ${colecaoSelecionada.name}`);
-    
-    // Obter variáveis da coleção
+    // 2. OBTENDO A COLEÇÃO DE VARIÁVEIS
     // @ts-ignore
-    const variaveisDaColecao = await figma.teamLibrary.getVariablesInLibraryCollectionAsync(colecaoSelecionada.id);
+    const colecoesDisponiveis = await figma.teamLibrary.getAvailableLibraryVariableCollectionsAsync(bibliotecaReferencia.id);
+    
+    if (!colecoesDisponiveis || colecoesDisponiveis.length === 0) {
+      throw new Error(`Biblioteca ${bibliotecaReferencia.name} não tem coleções de variáveis`);
+    }
+    
+    // Encontrar a coleção selecionada pelo ID
+    const colecaoAlvo = colecoesDisponiveis.find(c => c.key === selecao.collectionId);
+    
+    if (!colecaoAlvo) {
+      throw new Error(`Coleção selecionada (ID: ${selecao.collectionId}) não encontrada na biblioteca ${bibliotecaReferencia.name}`);
+    }
+    
+    console.log(`Coleção selecionada: ${colecaoAlvo.name} (${colecaoAlvo.key})`);
+    
+    // 3. BUSCANDO A VARIÁVEL NA COLEÇÃO
+    // @ts-ignore
+    const variaveisDaColecao = await figma.teamLibrary.getVariablesInLibraryCollectionAsync(colecaoAlvo.key);
     
     if (!variaveisDaColecao || variaveisDaColecao.length === 0) {
       throw new Error("Nenhuma variável encontrada na coleção selecionada");
     }
     
-    // Encontrar a variável padding/button/small ou similar
-    let variavelPadding = null;
-    for (const variavel of variaveisDaColecao) {
-      const nomeLower = variavel.name.toLowerCase();
-      if (nomeLower.includes('padding/button/small') || 
-          (nomeLower.includes('padding') && nomeLower.includes('button') && nomeLower.includes('small'))) {
-        console.log(`Encontrada variável padding específica: ${variavel.name}`);
-        variavelPadding = variavel;
-        break;
-      }
-    }
+    console.log(`Encontradas ${variaveisDaColecao.length} variáveis na coleção "${colecaoAlvo.name}"`);
     
+    // Procurar ESPECIFICAMENTE por padding/vertical/small
+    let variavelPadding = variaveisDaColecao.find(v => v.name === 'padding/vertical/small');
+    
+    // Se não encontrar vertical, procurar padding/button/small ou padding/horizontal/small que pode ser usada
     if (!variavelPadding) {
-      // Tentar encontrar qualquer variável horizontal de padding
-      for (const variavel of variaveisDaColecao) {
-        const nomeLower = variavel.name.toLowerCase();
-        if (nomeLower.includes('padding/horizontal/small') || 
-            (nomeLower.includes('padding') && nomeLower.includes('horizontal') && nomeLower.includes('small'))) {
-          console.log(`Encontrada variável padding horizontal: ${variavel.name}`);
-          variavelPadding = variavel;
-          break;
-        }
-      }
+      variavelPadding = variaveisDaColecao.find(v => 
+        v.name === 'padding/button/small' || 
+        v.name === 'padding/horizontal/small');
     }
     
+    // Se não encontrar, tente buscar com padrões de nome similares
     if (!variavelPadding) {
-      // Continuar procurando por qualquer variável de padding
-      for (const variavel of variaveisDaColecao) {
-        const nomeLower = variavel.name.toLowerCase();
-        if (nomeLower.includes('padding') || nomeLower.includes('spacing')) {
-          console.log(`Encontrada variável de spacing alternativa: ${variavel.name}`);
-          variavelPadding = variavel;
-          break;
-        }
-      }
-    }
-    
-    if (!variavelPadding) {
-      throw new Error("Não foi possível encontrar a variável padding/button/small ou similar");
-    }
-    
-    // Importar a variável 
-    // @ts-ignore
-    const variavelFigma = await figma.variables.importVariableByKeyAsync(variavelPadding.key);
-    
-    if (!variavelFigma) {
-      throw new Error("Falha ao importar a variável do Figma");
-    }
-    
-    console.log(`Variável importada com sucesso: ${variavelFigma.name} (ID: ${variavelFigma.id})`);
-    
-    // Técnica recomendada na documentação oficial do Figma:
-    // CLONAR o nó e aplicar variáveis ao clone
-    try {
-      // Obter informações da posição atual
-      const parent = node.parent;
-      if (!parent) {
-        throw new Error("O nó deve ter um pai");
-      }
-      
-      const nodeIndex = parent.children.indexOf(node);
-      const nodeName = node.name;
-      const nodeX = node.x;
-      const nodeY = node.y;
-      
-      // Clonar o nó
-      const cloneNode = node.clone();
-      cloneNode.name = nodeName + " (com variável)";
-      
-      // Aplicar variável às propriedades de padding usando setSharedPluginData
-      // ========= APLICAÇÃO A TODAS AS PROPRIEDADES DE SPACING =========
-      
-      // 1. Aplicar às propriedades horizontais (já funcionando)
-      if ('paddingLeft' in cloneNode) {
-        // @ts-ignore - uso da API experimental
-        cloneNode.setBoundVariable('paddingLeft', variavelFigma);
-        console.log("Aplicada variável ao paddingLeft do clone");
-      }
-      
-      if ('paddingRight' in cloneNode) {
-        // @ts-ignore - uso da API experimental
-        cloneNode.setBoundVariable('paddingRight', variavelFigma);
-        console.log("Aplicada variável ao paddingRight do clone");
-      }
-      
-      // 2. Aplicar às propriedades verticais (top, bottom)
-      if ('paddingTop' in cloneNode) {
-        // @ts-ignore - uso da API experimental
-        cloneNode.setBoundVariable('paddingTop', variavelFigma);
-        console.log("Aplicada variável ao paddingTop do clone");
-      }
-      
-      if ('paddingBottom' in cloneNode) {
-        // @ts-ignore - uso da API experimental
-        cloneNode.setBoundVariable('paddingBottom', variavelFigma);
-        console.log("Aplicada variável ao paddingBottom do clone");
-      }
-      
-      // 3. Aplicar ao gap (itemSpacing)
-      if ('itemSpacing' in cloneNode) {
-        // @ts-ignore - uso da API experimental
-        cloneNode.setBoundVariable('itemSpacing', variavelFigma);
-        console.log("Aplicada variável ao itemSpacing (gap) do clone");
-      }
-      
-      // Adicionar o clone próximo ao nó original
-      parent.insertChild(nodeIndex + 1, cloneNode);
-      
-      // Remover o nó original se desejado
-      // node.remove();
-      
-      // Selecionar o novo nó
-      figma.currentPage.selection = [cloneNode];
-      
-      console.log("Nó clonado e variável aplicada com sucesso a todas as propriedades de spacing");
-      
-      // Informar sucesso
-      figma.ui.postMessage({
-        type: 'teste-float-resultado',
-        success: true,
-        message: `Variável "${variavelFigma.name}" aplicada ao nó clonado "${cloneNode.name}" em todas as propriedades de spacing. O nó original foi mantido para comparação.`
+      variavelPadding = variaveisDaColecao.find(v => {
+        const nomeLower = v.name.toLowerCase();
+        return (nomeLower.includes('padding') && nomeLower.includes('vertical') && nomeLower.includes('small')) ||
+               (nomeLower.includes('padding') && nomeLower.includes('button') && nomeLower.includes('small')) ||
+               (nomeLower.includes('padding') && nomeLower.includes('horizontal') && nomeLower.includes('small'));
       });
+    }
+    
+    // Última tentativa: qualquer padding ou spacing
+    if (!variavelPadding) {
+      variavelPadding = variaveisDaColecao.find(v => {
+        const nomeLower = v.name.toLowerCase();
+        return nomeLower.includes('padding') || nomeLower.includes('spacing');
+      });
+    }
+    
+    if (!variavelPadding) {
+      throw new Error("Não foi possível encontrar uma variável padding adequada na biblioteca de referência");
+    }
+    
+    console.log(`Variável encontrada na biblioteca de referência: ${variavelPadding.name}`);
+    
+    // 4. IMPORTANDO A VARIÁVEL PARA O ARQUIVO LOCAL
+    // @ts-ignore
+    const variavelImportada = await figma.variables.importVariableByKeyAsync(variavelPadding.key);
+    
+    if (!variavelImportada) {
+      throw new Error("Falha ao importar a variável da biblioteca de referência");
+    }
+    
+    console.log(`Variável importada com sucesso: ${variavelImportada.name} (ID: ${variavelImportada.id})`);
+    
+    // 5. APLICANDO A VARIÁVEL DIRETAMENTE AO NÓ USANDO MÉTODOS MÚLTIPLOS
+    let sucessoGeral = false;
+    
+    try {
+      // ABORDAGEM 1: Usando vincularVariavelNumericaExistente (primeira tentativa)
+      try {
+        console.log(`Tentando vincular variável numérica: ${variavelImportada.name} (ID: ${variavelImportada.id}) ao nó ${node.name}`);
+        const resultadoVinculacao = await vincularVariavelNumericaExistente(node, variavelImportada);
+        if (resultadoVinculacao) {
+          console.log("Variável aplicada com sucesso usando vincularVariavelNumericaExistente");
+          sucessoGeral = true;
+        }
+      } catch (err) {
+        console.error("Falha ao aplicar usando vincularVariavelNumericaExistente:", err);
+      }
       
-    } catch (apiError) {
-      console.error("Erro ao aplicar com API oficial:", apiError);
-      throw new Error(`Erro na API do Figma: ${apiError}`);
+      // Se a abordagem 1 falhar, tente a abordagem 2
+      if (!sucessoGeral) {
+        console.log("Tentando método alternativo de aplicação direta...");
+        
+        // ABORDAGEM 2: Manipulação direta das propriedades
+        // Lista de propriedades para aplicar
+        const propriedades = [];
+        if ('paddingLeft' in node) propriedades.push('paddingLeft');
+        if ('paddingRight' in node) propriedades.push('paddingRight');
+        if ('paddingTop' in node) propriedades.push('paddingTop');
+        if ('paddingBottom' in node) propriedades.push('paddingBottom');
+        if ('itemSpacing' in node) propriedades.push('itemSpacing');
+        
+        let sucessosAbordagem2 = 0;
+        
+        for (const prop of propriedades) {
+          try {
+            // Método 1: API moderna - setBoundVariable
+            try {
+              if (typeof node.setBoundVariable === 'function') {
+                // @ts-ignore - API moderna
+                node.setBoundVariable(prop, variavelImportada);
+                console.log(`Variável aplicada à propriedade ${prop} via setBoundVariable`);
+                sucessosAbordagem2++;
+                continue;
+              }
+            } catch (err1) {
+              console.error(`Erro em setBoundVariable(${prop}):`, err1);
+            }
+            
+            // Método 2: setVariableValue
+            try {
+              if (typeof node.setVariableValue === 'function') {
+                // @ts-ignore - API alternativa
+                node.setVariableValue(prop, variavelImportada);
+                console.log(`Variável aplicada à propriedade ${prop} via setVariableValue`);
+                sucessosAbordagem2++;
+                continue;
+              }
+            } catch (err2) {
+              console.error(`Erro em setVariableValue(${prop}):`, err2);
+            }
+            
+            // Método 3: Tentativa manual de definir boundVariables
+            try {
+              // Garantir que boundVariables exista
+              if (!node.boundVariables) {
+                node.boundVariables = {};
+              }
+              
+              // Criar um novo objeto e definir propriedade
+              const novoBoundVariables = {...node.boundVariables};
+              novoBoundVariables[prop] = { 
+                type: 'VARIABLE_ALIAS', 
+                id: variavelImportada.id 
+              };
+              
+              // Tentar definir o novo objeto
+              node.boundVariables = novoBoundVariables;
+              console.log(`Variável aplicada à propriedade ${prop} via boundVariables direto`);
+              sucessosAbordagem2++;
+            } catch (err3) {
+              console.error(`Erro ao definir boundVariables[${prop}] diretamente:`, err3);
+            }
+          } catch (propErr) {
+            console.error(`Erro geral ao processar propriedade ${prop}:`, propErr);
+          }
+        }
+        
+        // Se aplicamos com sucesso em pelo menos uma propriedade
+        if (sucessosAbordagem2 > 0) {
+          console.log(`Variável aplicada com sucesso a ${sucessosAbordagem2} propriedades de ${propriedades.length} usando método direto`);
+          sucessoGeral = true;
+        }
+      }
+      
+      // ABORDAGEM 3: Técnica de clonagem e reposicionamento (último recurso)
+      if (!sucessoGeral) {
+        console.log("Tentando método com clonagem temporária...");
+        
+        try {
+          // Salvar propriedades importantes do nó original
+          const nodeParent = node.parent;
+          if (!nodeParent) throw new Error("O nó deve ter um pai para esta técnica");
+          
+          const nodeIndex = nodeParent.children.indexOf(node);
+          const nodeProps = {
+            name: node.name,
+            x: node.x,
+            y: node.y,
+            width: node.width,
+            height: node.height,
+            visible: node.visible
+          };
+          
+          // Criar nó temporário
+          const tempNode = figma.createFrame();
+          tempNode.resize(1, 1);
+          tempNode.visible = false;
+          
+          // Adicionar ao documento para forçar atualização
+          figma.currentPage.appendChild(tempNode);
+          
+          // Forçar aplicação da variável no nó original
+          if (typeof node.setBoundVariable === 'function') {
+            if ('paddingLeft' in node) {
+              // @ts-ignore
+              node.setBoundVariable('paddingLeft', variavelImportada);
+            }
+            if ('paddingRight' in node) {
+              // @ts-ignore
+              node.setBoundVariable('paddingRight', variavelImportada);
+            }
+            if ('paddingTop' in node) {
+              // @ts-ignore
+              node.setBoundVariable('paddingTop', variavelImportada);
+            }
+            if ('paddingBottom' in node) {
+              // @ts-ignore
+              node.setBoundVariable('paddingBottom', variavelImportada);
+            }
+            if ('itemSpacing' in node) {
+              // @ts-ignore
+              node.setBoundVariable('itemSpacing', variavelImportada);
+            }
+          }
+          
+          // Forçar atualização visual alterando e restaurando uma propriedade
+          const paddingLeftOriginal = node.paddingLeft;
+          if (typeof paddingLeftOriginal === 'number') {
+            node.paddingLeft = paddingLeftOriginal + 0.1;
+            node.paddingLeft = paddingLeftOriginal;
+          }
+          
+          // Remover nó temporário
+          tempNode.remove();
+          
+          // Verificar se aplicamos com sucesso
+          if ('boundVariables' in node) {
+            const boundVars = node.boundVariables as any;
+            const temAlgumaPropriedadeVinculada = ['paddingLeft', 'paddingRight', 'paddingTop', 'paddingBottom', 'itemSpacing']
+              .some(prop => boundVars && boundVars[prop] && boundVars[prop].id === variavelImportada.id);
+            
+            if (temAlgumaPropriedadeVinculada) {
+              console.log("Variável aplicada com sucesso usando técnica de atualização forçada");
+              sucessoGeral = true;
+            }
+          }
+        } catch (cloneErr) {
+          console.error("Erro ao tentar técnica de clonagem:", cloneErr);
+        }
+      }
+      
+      // Forçar atualização visual em qualquer caso
+      try {
+        node.setPluginData('lastUpdate', Date.now().toString());
+        node.setRelaunchData({ update: '' });
+      } catch (updateErr) {
+        console.error("Erro ao forçar atualização visual:", updateErr);
+      }
+      
+      // Verificação final
+      if (sucessoGeral) {
+        console.log(`Variável "${variavelImportada.name}" aplicada com sucesso ao nó "${node.name}"`);
+        
+        figma.ui.postMessage({
+          type: 'teste-float-resultado',
+          success: true,
+          message: `Variável "${variavelImportada.name}" da biblioteca "${bibliotecaReferencia.name}" aplicada com sucesso ao nó "${node.name}".`
+        });
+      } else {
+        throw new Error(`Falha ao aplicar a variável "${variavelImportada.name}" ao nó "${node.name}"`);
+      }
+    } catch (applyErr) {
+      console.error("Erro durante a aplicação da variável:", applyErr);
+      throw applyErr;
     }
   } catch (error) {
     console.error('Erro durante o teste de aplicação de variável FLOAT:', error);

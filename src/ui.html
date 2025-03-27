@@ -2200,6 +2200,42 @@
           hideInfoVar();
         }
       }
+      
+      // Adicionar resposta para a solicitação de biblioteca e coleção selecionadas
+      if (message.type === 'solicitar-selecao-biblioteca-colecao') {
+        const libraryId = librarySelectVar.value;
+        const collectionId = collectionSelectVar.value;
+        
+        // Verificar se ambos estão selecionados
+        if (!libraryId || !collectionId) {
+          showErrorVar("Selecione uma biblioteca e uma coleção antes de testar");
+          
+          // Reativar o botão
+          const testeBtn = document.getElementById('teste-float-btn');
+          testeBtn.disabled = false;
+          testeBtn.textContent = 'Testar Float';
+          
+          // Enviar resposta com erro
+          parent.postMessage({
+            pluginMessage: {
+              type: 'resposta-selecao-biblioteca-colecao',
+              success: false,
+              error: 'Selecione uma biblioteca e uma coleção antes de testar'
+            }
+          }, '*');
+          return;
+        }
+        
+        // Enviar resposta com os valores selecionados
+        parent.postMessage({
+          pluginMessage: {
+            type: 'resposta-selecao-biblioteca-colecao',
+            success: true,
+            libraryId: libraryId,
+            collectionId: collectionId
+          }
+        }, '*');
+      }
     });
     });
   </script>
