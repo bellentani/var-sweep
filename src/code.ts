@@ -907,6 +907,14 @@ async function aplicarVariavelFloat(node: SceneNode, variable: { id: string, nam
       console.log(`>>> Propriedades de layout: layoutMode: ${(node as any).layoutMode}, paddingTop: ${(node as any).paddingTop}, paddingBottom: ${(node as any).paddingBottom}, paddingLeft: ${(node as any).paddingLeft}, paddingRight: ${(node as any).paddingRight}, itemSpacing: ${(node as any).itemSpacing}`);
     }
     
+    // Para border radius (diagnóstico específico)
+    if ('cornerRadius' in node) {
+      console.log(`>>> Propriedades de radius: cornerRadius: ${(node as any).cornerRadius}`);
+    }
+    if ('topLeftRadius' in node) {
+      console.log(`>>> Radius específicos: topLeftRadius: ${(node as any).topLeftRadius}, topRightRadius: ${(node as any).topRightRadius}, bottomLeftRadius: ${(node as any).bottomLeftRadius}, bottomRightRadius: ${(node as any).bottomRightRadius}`);
+    }
+    
     // Propriedades que sabemos que funcionam com variáveis FLOAT
     const propriedadesFloat = [
       'paddingTop', 'paddingBottom', 'paddingLeft', 'paddingRight',
@@ -935,6 +943,30 @@ async function aplicarVariavelFloat(node: SceneNode, variable: { id: string, nam
       } else if ('paddingBottom' in node) {
         propriedadeEfetiva = 'paddingBottom';
       }
+    } else if (propriedadeEfetiva === 'cornerRadius' || propriedadeEfetiva.includes('radius')) {
+      console.log(`>>> Propriedade de radius detectada: ${propriedadeEfetiva}`);
+      
+      // Verificar se é uma propriedade de radius específica ou genérica
+      if (propriedadeEfetiva === 'cornerRadius') {
+        // Verificar se o nó suporta cornerRadius ou radii específicos
+        if ('cornerRadius' in node) {
+          propriedadeEfetiva = 'cornerRadius';
+          console.log(`>>> Usando cornerRadius para o nó`);
+        } else if ('topLeftRadius' in node) {
+          // Se não tem cornerRadius mas tem radii específicos, usar o primeiro disponível
+          console.log(`>>> Nó não suporta cornerRadius, tentando usar radii específicos`);
+          propriedadeEfetiva = 'topLeftRadius';
+        }
+      } else if (propriedadeEfetiva.includes('radius')) {
+        // Verificar se a propriedade específica existe no nó
+        if (propriedadeEfetiva in node) {
+          console.log(`>>> Usando propriedade específica de radius: ${propriedadeEfetiva}`);
+        } else if ('cornerRadius' in node) {
+          // Fallback para cornerRadius
+          propriedadeEfetiva = 'cornerRadius';
+          console.log(`>>> Propriedade específica não disponível, usando cornerRadius`);
+        }
+      }
     }
     
     // Verificar se a propriedade existe e pode receber valores
@@ -961,6 +993,7 @@ async function aplicarVariavelFloat(node: SceneNode, variable: { id: string, nam
           console.log(`>>> Usando propriedade alternativa de padding: ${propriedadeEfetiva}`);
         }
       } else if (propriedadeEfetiva.includes('radius')) {
+        // Verificar todas as propriedades de radius disponíveis
         const radiusProps = propriedadesPosiveis.filter(p => p.includes('radius'));
         if (radiusProps.length > 0) {
           propriedadeEfetiva = radiusProps[0];
@@ -992,7 +1025,106 @@ async function aplicarVariavelFloat(node: SceneNode, variable: { id: string, nam
       return false;
     }
     
-    // MÉTODOS ALTERNATIVOS EM SEQUÊNCIA
+    // MÉTODO ESPECÍFICO PARA RADIUS
+    // Tentar aplicar a todos os raios se for cornerRadius
+    if (propriedadeEfetiva === 'cornerRadius' || propriedadeEfetiva.includes('radius')) {
+      console.log(`>>> Tentando método específico para radius...`);
+      
+      // Obter o valor da variável para aplicação
+      let valorRadius = null;
+      if (varObj.resolvedType === 'FLOAT' && varObj.variableCollectionId) {
+        const colecao = figma.variables.getVariableCollectionById(varObj.variableCollectionId);
+        if (colecao && colecao.defaultModeId) {
+          valorRadius = varObj.valuesByMode[colecao.defaultModeId];
+          console.log(`>>> Valor da variável de radius: ${valorRadius}`);
+        }
+      }
+      
+      let radiusAplicado = false;
+      
+      // 1. Tentar aplicar cornerRadius via boundVariables
+      try {
+        if ('cornerRadius' in node) {
+          if (!('boundVariables' in node)) {
+            (node as any).boundVariables = {};
+          }
+          
+          const boundVars = {...(node as any).boundVariables} as Record<string, any>;
+          boundVars['cornerRadius'] = {
+            type: 'VARIABLE_ALIAS',
+            id: variable.id
+          };
+          
+          (node as any).boundVariables = boundVars;
+          console.log(`>>> Aplicado cornerRadius via boundVariables`);
+          radiusAplicado = true;
+        }
+      } catch (cornerErr) {
+        console.warn(`>>> Erro ao aplicar cornerRadius via boundVariables:`, cornerErr);
+      }
+      
+      // 2. Tentar aplicar radii específicos
+      try {
+        const radiusProps = ['topLeftRadius', 'topRightRadius', 'bottomLeftRadius', 'bottomRightRadius'];
+        let algunsRadiusAplicados = false;
+        
+        for (const radiusProp of radiusProps) {
+          if (radiusProp in node) {
+            try {
+              // Tentar via setBoundVariable
+              (node as any).setBoundVariable(radiusProp, varObj);
+              console.log(`>>> Aplicado ${radiusProp} via setBoundVariable`);
+              algunsRadiusAplicados = true;
+            } catch (err) {
+              console.warn(`>>> Erro ao aplicar ${radiusProp} via setBoundVariable:`, err);
+              
+              // Tentar via boundVariables
+              try {
+                if (!('boundVariables' in node)) {
+                  (node as any).boundVariables = {};
+                }
+                
+                const boundVars = {...(node as any).boundVariables} as Record<string, any>;
+                boundVars[radiusProp] = {
+                  type: 'VARIABLE_ALIAS',
+                  id: variable.id
+                };
+                
+                (node as any).boundVariables = boundVars;
+                console.log(`>>> Aplicado ${radiusProp} via boundVariables`);
+                algunsRadiusAplicados = true;
+              } catch (boundErr) {
+                console.warn(`>>> Erro ao aplicar ${radiusProp} via boundVariables:`, boundErr);
+                
+                // Último recurso: aplicar valor direto
+                if (valorRadius !== null) {
+                  try {
+                    (node as any)[radiusProp] = valorRadius;
+                    console.log(`>>> Aplicado ${radiusProp} via valor direto: ${valorRadius}`);
+                    algunsRadiusAplicados = true;
+                  } catch (directErr) {
+                    console.warn(`>>> Erro ao aplicar ${radiusProp} via valor direto:`, directErr);
+                  }
+                }
+              }
+            }
+          }
+        }
+        
+        if (algunsRadiusAplicados) {
+          radiusAplicado = true;
+        }
+      } catch (radiiErr) {
+        console.warn(`>>> Erro ao aplicar radii específicos:`, radiiErr);
+      }
+      
+      // Se aplicamos radius com sucesso, retornar
+      if (radiusAplicado) {
+        return true;
+      }
+    }
+    
+    // MÉTODOS ALTERNATIVOS EM SEQUÊNCIA para outras propriedades
     let aplicado = false;
     
     // 1. Método com tratamento de erros para boundVariables
@@ -1017,7 +1149,9 @@ async function aplicarVariavelFloat(node: SceneNode, variable: { id: string, nam
       try {
         // Remover qualquer vinculação existente primeiro
         if (boundVars && propriedadeEfetiva in boundVars) {
-          delete boundVars[propriedadeEfetiva];
+          // Usar Record<string, any> para evitar erros de tipo
+          (boundVars as Record<string, any>)[propriedadeEfetiva] = undefined;
+          delete (boundVars as Record<string, any>)[propriedadeEfetiva];
           console.log(`Removida vinculação existente de ${propriedadeEfetiva}`);
         }
       } catch (err) {
@@ -1025,7 +1159,7 @@ async function aplicarVariavelFloat(node: SceneNode, variable: { id: string, nam
       }
       
       // Adicionar a nova vinculação
-      boundVars[propriedadeEfetiva] = {
+      (boundVars as Record<string, any>)[propriedadeEfetiva] = {
         type: 'VARIABLE_ALIAS',
         id: variable.id
       };
