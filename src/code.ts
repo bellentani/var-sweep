@@ -911,35 +911,29 @@ async function aplicarVariavelFloat(node: SceneNode, variable: { id: string, nam
     const propriedadesFloat = [
       'paddingTop', 'paddingBottom', 'paddingLeft', 'paddingRight',
       'itemSpacing', 'cornerRadius', 'strokeWeight',
-      'topLeftRadius', 'topRightRadius', 'bottomLeftRadius', 'bottomRightRadius',
-      'horizontalPadding', 'verticalPadding'
+      'topLeftRadius', 'topRightRadius', 'bottomLeftRadius', 'bottomRightRadius'
     ];
     
-    // Descobrir qual propriedade usar
+    // Descobrir qual propriedade usar - SIMPLIFICADA (sem usar horizontalPadding/verticalPadding)
     console.log(`>>> Procurando propriedade para variável: "${variable.name}"`);
     let propriedadeEfetiva = prop;
     
-    // Para casos específicos de naming conventions
-    if (variable.name) {
-      // Identificar propriedade baseado no nome da variável
-      if (variable.name.includes('/padding/') || variable.name.includes('/spacing/')) {
-        if (variable.name.includes('horizontal')) {
-          if (propriedadeEfetiva.includes('Left')) propriedadeEfetiva = 'paddingLeft';
-          else if (propriedadeEfetiva.includes('Right')) propriedadeEfetiva = 'paddingRight';
-          else propriedadeEfetiva = 'horizontalPadding';
-        } else if (variable.name.includes('vertical')) {
-          if (propriedadeEfetiva.includes('Top')) propriedadeEfetiva = 'paddingTop';
-          else if (propriedadeEfetiva.includes('Bottom')) propriedadeEfetiva = 'paddingBottom';
-          else propriedadeEfetiva = 'verticalPadding';
-        }
-      } else if (variable.name.includes('/radius/') || variable.name.includes('/corner/')) {
-        if (propriedadeEfetiva.includes('topLeft')) propriedadeEfetiva = 'topLeftRadius';
-        else if (propriedadeEfetiva.includes('topRight')) propriedadeEfetiva = 'topRightRadius';
-        else if (propriedadeEfetiva.includes('bottomLeft')) propriedadeEfetiva = 'bottomLeftRadius';
-        else if (propriedadeEfetiva.includes('bottomRight')) propriedadeEfetiva = 'bottomRightRadius';
-        else propriedadeEfetiva = 'cornerRadius';
-      } else if (variable.name.includes('/border/') || variable.name.includes('/stroke/')) {
-        propriedadeEfetiva = 'strokeWeight';
+    // Mapear propriedades obsoletas para as novas
+    if (propriedadeEfetiva === 'horizontalPadding') {
+      console.log(`>>> Propriedade horizontalPadding obsoleta. Tentando usar paddingLeft ou paddingRight`);
+      // Verificar qual está disponível
+      if ('paddingLeft' in node) {
+        propriedadeEfetiva = 'paddingLeft';
+      } else if ('paddingRight' in node) {
+        propriedadeEfetiva = 'paddingRight';
+      }
+    } else if (propriedadeEfetiva === 'verticalPadding') {
+      console.log(`>>> Propriedade verticalPadding obsoleta. Tentando usar paddingTop ou paddingBottom`);
+      // Verificar qual está disponível
+      if ('paddingTop' in node) {
+        propriedadeEfetiva = 'paddingTop';
+      } else if ('paddingBottom' in node) {
+        propriedadeEfetiva = 'paddingBottom';
       }
     }
     
@@ -955,20 +949,29 @@ async function aplicarVariavelFloat(node: SceneNode, variable: { id: string, nam
     
     console.log(`>>> Possíveis propriedades: ${propriedadesPosiveis.join(', ')}`);
     
-    // Se não encontrou a propriedade específica, tentar uma propriedade similar
+    // Se não encontrou a propriedade específica, tentar uma similar
     if (!propriedadesPosiveis.includes(propriedadeEfetiva)) {
-      // Buscar uma alternativa
-      if (propriedadeEfetiva.includes('padding') && propriedadesPosiveis.some(p => p.includes('padding'))) {
-        // Buscar primeira propriedade de padding disponível
-        propriedadeEfetiva = propriedadesPosiveis.find(p => p.includes('padding')) || 'paddingTop';
-      } else if (propriedadeEfetiva.includes('radius') && propriedadesPosiveis.some(p => p.includes('radius'))) {
-        // Buscar primeira propriedade de radius disponível
-        propriedadeEfetiva = propriedadesPosiveis.find(p => p.includes('radius')) || 'cornerRadius';
-      } else if (propriedadeEfetiva.includes('stroke') && propriedadesPosiveis.includes('strokeWeight')) {
-        propriedadeEfetiva = 'strokeWeight';
-      } else {
-        // Usar a primeira propriedade disponível como último recurso
-        propriedadeEfetiva = propriedadesPosiveis[0] || prop;
+      console.log(`>>> Propriedade ${propriedadeEfetiva} não disponível no nó`);
+      
+      // Tentar encontrar uma propriedade do mesmo tipo
+      if (propriedadeEfetiva.includes('padding')) {
+        const paddingProps = propriedadesPosiveis.filter(p => p.includes('padding'));
+        if (paddingProps.length > 0) {
+          propriedadeEfetiva = paddingProps[0];
+          console.log(`>>> Usando propriedade alternativa de padding: ${propriedadeEfetiva}`);
+        }
+      } else if (propriedadeEfetiva.includes('radius')) {
+        const radiusProps = propriedadesPosiveis.filter(p => p.includes('radius'));
+        if (radiusProps.length > 0) {
+          propriedadeEfetiva = radiusProps[0];
+          console.log(`>>> Usando propriedade alternativa de radius: ${propriedadeEfetiva}`);
+        }
+      } else if (propriedadeEfetiva.includes('stroke')) {
+        const strokeProps = propriedadesPosiveis.filter(p => p.includes('stroke'));
+        if (strokeProps.length > 0) {
+          propriedadeEfetiva = strokeProps[0];
+          console.log(`>>> Usando propriedade alternativa de stroke: ${propriedadeEfetiva}`);
+        }
       }
     }
     
@@ -982,118 +985,109 @@ async function aplicarVariavelFloat(node: SceneNode, variable: { id: string, nam
       console.warn(`→ Não foi possível obter valor atual de ${propriedadeEfetiva}:`, err);
     }
     
-    // Remover qualquer vinculação existente primeiro
-    try {
-      console.log(`→ Removida vinculação existente da propriedade "${propriedadeEfetiva}"`);
-      if ('boundVariables' in node && (node as any).boundVariables && (node as any).boundVariables[propriedadeEfetiva]) {
-        const novasBoundVariables = { ...(node as any).boundVariables };
-        delete novasBoundVariables[propriedadeEfetiva];
-        (node as any).boundVariables = novasBoundVariables;
-      }
-    } catch (err) {
-      console.warn(`→ Erro ao remover vinculação existente:`, err);
+    // Obter a variável
+    const varObj = figma.variables.getVariableById(variable.id);
+    if (!varObj) {
+      console.log(`Variável não encontrada com ID ${variable.id}`);
+      return false;
     }
     
-    // MÉTODO SIMPLIFICADO DIRETO: aplica diretamente à propriedade
+    // MÉTODOS ALTERNATIVOS EM SEQUÊNCIA
+    let aplicado = false;
+    
+    // 1. Método com tratamento de erros para boundVariables
     try {
-      console.log(`Tentando método direto simplificado para "${propriedadeEfetiva}"...`);
+      console.log(`Tentando método com boundVariables para ${propriedadeEfetiva}...`);
       
-      // Obter a variável
-      const varObj = figma.variables.getVariableById(variable.id);
-      if (!varObj) {
-        console.log(`Variável não encontrada com ID ${variable.id}`);
-        return false;
+      // Primeiro verificar se o nó tem o objeto boundVariables
+      if (!('boundVariables' in node)) {
+        // Criar o objeto se não existir
+        (node as any).boundVariables = {};
+      }
+      
+      // Criar uma cópia do objeto boundVariables existente
+      let boundVars = {};
+      try {
+        boundVars = {...(node as any).boundVariables};
+      } catch (err) {
+        console.log(`Erro ao copiar boundVariables: ${err}`);
+        boundVars = {};
       }
       
       try {
-        // Obter o valor atual da variável para diagnóstico
-        let valorVar = null;
+        // Remover qualquer vinculação existente primeiro
+        if (boundVars && propriedadeEfetiva in boundVars) {
+          delete boundVars[propriedadeEfetiva];
+          console.log(`Removida vinculação existente de ${propriedadeEfetiva}`);
+        }
+      } catch (err) {
+        console.warn(`Erro ao remover vinculação existente: ${err}`);
+      }
+      
+      // Adicionar a nova vinculação
+      boundVars[propriedadeEfetiva] = {
+        type: 'VARIABLE_ALIAS',
+        id: variable.id
+      };
+      
+      try {
+        // Aplicar as alterações de boundVariables
+        (node as any).boundVariables = boundVars;
+        console.log(`✓ Vinculação aplicada via boundVariables para ${propriedadeEfetiva}`);
+        aplicado = true;
+      } catch (err) {
+        console.warn(`Erro ao aplicar boundVariables: ${err}`);
+      }
+    } catch (err) {
+      console.warn(`Erro no método boundVariables: ${err}`);
+    }
+    
+    // 2. Método com setBoundVariable (se o primeiro falhar)
+    if (!aplicado) {
+      try {
+        console.log(`Tentando com setBoundVariable para ${propriedadeEfetiva}...`);
+        (node as any).setBoundVariable(propriedadeEfetiva, varObj);
+        console.log(`✓ Aplicado com sucesso via setBoundVariable: ${propriedadeEfetiva}`);
+        aplicado = true;
+      } catch (err) {
+        console.warn(`Falha no método setBoundVariable: ${err}`);
+      }
+    }
+    
+    // 3. Método direto com valor (se os dois anteriores falharem)
+    if (!aplicado) {
+      try {
+        console.log(`Tentando aplicar valor numérico diretamente...`);
         if (varObj.resolvedType === 'FLOAT' && varObj.variableCollectionId) {
           const colecao = figma.variables.getVariableCollectionById(varObj.variableCollectionId);
           if (colecao && colecao.defaultModeId) {
-            valorVar = varObj.valuesByMode[colecao.defaultModeId];
-            console.log(`Valor da variável: ${valorVar}`);
-          }
-        }
-        
-        // MÉTODOS ALTERNATIVOS EM SEQUÊNCIA
-        
-        // 1. Tentar com API padrão primeiro
-        try {
-          console.log(`Tentando com setBoundVariable para ${propriedadeEfetiva}...`);
-          (node as any).setBoundVariable(propriedadeEfetiva, varObj);
-          console.log(`✓ Aplicado com sucesso via setBoundVariable: ${propriedadeEfetiva}`);
-          return true;
-        } catch (err1) {
-          console.log(`Falha no método 1 (setBoundVariable): ${err1}`);
-          
-          // 2. Tentar com boundVariables manualmente
-          try {
-            console.log(`Tentando criar boundVariables manualmente...`);
-            if (!(node as any).boundVariables) {
-              (node as any).boundVariables = {};
-            }
-            
-            (node as any).boundVariables = {
-              ...(node as any).boundVariables,
-              [propriedadeEfetiva]: {
-                type: 'VARIABLE_ALIAS',
-                id: variable.id
-              }
-            };
-            
-            console.log(`✓ Aplicado com sucesso via boundVariables direto: ${propriedadeEfetiva}`);
-            
-            // Forçar atualização visual
-            const valorAtual = (node as any)[propriedadeEfetiva];
-            if (typeof valorAtual === 'number') {
-              (node as any)[propriedadeEfetiva] = valorAtual + 0.1;
-              (node as any)[propriedadeEfetiva] = valorAtual;
-            }
-            
-            return true;
-          } catch (err2) {
-            console.log(`Falha no método 2 (boundVariables): ${err2}`);
-            
-            // 3. Método de último recurso - definir valor diretamente 
-            try {
-              console.log(`Tentando aplicar valor numérico diretamente...`);
-              if (typeof valorVar === 'number') {
-                (node as any)[propriedadeEfetiva] = valorVar;
-                
-                // Tentar aplicar variável após definir valor
-                try {
-                  if (!(node as any).boundVariables) {
-                    (node as any).boundVariables = {};
-                  }
-                  
-                  (node as any).boundVariables[propriedadeEfetiva] = {
-                    type: 'VARIABLE_ALIAS',
-                    id: variable.id
-                  };
-                } catch (e) {
-                  // Ignorar erros aqui
+            const valorVar = varObj.valuesByMode[colecao.defaultModeId];
+            if (typeof valorVar === 'number') {
+              (node as any)[propriedadeEfetiva] = valorVar;
+              console.log(`✓ Aplicado valor direto: ${propriedadeEfetiva} = ${valorVar}`);
+              aplicado = true;
+              
+              // Tentar aplicar variável também
+              try {
+                if (!(node as any).boundVariables) {
+                  (node as any).boundVariables = {};
                 }
-                
-                console.log(`✓ Aplicado com sucesso via valor direto: ${propriedadeEfetiva} = ${valorVar}`);
-                return true;
-              } else {
-                console.log(`Não foi possível obter valor numérico da variável`);
+                (node as any).boundVariables[propriedadeEfetiva] = {
+                  type: 'VARIABLE_ALIAS',
+                  id: variable.id
+                };
+              } catch (e) {
+                // Ignorar erros aqui
               }
-            } catch (err3) {
-              console.log(`Falha no método 3 (valor direto): ${err3}`);
             }
           }
         }
-      } catch (varErr) {
-        console.log(`Erro ao obter informações da variável: ${varErr}`);
+      } catch (err) {
+        console.warn(`Erro ao aplicar valor direto: ${err}`);
       }
-    } catch (directErr) {
-      console.log(`Erro no método direto: ${directErr}`);
     }
     
-    console.log(`✗ Falha: Não foi possível aplicar variável a ${propriedadeEfetiva}`);
-    return false;
+    return aplicado;
   } catch (error) {
     console.error(`✗ Falha ao aplicar variável FLOAT: ${variable.name}`, error);
     return false;
@@ -2621,7 +2615,7 @@ figma.ui.onmessage = async (msg) => {
                 if (importedVar) {
                   variaveisImportadas.set(variavelOriginal.name || '', importedVar);
                   console.log(`Variável "${variavelOriginal.name}" importada com sucesso`);
-                } else {
+    } else {
                   console.warn(`Falha ao importar variável "${variavelOriginal.name}"`);
                 }
               } catch (err) {
@@ -2817,106 +2811,273 @@ async function substituirVariaveisNoEscopo(
     
     console.log(`→ Pré-importadas ${variaveisImportadas.size} variáveis`);
     
+    // NOVA ABORDAGEM: Detectar e substituir variáveis em nós
+    
+    // Função para detectar variáveis aplicadas a um nó
+    async function detectarVariaveisNoNo(node: SceneNode): Promise<Array<{
+      id: string,
+      name: string,
+      type: string,
+      property: string,
+      variableId: string  // ID da variável aplicada ao nó
+    }>> {
+      const variaveisDetectadas: Array<{
+        id: string,
+        name: string,
+        type: string,
+        property: string,
+        variableId: string
+      }> = [];
+      
+      console.log(`\n## Analisando nó: ${node.name} (ID: ${node.id})`);
+      
+      // 1. Verificar variáveis vinculadas via boundVariables
+      if ('boundVariables' in node) {
+        const boundVars = (node as any).boundVariables;
+        if (boundVars) {
+          console.log(`→ Nó tem boundVariables`, Object.keys(boundVars));
+          
+          // Processar cada propriedade com variável
+          for (const property in boundVars) {
+            try {
+              const bindingValue = boundVars[property as keyof typeof boundVars];
+              
+              // Verificar se é uma referência de variável válida
+              if (bindingValue && bindingValue.type === 'VARIABLE_ALIAS' && bindingValue.id) {
+                // Obter a variável original
+                const varOriginal = figma.variables.getVariableById(bindingValue.id);
+                
+                if (varOriginal) {
+                  console.log(`→ Encontrada variável "${varOriginal.name}" aplicada à propriedade "${property}"`);
+                  
+                  // Determinar o tipo da variável
+                  const varType = varOriginal.resolvedType;
+                  
+                  variaveisDetectadas.push({
+                    id: varOriginal.id,
+                    name: varOriginal.name,
+                    type: varType,
+                    property: property,
+                    variableId: varOriginal.id
+                  });
+                }
+              }
+            } catch (propErr) {
+              console.warn(`→ Erro ao processar propriedade "${property}":`, propErr);
+            }
+          }
+        }
+      }
+      
+      // 2. Verificar variáveis em fills e strokes (caso especial para cores)
+      if ('fills' in node && Array.isArray(node.fills)) {
+        node.fills.forEach((fill, index) => {
+          if (fill.type === 'SOLID' && 'boundVariables' in fill) {
+            const fillBoundVars = (fill as any).boundVariables;
+            if (fillBoundVars && fillBoundVars.color && fillBoundVars.color.type === 'VARIABLE_ALIAS') {
+              try {
+                const colorVarId = fillBoundVars.color.id;
+                const colorVar = figma.variables.getVariableById(colorVarId);
+                
+                if (colorVar) {
+                  console.log(`→ Encontrada variável de cor "${colorVar.name}" em fill[${index}]`);
+                  
+                  variaveisDetectadas.push({
+                    id: colorVar.id,
+                    name: colorVar.name,
+                    type: 'COLOR',
+                    property: `fills[${index}]`,
+                    variableId: colorVar.id
+                  });
+                }
+              } catch (colorErr) {
+                console.warn(`→ Erro ao processar variável de cor em fill[${index}]:`, colorErr);
+              }
+            }
+          }
+        });
+      }
+      
+      if ('strokes' in node && Array.isArray(node.strokes)) {
+        node.strokes.forEach((stroke, index) => {
+          if (stroke.type === 'SOLID' && 'boundVariables' in stroke) {
+            const strokeBoundVars = (stroke as any).boundVariables;
+            if (strokeBoundVars && strokeBoundVars.color && strokeBoundVars.color.type === 'VARIABLE_ALIAS') {
+              try {
+                const colorVarId = strokeBoundVars.color.id;
+                const colorVar = figma.variables.getVariableById(colorVarId);
+                
+                if (colorVar) {
+                  console.log(`→ Encontrada variável de cor "${colorVar.name}" em stroke[${index}]`);
+                  
+                  variaveisDetectadas.push({
+                    id: colorVar.id,
+                    name: colorVar.name,
+                    type: 'COLOR',
+                    property: `strokes[${index}]`,
+                    variableId: colorVar.id
+                  });
+                }
+              } catch (colorErr) {
+                console.warn(`→ Erro ao processar variável de cor em stroke[${index}]:`, colorErr);
+              }
+            }
+          }
+        });
+      }
+      
+      console.log(`→ Total de ${variaveisDetectadas.length} variáveis detectadas no nó`);
+      return variaveisDetectadas;
+    }
+    
     // Função para processar um único nó
     async function processarNo(node: SceneNode): Promise<{ sucessos: number, falhas: number }> {
       let sucessos = 0;
       let falhas = 0;
       
       try {
-        // Identificar quais variáveis estão aplicadas a este nó
-        const variaveisDoNo = variaveisComMatch.filter(v => v.nodeId === node.id);
+        // 1. NOVA LÓGICA: Detectar variáveis aplicadas a este nó
+        const variaveisDoNo = await detectarVariaveisNoNo(node);
         
         if (variaveisDoNo.length > 0) {
           console.log(`\n## Processando nó: ${node.name} (ID: ${node.id})`);
-          console.log(`→ O nó tem ${variaveisDoNo.length} variáveis com correspondências`);
+          console.log(`→ O nó tem ${variaveisDoNo.length} variáveis aplicadas`);
           
-          // Processar cada variável
-          for (const variavel of variaveisDoNo) {
-            console.log(`\n→ Processando variável: "${variavel.name}" (${variavel.type || 'tipo desconhecido'}) aplicada à propriedade: ${variavel.property || 'desconhecida'}`);
+          // 2. Para cada variável detectada, encontrar equivalente na biblioteca
+          for (const varDoNo of variaveisDoNo) {
+            console.log(`\n→ Substituindo variável: "${varDoNo.name}" (${varDoNo.type}) aplicada à propriedade: ${varDoNo.property}`);
             
-            // Buscar variável já pré-importada
-            const variavelImportada = variaveisImportadas.get(variavel.name);
+            // Buscar variável equivalente na coleção de referência pelo nome
+            const varCorrespondente = colecaoVariaveis.find(v => v.name === varDoNo.name);
             
-            if (!variavelImportada) {
-              console.log(`✗ Variável "${variavel.name}" não foi pré-importada`);
-              
-              // Tentar importar agora
-              const varCorrespondente = colecaoVariaveis.find(v => v.name === variavel.name);
-              if (varCorrespondente) {
-                try {
-                  // @ts-ignore
-                  const varImportada = await figma.variables.importVariableByKeyAsync(varCorrespondente.key);
-                  if (varImportada) {
-                    variaveisImportadas.set(variavel.name, varImportada);
-                    console.log(`→ Importada variável "${varImportada.name}" agora`);
-                    
-                    // Aplicar a variável como código abaixo
-                    // ... (código existente para aplicar)
-                  } else {
-                    console.log(`✗ Falha ao importar variável "${variavel.name}"`);
-                    falhas++;
-                    continue;
-                  }
-                } catch (err) {
-                  console.warn(`→ Erro ao importar variável "${variavel.name}":`, err);
+            if (!varCorrespondente) {
+              console.log(`✗ Não encontrada variável equivalente para "${varDoNo.name}" na coleção`);
+              falhas++;
+              continue;
+            }
+            
+            console.log(`✓ Encontrada variável equivalente: "${varCorrespondente.name}" na coleção`);
+            
+            // Verificar se já importamos esta variável
+            let varImportada = variaveisImportadas.get(varDoNo.name);
+            
+            if (!varImportada) {
+              // Importar a variável
+              try {
+                // @ts-ignore
+                varImportada = await figma.variables.importVariableByKeyAsync(varCorrespondente.key);
+                if (varImportada) {
+                  variaveisImportadas.set(varDoNo.name, varImportada);
+                  console.log(`→ Importada variável "${varImportada.name}" para substituição`);
+                } else {
+                  console.log(`✗ Falha ao importar variável "${varDoNo.name}"`);
                   falhas++;
                   continue;
                 }
-              } else {
-                console.log(`✗ Não encontrada correspondência para "${variavel.name}"`);
+              } catch (err) {
+                console.warn(`→ Erro ao importar variável "${varDoNo.name}":`, err);
                 falhas++;
                 continue;
               }
             }
             
-            // Aplicar a variável ao nó dependendo do tipo
-            if (variavel.type === 'COLOR') {
+            if (!varImportada) {
+              console.log(`✗ Falha ao obter variável importada "${varDoNo.name}"`);
+              falhas++;
+              continue;
+            }
+            
+            // 3. Aplicar a variável importada ao nó
+            let aplicado = false;
+            
+            if (varDoNo.type === 'COLOR') {
               // Para variáveis de cor, usar a função especializada
-              console.log(`→ Aplicando variável de cor: ${variavelImportada.name}`);
+              console.log(`→ Aplicando variável de cor: ${varImportada.name}`);
               
               const varColorObj = {
-                id: variavelImportada.id,
-                name: variavelImportada.name,
-                property: variavel.property
+                id: varImportada.id,
+                name: varImportada.name,
+                property: varDoNo.property
               };
               
-              const aplicado = await aplicarVariavelColor(node, varColorObj);
-              
-              if (aplicado) {
-                console.log(`✓ Variável de cor aplicada com sucesso: ${variavelImportada.name}`);
-                sucessos++;
-              } else {
-                console.log(`✗ Falha ao aplicar variável de cor: ${variavelImportada.name}`);
-                falhas++;
-              }
+              aplicado = await aplicarVariavelColor(node, varColorObj);
             } 
-            else if (variavel.type === 'FLOAT') {
+            else if (varDoNo.type === 'FLOAT') {
               // Para variáveis de número (FLOAT), usar a função para FLOAT
-              console.log(`→ Aplicando variável FLOAT: ${variavelImportada.name}`);
+              console.log(`→ Aplicando variável FLOAT: ${varImportada.name}`);
               
-              // LOG de diagnóstico
-              console.log(`Detalhes da variável FLOAT:`);
-              console.log(`- Nome: ${variavelImportada.name}`);
-              console.log(`- ID: ${variavelImportada.id}`);
-              console.log(`- Tipo resolvido: ${variavelImportada.resolvedType}`);
-              console.log(`- Propriedade: ${variavel.property}`);
+              const varFloatObj = {
+                id: varImportada.id,
+                name: varImportada.name,
+                property: varDoNo.property
+              };
               
-              // Verificar se é strokeWeight para usar função especializada
-              if (variavel.property === 'strokeWeight' && variavelImportada.resolvedType === 'FLOAT') {
-                console.log(`→ Usando função especializada para strokeWeight`);
+              aplicado = await aplicarVariavelFloat(node, varFloatObj);
+            }
+            else {
+              // Para outros tipos, tentar aplicação genérica
+              try {
+                console.log(`→ Tentando aplicação genérica para tipo ${varDoNo.type}`);
+                // @ts-ignore
+                node.setBoundVariable(varDoNo.property, varImportada);
+                aplicado = true;
+              } catch (err) {
+                console.log(`→ Falha na aplicação genérica: ${err}`);
+                aplicado = false;
+              }
+            }
+            
+            if (aplicado) {
+              console.log(`✓ Variável "${varImportada.name}" aplicada com sucesso à propriedade ${varDoNo.property}`);
+              sucessos++;
+            } else {
+              console.log(`✗ Falha ao aplicar variável "${varImportada.name}"`);
+              falhas++;
+            }
+          }
+        } else {
+          console.log(`→ Nó ${node.name} não tem variáveis aplicadas para substituir`);
+        }
+        
+        // LÓGICA ANTERIOR: Processar variáveis explicitamente especificadas
+        // (Mantida para compatibilidade com a chamada original)
+        const variaveisDoNoExplicitas = variaveisComMatch.filter(v => v.nodeId === node.id);
+        
+        if (variaveisDoNoExplicitas.length > 0) {
+          console.log(`\n## Processando ${variaveisDoNoExplicitas.length} variáveis explícitas para o nó: ${node.name}`);
+          
+          // Processar cada variável
+          for (const variavel of variaveisDoNoExplicitas) {
+            console.log(`\n→ Processando variável explícita: "${variavel.name}" (${variavel.type || 'tipo desconhecido'}) aplicada à propriedade: ${variavel.property || 'desconhecida'}`);
+            
+            // Buscar variável já pré-importada
+            const variavelImportada = variaveisImportadas.get(variavel.name);
+            
+            if (variavelImportada) {
+              // Aplicar a variável ao nó dependendo do tipo
+              if (variavel.type === 'COLOR') {
+                // Para variáveis de cor, usar a função especializada
+                console.log(`→ Aplicando variável de cor: ${variavelImportada.name}`);
                 
-                const aplicado = await aplicarStrokeWeightDiretamente(node, variavelImportada);
+                const varColorObj = {
+                  id: variavelImportada.id,
+                  name: variavelImportada.name,
+                  property: variavel.property
+                };
+                
+                const aplicado = await aplicarVariavelColor(node, varColorObj);
                 
                 if (aplicado) {
-                  console.log(`✓ Variável strokeWeight aplicada com sucesso: ${variavelImportada.name}`);
+                  console.log(`✓ Variável de cor aplicada com sucesso: ${variavelImportada.name}`);
                   sucessos++;
                 } else {
-                  console.log(`✗ Falha ao aplicar variável strokeWeight: ${variavelImportada.name}`);
+                  console.log(`✗ Falha ao aplicar variável de cor: ${variavelImportada.name}`);
                   falhas++;
                 }
-              } else {
-                // Para outras propriedades FLOAT
-                console.log(`→ Aplicando FLOAT diretamente: ${variavelImportada.name} → ${variavel.property}`);
+              } 
+              else if (variavel.type === 'FLOAT') {
+                // Para variáveis de número (FLOAT), usar a função para FLOAT
+                console.log(`→ Aplicando variável FLOAT: ${variavelImportada.name}`);
                 
                 const varFloatObj = {
                   id: variavelImportada.id,
@@ -2924,30 +3085,7 @@ async function substituirVariaveisNoEscopo(
                   property: variavel.property
                 };
                 
-                // LOG de diagnóstico
-                console.log(`Chamando aplicarVariavelFloat para "${variavelImportada.name}" (propriedade: ${variavel.property})`);
-                
-                // MÉTODO DIRETO
-                let aplicado = false;
-                try {
-                  console.log(`Tentativa 1: Aplicando variável FLOAT com aplicarVariavelFloat`);
-                  aplicado = await aplicarVariavelFloat(node, varFloatObj);
-                  
-                  if (!aplicado && node.type === 'INSTANCE') {
-                    console.log(`Tentativa 2 (instância): Aplicando variável FLOAT com método alternativo`);
-                    // Em instâncias, tente um método alternativo
-                    try {
-                      // @ts-ignore - Tentar setBoundVariable diretamente
-                      node.setBoundVariable(variavel.property, variavelImportada);
-                      aplicado = true;
-                      console.log(`Aplicado com sucesso via método alternativo para instância`);
-                    } catch (instErr) {
-                      console.log(`Falha no método alternativo para instância: ${instErr}`);
-                    }
-                  }
-                } catch (err) {
-                  console.log(`Erro ao aplicar FLOAT: ${err}`);
-                }
+                const aplicado = await aplicarVariavelFloat(node, varFloatObj);
                 
                 if (aplicado) {
                   console.log(`✓ Variável FLOAT aplicada com sucesso: ${variavelImportada.name} à propriedade ${variavel.property}`);
@@ -2956,11 +3094,14 @@ async function substituirVariaveisNoEscopo(
                   console.log(`✗ Falha ao aplicar variável FLOAT: ${variavelImportada.name}`);
                   falhas++;
                 }
+              } 
+              else {
+                // Para outros tipos (string, etc)
+                console.log(`→ Tipo não implementado ou desconhecido: ${variavel.type}`);
+                falhas++;
               }
-            } 
-            else {
-              // Para outros tipos (string, etc)
-              console.log(`→ Tipo não implementado ou desconhecido: ${variavel.type}`);
+            } else {
+              console.log(`✗ Variável "${variavel.name}" não encontrada na biblioteca ou não importada`);
               falhas++;
             }
           }
@@ -3638,8 +3779,8 @@ const aplicarStrokeWeightDiretamente = async (node: SceneNode, variable: Variabl
             id: variable.id
           }
         };
-        
-        // Forçar atualização visual
+                
+                // Forçar atualização visual
         console.log(`  → Forçando atualização visual - alterando temporariamente o valor`);
         (node as any).strokeWeight = strokeWeightOriginal + 0.1;
         (node as any).strokeWeight = strokeWeightOriginal;
@@ -3787,7 +3928,7 @@ async function aplicarVariavelAoNo(
             console.log(`Falha no método alternativo para instância: ${instErr}`);
           }
         }
-      } catch (err) {
+  } catch (err) {
         console.log(`Erro ao aplicar FLOAT: ${err}`);
       }
       
