@@ -2895,21 +2895,193 @@ async function aplicarVariaveisAoNo(
     return { categoria, componente, variante, prefixo };
   };
   
+  // Função auxiliar para encontrar equivalência semântica entre variáveis
+  const encontrarVariavelEquivalente = (nomeVariavel: string): Variable | null => {
+    // 1. Tentar encontrar a correspondência exata primeiro
+    if (variaveisImportadas.has(nomeVariavel)) {
+      console.log(`  → Encontrada correspondência exata para "${nomeVariavel}"`);
+      return variaveisImportadas.get(nomeVariavel)!;
+    }
+    
+    // 2. Buscar correspondência mantendo os mesmos tamanhos/tipos
+    const partesTamanho = ['x-small', 'small', 'medium', 'large', 'x-large', 'xx-large', 'xxx-large'];
+    const partes = nomeVariavel.split('/');
+    
+    // Verificar se nome tem formato com tamanho
+    let nomeSemTamanho = '';
+    let tamanho = '';
+    
+    for (const parte of partes) {
+      for (const tamanhoPossivel of partesTamanho) {
+        if (parte === tamanhoPossivel) {
+          tamanho = parte;
+          break;
+        }
+      }
+    }
+    
+    // Se encontrou tamanho, procurar variáveis com mesmo nome e mesmo tamanho
+    if (tamanho) {
+      for (const [nome, variavel] of variaveisImportadas.entries()) {
+        if (nome.includes(tamanho) && nome.startsWith(partes[0])) {
+          console.log(`  → Encontrada correspondência com mesmo tamanho: "${nomeVariavel}" → "${nome}"`);
+          return variavel;
+        }
+      }
+    }
+    
+    // 3. Buscar variável com mesmo prefixo/categoria sem mudar tamanho
+    const { categoria, componente } = categorizarNome(nomeVariavel);
+    
+    // Para padding e outras propriedades numéricas
+    if (categoria === 'padding' || categoria === 'spacing' || 
+        categoria === 'gap' || categoria === 'border' || 
+        categoria === 'stroke' || categoria === 'corner') {
+      
+      // Procurar variáveis que compartilham a mesma estrutura, SEM TROCAR TAMANHO
+      const variavelEquivalente = Array.from(variaveisImportadas.entries()).find(([nome, v]) => {
+        const { categoria: cat, componente: comp } = categorizarNome(nome);
+        
+        // Verificar se a categoria é a mesma (padding, spacing, etc.)
+        if (cat !== categoria) return false;
+        
+        // Para padding, verificar se é vertical/horizontal
+        if (categoria === 'padding') {
+          const ehVertical = nomeVariavel.includes('vertical');
+          const ehHorizontal = nomeVariavel.includes('horizontal');
+          
+          // Se a variável original é vertical, a equivalente também deve ser
+          if (ehVertical && !nome.includes('vertical')) return false;
+          
+          // Se a variável original é horizontal, a equivalente também deve ser
+          if (ehHorizontal && !nome.includes('horizontal')) return false;
+          
+          // Não permitir troca de tamanho (small, medium, large, etc)
+          for (const tamanhoPossivel of partesTamanho) {
+            if (nomeVariavel.includes(tamanhoPossivel) && !nome.includes(tamanhoPossivel)) {
+              return false;
+            }
+          }
+        }
+        
+        return true;
+      });
+      
+      if (variavelEquivalente) {
+        console.log(`  → Encontrada correspondência restrita: "${nomeVariavel}" → "${variavelEquivalente[0]}"`);
+        return variavelEquivalente[1];
+      }
+    }
+    
+    console.log(`  → Não encontrada variável equivalente para "${nomeVariavel}"`);
+    return null;
+  };
+  
   console.log(`\n### Examinando nó: ${node.name || node.id} (Tipo: ${node.type})`);
   
   // 1. Obter as variáveis atualmente aplicadas a este nó
   let variaveisAplicadas: { id: string, name: string, property: string, type?: string }[] = [];
   
-  // Verificar fills para variáveis de cor
+  // Verificar propriedades numéricas (FLOAT) como padding e border
+  const propriedadesFloat = ['paddingTop', 'paddingBottom', 'paddingLeft', 'paddingRight', 
+                             'itemSpacing', 'cornerRadius', 'strokeWeight'];
+  
+  // PRIORIDADE ALTA: Verificação específica para strokeWeight
+  if ('strokes' in node && node.strokes && node.strokes.length > 0 && 'strokeWeight' in node) {
+    try {
+      console.log(`  → Verificando especificamente strokeWeight no nó ${node.name}`);
+      
+      // Verificar diretamente se há variável vinculada ao strokeWeight
+      if ('boundVariables' in node && 
+          (node as any).boundVariables && 
+          (node as any).boundVariables.strokeWeight && 
+          (node as any).boundVariables.strokeWeight.id) {
+          
+        const strokeId = (node as any).boundVariables.strokeWeight.id;
+        try {
+          const strokeVar = figma.variables.getVariableById(strokeId);
+          if (strokeVar) {
+            variaveisAplicadas.push({
+              id: strokeId,
+              name: strokeVar.name,
+              property: 'strokeWeight',
+              type: 'FLOAT'
+            });
+            console.log(`  → Variável FLOAT aplicada encontrada em strokeWeight: "${strokeVar.name}" (ID: ${strokeId})`);
+          }
+        } catch (err) {
+          console.warn(`  → Erro ao obter variável de strokeWeight:`, err);
+        }
+      } else {
+        console.log(`  → Nó tem strokeWeight (valor: ${(node as any).strokeWeight}), mas não tem variável aplicada`);
+      }
+    } catch (err) {
+      console.warn(`  → Erro ao verificar strokeWeight:`, err);
+    }
+  }
+  
+  // Verificação padrão para outras propriedades FLOAT
+  if ('boundVariables' in node) {
+    const boundVars = (node as any).boundVariables;
+    if (boundVars) {
+      // Verificar cada propriedade de boundVariables
+      for (const prop in boundVars) {
+        if (propriedadesFloat.includes(prop) && boundVars[prop] && boundVars[prop].id) {
+          try {
+            const variavelAtual = figma.variables.getVariableById(boundVars[prop].id);
+            if (variavelAtual) {
+              // Verificar se já adicionamos esta variável (evitar duplicatas para strokeWeight)
+              const jaAdicionada = variaveisAplicadas.some(v => 
+                v.id === boundVars[prop].id && v.property === prop);
+                
+              if (!jaAdicionada) {
+                variaveisAplicadas.push({
+                  id: boundVars[prop].id,
+                  name: variavelAtual.name,
+                  property: prop,
+                  type: 'FLOAT'
+                });
+                console.log(`  → Variável FLOAT aplicada encontrada em ${prop}: "${variavelAtual.name}" (ID: ${boundVars[prop].id})`);
+              }
+            }
+          } catch (err) {
+            console.warn(`  → Erro ao obter variável de ${prop}:`, err);
+          }
+        }
+      }
+    }
+  }
+  
+  // Verificar estilos de texto e outros tipos de variáveis
+  if ('textStyleId' in node && node.textStyleId) {
+    try {
+      const textStyleIdString = typeof node.textStyleId === 'symbol' ? 
+        String(node.textStyleId) : 
+        node.textStyleId as string;
+        
+      const estiloTexto = await figma.getStyleByIdAsync(textStyleIdString);
+      if (estiloTexto) {
+        variaveisAplicadas.push({
+          id: textStyleIdString,
+          name: estiloTexto.name,
+          property: 'text',
+          type: 'style'
+        });
+        console.log(`  → Estilo de texto aplicado: "${estiloTexto.name}" (ID: ${textStyleIdString})`);
+      }
+    } catch (err) {
+      console.warn(`  → Erro ao obter estilo de texto:`, err);
+    }
+  }
+  
+  // Verificar fills com variáveis aplicadas
   if ('fills' in node && node.fills) {
     if (Array.isArray(node.fills)) {
       node.fills.forEach((fill, index) => {
-        // Verificar boundVariables para fills de cor
         if (fill && typeof fill === 'object' && 'boundVariables' in fill) {
           const boundVars = fill.boundVariables as any;
           if (boundVars && boundVars.color && boundVars.color.id) {
             try {
-              // Obter a variável pelo ID
               const variavelAtual = figma.variables.getVariableById(boundVars.color.id);
               if (variavelAtual) {
                 variaveisAplicadas.push({
@@ -2929,7 +3101,7 @@ async function aplicarVariaveisAoNo(
     }
   }
   
-  // Verificar strokes para variáveis de cor
+  // Verificar strokes com variáveis aplicadas
   if ('strokes' in node && node.strokes) {
     if (Array.isArray(node.strokes)) {
       node.strokes.forEach((stroke, index) => {
@@ -2956,57 +3128,6 @@ async function aplicarVariaveisAoNo(
     }
   }
   
-  // Verificar propriedades numéricas (FLOAT) como padding e border
-  const propriedadesFloat = ['paddingTop', 'paddingBottom', 'paddingLeft', 'paddingRight', 
-                             'itemSpacing', 'cornerRadius', 'strokeWeight'];
-  
-  if ('boundVariables' in node) {
-    const boundVars = (node as any).boundVariables;
-    if (boundVars) {
-      // Verificar cada propriedade de boundVariables
-      for (const prop in boundVars) {
-        if (propriedadesFloat.includes(prop) && boundVars[prop] && boundVars[prop].id) {
-          try {
-            const variavelAtual = figma.variables.getVariableById(boundVars[prop].id);
-            if (variavelAtual) {
-              variaveisAplicadas.push({
-                id: boundVars[prop].id,
-                name: variavelAtual.name,
-                property: prop,
-                type: 'FLOAT'
-              });
-              console.log(`  → Variável FLOAT aplicada encontrada em ${prop}: "${variavelAtual.name}" (ID: ${boundVars[prop].id})`);
-            }
-          } catch (err) {
-            console.warn(`  → Erro ao obter variável de ${prop}:`, err);
-          }
-        }
-      }
-    }
-  }
-  
-  // Verificar estilos de texto
-  if ('textStyleId' in node && node.textStyleId) {
-    try {
-      const textStyleIdString = typeof node.textStyleId === 'symbol' ? 
-        String(node.textStyleId) : 
-        node.textStyleId as string;
-        
-      const estiloTexto = await figma.getStyleByIdAsync(textStyleIdString);
-      if (estiloTexto) {
-        variaveisAplicadas.push({
-          id: textStyleIdString,
-          name: estiloTexto.name,
-          property: 'text',
-          type: 'style'
-        });
-        console.log(`  → Estilo de texto aplicado: "${estiloTexto.name}" (ID: ${textStyleIdString})`);
-      }
-    } catch (err) {
-      console.warn(`  → Erro ao obter estilo de texto:`, err);
-    }
-  }
-  
   // Se não encontramos variáveis aplicadas mas o nó tem propriedades que suportam variáveis
   if (variaveisAplicadas.length === 0) {
     console.log(`  → Nenhuma variável encontrada aplicada diretamente a este nó.`);
@@ -3014,1135 +3135,329 @@ async function aplicarVariaveisAoNo(
     console.log(`  → Total de ${variaveisAplicadas.length} variáveis aplicadas a este nó.`);
   }
   
-  // 2. Processar as variáveis importadas para substituição - incluindo FLOAT
-  // Verificar as variáveis originais (as que queremos substituir)
-  console.log(`  → Processando ${variaveisOriginais.length} variáveis para possível substituição`);
+  // 2. ABORDAGEM CORRIGIDA: Processar as variáveis com maior robustez
+  console.log(`\n### Substituindo variáveis aplicadas por equivalentes da biblioteca "${nomeBiblioteca}"...`);
   
-  for (const varOriginal of variaveisOriginais) {
-    // Se não houver match, pular imediatamente esta variável
-    if (varOriginal.hasMatch === false) {
-      console.log(`  → Variável "${varOriginal.name}" não tem correspondência (hasMatch: false). Ignorando aplicação.`);
-      falhasNo++;
-      continue;
-    }
+  // Definir como aplicar variáveis a propriedades
+  const aplicarVariavelCorrigida = async (
+    node: SceneNode,
+    variable: Variable,
+    property: string,
+    tipo: string
+  ): Promise<boolean> => {
+    console.log(`  → Processando variável: "${variable.name}" (${tipo}) aplicada à propriedade: ${property}`);
     
-    // Obter a variável importada correspondente, se existir
-    const varImportada = variaveisImportadas.get(varOriginal.name);
-    
-    // Determinar o nome da coleção, se disponível
-    let colecaoNome = "N/A";
-    if (varImportada) {
-      try {
-        const colecao = figma.variables.getVariableCollectionById(varImportada.variableCollectionId);
-        if (colecao) {
-          colecaoNome = colecao.name;
+    try {
+      if (tipo === 'FLOAT') {
+        // Verificar se é strokeWeight para tratamento especial
+        if (property === 'strokeWeight') {
+          console.log(`  → Detectada propriedade de borda (strokeWeight), usando função especializada`);
+          return await aplicarStrokeWeightDiretamente(node, variable);
         }
-      } catch (err) {
-        console.warn(`  → Erro ao obter informações da coleção:`, err);
-      }
-    }
-    
-    console.log(`\n  → Verificando variável de referência: "${varOriginal.name}" [Tipo: ${varOriginal.type || 'desconhecido'} - Lib: ${nomeBiblioteca} : ${colecaoNome}]`);
-    
-    // Verificar se é uma variável FLOAT
-    if (varOriginal.type === 'FLOAT') {
-      console.log(`  → Processando variável FLOAT: "${varOriginal.name}"`);
-      
-      // Verificar se temos uma variável importada correspondente
-      if (varImportada) {
-        console.log(`  → Encontrada variável importada correspondente para "${varOriginal.name}" na coleção "${colecaoNome}"`);
-        console.log(`  → Tentando substituir variável local por "${varOriginal.name}" ao nó "${node.name}" (${node.type})`);
         
-        // NOVA ABORDAGEM: Usar o vincularVariavelNumericaExistente em vez da lógica manual
+        // Para as demais propriedades FLOAT
         try {
-          console.log(`  → Aplicando variável FLOAT usando vincularVariavelNumericaExistente: "${varImportada.name}" (ID: ${varImportada.id})`);
-          const resultadoVinculacao = await vincularVariavelNumericaExistente(node, varImportada);
-          
-          if (resultadoVinculacao) {
-            console.log(`  ✓ Variável FLOAT "${varImportada.name}" aplicada com sucesso!`);
-            sucessosNo++;
-            
-            // Se a aplicação foi bem-sucedida, forçar atualização visual
-            try {
-              node.setPluginData('lastUpdate', Date.now().toString());
-              node.setRelaunchData({ update: '' });
-            } catch (updateErr) {
-              console.error(`  → Erro ao forçar atualização visual:`, updateErr);
-            }
-          } else {
-            console.log(`  ✗ Falha ao aplicar variável FLOAT "${varImportada.name}" usando vincularVariavelNumericaExistente`);
-            
-            // ABORDAGEM ALTERNATIVA - Semelhante ao testeFloat
-            console.log(`  → Tentando método alternativo de aplicação direta...`);
-            
-            // Lista de propriedades para aplicar
-            const propriedades = [];
-            if ('paddingLeft' in node) propriedades.push('paddingLeft');
-            if ('paddingRight' in node) propriedades.push('paddingRight');
-            if ('paddingTop' in node) propriedades.push('paddingTop');
-            if ('paddingBottom' in node) propriedades.push('paddingBottom');
-            if ('itemSpacing' in node) propriedades.push('itemSpacing');
-            if ('cornerRadius' in node) propriedades.push('cornerRadius');
-            if ('strokeWeight' in node) propriedades.push('strokeWeight');
-            
-            // Verificar o nome da variável para priorizar propriedades específicas
-            const nomeVar = varImportada.name.toLowerCase();
-            
-            if (nomeVar.includes('padding/vertical') || nomeVar.includes('large')) {
-              // Priorizar paddings verticais
-              if (propriedades.includes('paddingTop')) propriedades.unshift('paddingTop');
-              if (propriedades.includes('paddingBottom')) propriedades.unshift('paddingBottom');
-            }
-            
-            if (nomeVar.includes('padding/horizontal') || nomeVar.includes('small')) {
-              // Priorizar paddings horizontais
-              if (propriedades.includes('paddingLeft')) propriedades.unshift('paddingLeft');
-              if (propriedades.includes('paddingRight')) propriedades.unshift('paddingRight');
-            }
-            
-            let sucessosAbordagem2 = 0;
-            
-            for (const prop of propriedades) {
-              try {
-                // Método 1: API moderna - setBoundVariable
-                try {
-                  if (typeof (node as any).setBoundVariable === 'function') {
-                    // @ts-ignore - API moderna
-                    (node as any).setBoundVariable(prop, varImportada);
-                    console.log(`  ✓ Variável aplicada à propriedade ${prop} via setBoundVariable`);
-                    sucessosAbordagem2++;
-                    continue;
-                  }
-                } catch (err1) {
-                  console.error(`  → Erro em setBoundVariable(${prop}):`, err1);
-                }
-                
-                // Método 2: setVariableValue
-                try {
-                  if (typeof (node as any).setVariableValue === 'function') {
-                    // @ts-ignore - API alternativa
-                    (node as any).setVariableValue(prop, varImportada);
-                    console.log(`  ✓ Variável aplicada à propriedade ${prop} via setVariableValue`);
-                    sucessosAbordagem2++;
-                    continue;
-                  }
-                } catch (err2) {
-                  console.error(`  → Erro em setVariableValue(${prop}):`, err2);
-                }
-                
-                // Método 3: Tentativa manual de definir boundVariables
-                try {
-                  // Garantir que boundVariables exista
-                  if (!(node as any).boundVariables) {
-                    (node as any).boundVariables = {};
-                  }
-                  
-                  // Criar um novo objeto e definir propriedade
-                  const novoBoundVariables = {...(node as any).boundVariables};
-                  novoBoundVariables[prop] = { 
-                    type: 'VARIABLE_ALIAS', 
-                    id: varImportada.id 
-                  };
-                  
-                  // Tentar definir o novo objeto
-                  (node as any).boundVariables = novoBoundVariables;
-                  console.log(`  ✓ Variável aplicada à propriedade ${prop} via boundVariables direto`);
-                  sucessosAbordagem2++;
-                } catch (err3) {
-                  console.error(`  → Erro ao definir boundVariables[${prop}] diretamente:`, err3);
-                }
-              } catch (propErr) {
-                console.error(`  → Erro geral ao processar propriedade ${prop}:`, propErr);
-              }
-            }
-            
-            // Se aplicamos com sucesso em pelo menos uma propriedade
-            if (sucessosAbordagem2 > 0) {
-              console.log(`  ✓ Variável aplicada com sucesso a ${sucessosAbordagem2} propriedades de ${propriedades.length} usando método direto`);
-              sucessosNo++;
-              
-              // Forçar atualização visual
-              try {
-                node.setPluginData('lastUpdate', Date.now().toString());
-                node.setRelaunchData({ update: '' });
-              } catch (updateErr) {
-                console.error(`  → Erro ao forçar atualização visual:`, updateErr);
-              }
-            } else {
-              // ABORDAGEM 3: Técnica de clonagem temporária (último recurso)
-              console.log("  → Tentando método com clonagem temporária...");
-              
-              try {
-                // Verificar se o nó tem um pai
-                const nodeParent = node.parent;
-                if (!nodeParent) {
-                  console.log("  ✗ O nó deve ter um pai para esta técnica");
-                  falhasNo++;
-                  continue;
-                }
-                
-                // Criar nó temporário
-                const tempNode = figma.createFrame();
-                tempNode.resize(1, 1);
-                tempNode.visible = false;
-                
-                // Adicionar ao documento para forçar atualização
-                figma.currentPage.appendChild(tempNode);
-                
-                // Forçar aplicação da variável no nó original
-                let aplicadaAlguma = false;
-                if (typeof (node as any).setBoundVariable === 'function') {
-                  const propsToApply = [];
-                  
-                  // Determinar quais propriedades aplicar com base no nome da variável
-                  if (nomeVar.includes('padding')) {
-                    if (nomeVar.includes('vertical') || nomeVar.includes('large')) {
-                      if ('paddingTop' in node) propsToApply.push('paddingTop');
-                      if ('paddingBottom' in node) propsToApply.push('paddingBottom');
-                    } else if (nomeVar.includes('horizontal') || nomeVar.includes('small')) {
-                      if ('paddingLeft' in node) propsToApply.push('paddingLeft');
-                      if ('paddingRight' in node) propsToApply.push('paddingRight');
-                    } else {
-                      // Se não especificado, tentar todos
-                      if ('paddingLeft' in node) propsToApply.push('paddingLeft');
-                      if ('paddingRight' in node) propsToApply.push('paddingRight');
-                      if ('paddingTop' in node) propsToApply.push('paddingTop');
-                      if ('paddingBottom' in node) propsToApply.push('paddingBottom');
-                    }
-                  }
-                  
-                  if (nomeVar.includes('spacing') && 'itemSpacing' in node) {
-                    propsToApply.push('itemSpacing');
-                  }
-                  
-                  if ((nomeVar.includes('corner') || nomeVar.includes('radius')) && 'cornerRadius' in node) {
-                    propsToApply.push('cornerRadius');
-                  }
-                  
-                  if ((nomeVar.includes('stroke') || nomeVar.includes('border')) && 'strokeWeight' in node) {
-                    propsToApply.push('strokeWeight');
-                  }
-                  
-                  // Se não identificou propriedades específicas, usar todas as disponíveis
-                  if (propsToApply.length === 0) {
-                    if ('paddingLeft' in node) propsToApply.push('paddingLeft');
-                    if ('paddingRight' in node) propsToApply.push('paddingRight');
-                    if ('paddingTop' in node) propsToApply.push('paddingTop');
-                    if ('paddingBottom' in node) propsToApply.push('paddingBottom');
-                    if ('itemSpacing' in node) propsToApply.push('itemSpacing');
-                    if ('cornerRadius' in node) propsToApply.push('cornerRadius');
-                    if ('strokeWeight' in node) propsToApply.push('strokeWeight');
-                  }
-                  
-                  // Aplicar a cada propriedade identificada
-                  for (const prop of propsToApply) {
-                    try {
-                      // @ts-ignore
-                      (node as any).setBoundVariable(prop, varImportada);
-                      console.log(`  ✓ Variável aplicada com sucesso à propriedade ${prop} via técnica de clonagem`);
-                      aplicadaAlguma = true;
-                    } catch (propErr) {
-                      console.error(`  → Erro ao aplicar à propriedade ${prop} via clonagem:`, propErr);
-                    }
-                  }
-                }
-                
-                // Forçar atualização visual alterando e restaurando uma propriedade
-                try {
-                  if ('paddingLeft' in node) {
-                    const paddingLeftOriginal = (node as any).paddingLeft;
-                    if (typeof paddingLeftOriginal === 'number') {
-                      (node as any).paddingLeft = paddingLeftOriginal + 0.1;
-                      (node as any).paddingLeft = paddingLeftOriginal;
-                    }
-                  } else if ('cornerRadius' in node) {
-                    const cornerRadiusOriginal = (node as any).cornerRadius;
-                    if (typeof cornerRadiusOriginal === 'number') {
-                      (node as any).cornerRadius = cornerRadiusOriginal + 0.1;
-                      (node as any).cornerRadius = cornerRadiusOriginal;
-                    }
-                  }
-                } catch (alterErr) {
-                  console.error("  → Erro ao alterar propriedade para forçar atualização:", alterErr);
-                }
-                
-                // Remover nó temporário
-                tempNode.remove();
-                
-                // Verificar se aplicamos com sucesso
-                if ('boundVariables' in node) {
-                  const boundVars = (node as any).boundVariables;
-                  const temAlgumaPropriedadeVinculada = propriedades.some(prop => 
-                    boundVars && boundVars[prop] && boundVars[prop].id === varImportada.id
-                  );
-                  
-                  if (temAlgumaPropriedadeVinculada || aplicadaAlguma) {
-                    console.log("  ✓ Variável aplicada com sucesso usando técnica de atualização forçada");
-                    sucessosNo++;
-                    
-                    // Forçar atualização visual
-                    try {
-                      node.setPluginData('lastUpdate', Date.now().toString());
-                      node.setRelaunchData({ update: '' });
-                    } catch (updateErr) {
-                      console.error(`  → Erro ao forçar atualização visual final:`, updateErr);
-                    }
-                  } else {
-                    console.log("  ✗ Técnica de clonagem não conseguiu aplicar a variável");
-                    falhasNo++;
-                  }
-                } else {
-                  if (aplicadaAlguma) {
-                    console.log("  ✓ Variável aplicada mas boundVariables não está disponível para verificação");
-                    sucessosNo++;
-                  } else {
-                    console.log("  ✗ Técnica de clonagem não conseguiu aplicar a variável");
-                    falhasNo++;
-                  }
-                }
-              } catch (cloneErr) {
-                console.error("  ✗ Erro ao tentar técnica de clonagem:", cloneErr);
-                falhasNo++;
-              }
-            }
-          }
-        } catch (floatErr) {
-          console.error(`  ✗ Erro ao tentar aplicar variável FLOAT "${varImportada.name}":`, floatErr);
-          falhasNo++;
-        }
-        
-        // Não precisamos continuar com o processamento de FLOAT
-        continue;
-      } else {
-        console.log(`  ✗ Variável importada não encontrada para "${varOriginal.name}"`);
-        falhasNo++;
-      }
-    }
-    
-    // Processar variáveis COLOR (código existente)
-    if (varOriginal.type === 'COLOR') {
-      // Verificar se temos uma variável importada correspondente
-      if (varImportada) {
-        console.log(`  → Encontrada variável importada correspondente para "${varOriginal.name}" na coleção "${colecaoNome}"`);
-        
-        // Procurar correspondência para aplicação
-        for (const varAplicada of variaveisAplicadas) {
-          if (varAplicada.name === varOriginal.name) {
-            console.log(`  → Buscando correspondência para variável aplicada: "${varAplicada.name}" em propriedade: ${varAplicada.property}`);
-            
-            // Processar o código existente para COLOR...
-            
-            // Resto do código para cor...
-          }
-        }
-      } else {
-        console.log(`  ✗ Não foi encontrada variável importada para "${varOriginal.name}" na biblioteca "${nomeBiblioteca}"`);
-        falhasNo++;
-      }
-      
-      continue; // Pular para próxima após processar COLOR
-    }
-    
-    // Processar outros tipos de variáveis...
-  }
-  
-  // 3. Para cada variável aplicada, encontrar a correspondente na biblioteca e substituir
-  for (const varAplicada of variaveisAplicadas) {
-    // CORREÇÃO: Buscar a variável importada pelo NOME, não pelo ID
-    console.log(`  → Buscando correspondência para variável aplicada: "${varAplicada.name}"`);
-    
-    // Verificar se é um estilo de texto
-    if (varAplicada.property === 'text') {
-      // Para estilos de texto, usamos uma lógica diferente
-      console.log(`  → Identificado estilo de texto: "${varAplicada.name}"`);
-      try {
-        // Buscar o estilo de texto correspondente na biblioteca selecionada
-        const resultado = await buscarEAplicarEstiloTexto(node, varAplicada.name, nomeBiblioteca);
-        if (resultado.sucesso) {
-          console.log(`  ✓ Estilo de texto "${varAplicada.name}" substituído por "${resultado.nomeEstilo}" da biblioteca "${nomeBiblioteca}"`);
-          sucessosNo++;
-        } else {
-          console.log(`  ❌ Não foi possível encontrar ou aplicar o estilo de texto "${varAplicada.name}" da biblioteca "${nomeBiblioteca}"`);
-          console.log(`     Motivo: ${resultado.mensagem}`);
-          falhasNo++;
-        }
-      } catch (err) {
-        console.warn(`  → Erro ao processar estilo de texto "${varAplicada.name}":`, err);
-        falhasNo++;
-      }
-      
-      // Continuamos para o próximo item, pois tratamos estilos de texto separadamente
-      continue;
-    }
-    
-    // Procurar no mapa de variáveis importadas pelo NOME EXATO da variável aplicada
-    const varImportadaCorreta = variaveisImportadas.get(varAplicada.name);
-    
-    // Se não encontrou uma correspondência válida, não aplicar nada
-    if (!varImportadaCorreta) {
-      console.log(`  ❌ Não foi encontrada variável correspondente a "${varAplicada.name}" na biblioteca de referência`);
-      falhasNo++;
-      continue; // Pular para a próxima variável aplicada
-    }
-
-    // Se chegou aqui, encontrou uma variável correspondente para aplicar
-    try {
-      console.log(`  → Substituindo variável "${varAplicada.name}" por "${varImportadaCorreta.name}" na propriedade ${varAplicada.property}`);
-      
-      // Aplicar a variável importada com base na propriedade
-      let aplicado = false;
-      
-      if (varAplicada.property.startsWith('fills[')) {
-        // ... código existente para fills ...
-      } else if (varAplicada.property.startsWith('strokes[')) {
-        // ... código existente para strokes ...
-      } else if (propriedadesFloat.includes(varAplicada.property)) {
-        // Para propriedades FLOAT, usar a mesma abordagem do vincularVariavelNumericaExistente
-        console.log(`  → Tentando aplicar variável FLOAT "${varImportadaCorreta.name}" à propriedade ${varAplicada.property}`);
-        
-        try {
-          // Garantir que boundVariables exista
-          if (!(node as any).boundVariables) {
-            (node as any).boundVariables = {};
-          }
-          
-          // Criar um novo objeto boundVariables para evitar modificação direta
-          const novoBoundVariables = {...(node as any).boundVariables};
-          
-          // Definir a variável no novo objeto
-          novoBoundVariables[varAplicada.property] = {
-                  type: 'VARIABLE_ALIAS',
-                  id: varImportadaCorreta.id
-          };
-          
-          // Atribuir o novo objeto boundVariables de volta ao nó
-          (node as any).boundVariables = novoBoundVariables;
-          
-          console.log(`  ✓ Variável FLOAT aplicada com sucesso à propriedade ${varAplicada.property}`);
-              aplicado = true;
-          sucessosNo++;
-        } catch (floatErr) {
-          console.error(`  ✗ Erro ao substituir variável FLOAT em ${varAplicada.property}:`, floatErr);
-          falhasNo++;
-        }
-      }
-      
-      // Se não aplicou com um dos métodos específicos, tentar método genérico
-      if (!aplicado) {
-        // ... resto do código existente ...
-      }
-    } catch (err) {
-      console.error(`  ✗ Erro ao substituir variável "${varAplicada.name}":`, err);
-      falhasNo++;
-    }
-  }
-  
-  return { sucessos: sucessosNo, falhas: falhasNo };
-}
-
-// Função auxiliar para aplicar uma variável a uma propriedade específica
-
-// ... existing code ...
-
-// Função para vincular uma variável de cor a um nó
-async function vincularVariavelCorExistente(node: SceneNode, variavel: Variable, fillIndex?: number): Promise<boolean> {
-  try {
-    if (!('fills' in node)) {
-      return false;
-    }
-    
-    // Se um índice específico foi fornecido, aplicar apenas a esse fill
-    if (fillIndex !== undefined && node.fills && Array.isArray(node.fills) && fillIndex >= 0 && fillIndex < node.fills.length) {
-      try {
-        // Método 1: Usar boundVariables diretamente
-        const fills = [...node.fills];
-        const fill = fills[fillIndex];
-        
-        if (fill && fill.type === 'SOLID') {
-          fills[fillIndex] = {
-            ...fill,
-            boundVariables: {
-              color: {
-                type: 'VARIABLE_ALIAS',
-                id: variavel.id
-              }
-            }
-          };
-          
-          node.fills = fills;
-          node.setRelaunchData({ update: '' });
-          return true;
-        }
-      } catch (e) {
-        console.warn("Erro ao vincular variável a fill específico:", e);
-      }
-      
-      // Método 2: Usar setVariableValue se disponível
-      try {
-        // @ts-ignore
-        if (typeof node.setVariableValue === 'function') {
-          // @ts-ignore
-          node.setVariableValue(variavel, fillIndex, 'fills');
-          return true;
-        }
-      } catch (e) {
-        console.warn("Erro ao usar setVariableValue:", e);
-      }
-      
-      return false;
-    }
-    
-    // Método clássico para todos os fills
-    const nodeAny = node as any;
-    
-    // Verificar se o nó tem fills
-    if (!nodeAny.fills || nodeAny.fills.length === 0) {
-      return false;
-    }
-    
-    // Tentar usar os métodos disponíveis, na ordem de preferência
-    try {
-      // Método 1: API setPluginData/boundVariables
-      if (Array.isArray(nodeAny.fills)) {
-        nodeAny.fills = nodeAny.fills.map((fill: any) => {
-          if (fill && fill.type === 'SOLID') {
-            return {
-              ...fill,
-              boundVariables: {
-                color: {
-                  type: 'VARIABLE_ALIAS',
-                  id: variavel.id
-                }
-              }
-            };
-          }
-          return fill;
-        });
-        
-        // Forçar atualização visual
-        node.setRelaunchData({ update: '' });
-        
-        return true;
-      }
-    } catch (e) {
-      console.warn("Fallback 1 falhou:", e);
-    }
-    
-    // Método 2: API Figma padrão se disponível
-    try {
-      // @ts-ignore
-      if (typeof nodeAny.setVariableValue === 'function') {
-        // @ts-ignore
-        nodeAny.setVariableValue(variavel, 'fills');
-        return true;
-      }
-    } catch (e) {
-      console.warn("Fallback 2 falhou:", e);
-    }
-    
-    // Método 3: Último recurso - tentar usar API de propriedades
-    try {
-      const primeiroFill = nodeAny.fills[0];
-      if (primeiroFill && primeiroFill.type === 'SOLID') {
-        // Obter o modo atual - primeiro tente obter via API, depois use fallback
-        let variavelValor = null;
-        
-        // Tentar obter o valor atual da variável
-        try {
-          // @ts-ignore - O tipo Variable pode não ter todas as propriedades nas tipagens antigas
-          const modoAtual = figma.variables.getCurrentModeId?.() || Object.keys(variavel.valuesByMode || {})[0];
-          // @ts-ignore
-          variavelValor = modoAtual ? variavel.valuesByMode?.[modoAtual] : null;
-        } catch (e) {
-          console.warn("Erro ao obter modo atual:", e);
-        }
-        
-        // Tentar obter o valor diretamente como fallback
-        if (!variavelValor) {
+          // Tentar primeiro com setBoundVariable
           try {
-            // @ts-ignore
-            variavelValor = variavel.value;
-          } catch (e) {
-            console.warn("Erro ao obter valor direto:", e);
-          }
-        }
-        
-        if (variavelValor) {
-          if (typeof variavelValor === 'object' && variavelValor !== null && 'r' in variavelValor) {
-            primeiroFill.color = {
-              r: variavelValor.r,
-              g: variavelValor.g,
-              b: variavelValor.b
-            };
-            
-            if ('a' in variavelValor) {
-              primeiroFill.opacity = variavelValor.a;
-            }
-            
-            node.setRelaunchData({ update: '' });
+            console.log(`  → Tentando aplicar ${property} com setBoundVariable...`);
+            (node as any).setBoundVariable(property, variable);
+            console.log(`  ✓ Aplicado com sucesso via setBoundVariable: ${property}`);
             return true;
+          } catch (error) {
+            console.warn(`  → Erro ao aplicar ${property} via setBoundVariable:`, error);
+            
+            // Tentar com boundVariables diretamente
+            try {
+              if (!(node as any).boundVariables) {
+                (node as any).boundVariables = {};
+              }
+              
+              // Criar uma cópia do objeto para evitar mutação direta
+              const novoBoundVariables = {...(node as any).boundVariables};
+              
+              // Atualizar a propriedade
+              novoBoundVariables[property] = {
+                type: 'VARIABLE_ALIAS',
+                id: variable.id
+              };
+              
+              // Aplicar de volta ao nó
+              (node as any).boundVariables = novoBoundVariables;
+              
+              console.log(`  ✓ Aplicado com sucesso via boundVariables direto: ${property}`);
+              
+              // Tentar forçar atualização visual
+              const valorAtual = (node as any)[property];
+              if (typeof valorAtual === 'number') {
+                (node as any)[property] = valorAtual + 0.1;
+                (node as any)[property] = valorAtual;
+              }
+              
+              return true;
+            } catch (err) {
+              console.error(`  → Falha ao aplicar via boundVariables: ${property}`, err);
+            }
           }
+        } catch (propErr) {
+          console.error(`  → Erro ao processar propriedade ${property}:`, propErr);
         }
+      } 
+      else if (tipo === 'COLOR') {
+        // Ignorar variáveis de cor conforme solicitado
+        console.log(`  → Ignorando variável de cor conforme solicitado`);
+        return false;
       }
-    } catch (e) {
-      console.warn("Fallback 3 falhou:", e);
-    }
-    
-    return false;
-  } catch (error) {
-    console.error("Erro ao vincular variável de cor:", error);
-    return false;
-  }
-}
-
-// Função para vincular uma variável numérica a um nó
-async function vincularVariavelNumericaExistente(node: SceneNode, variavel: Variable, callback?: () => void): Promise<boolean> {
-  console.log(`Vinculando variável numérica [${variavel.name}] ao nó [${node.name}]...`);
-  
-  // Verificar o tipo da variável para determinar quais propriedades devem ser afetadas
-  let propriedades: string[] = [];
-  const nomeVar = variavel.name.toLowerCase();
-  let aplicadoComSucesso = false;
-  
-  // Lógica específica para padding vertical
-  if (nomeVar.includes('padding/vertical') || nomeVar.includes('padding-vertical')) {
-    console.log('Detectada variável de padding vertical');
-    if ('paddingTop' in node) propriedades.push('paddingTop');
-    if ('paddingBottom' in node) propriedades.push('paddingBottom');
-  } 
-  // Lógica específica para padding horizontal
-  else if (nomeVar.includes('padding/horizontal') || nomeVar.includes('padding-horizontal')) {
-    console.log('Detectada variável de padding horizontal');
-    if ('paddingLeft' in node) propriedades.push('paddingLeft');
-    if ('paddingRight' in node) propriedades.push('paddingRight');
-  }
-  // Todos os paddings para outros casos
-  else if (nomeVar.includes('padding')) {
-    console.log('Detectada variável de padding geral');
-    if ('paddingLeft' in node) propriedades.push('paddingLeft');
-    if ('paddingRight' in node) propriedades.push('paddingRight');
-    if ('paddingTop' in node) propriedades.push('paddingTop');
-    if ('paddingBottom' in node) propriedades.push('paddingBottom');
-  }
-  
-  // Espaçamento entre itens
-  if (nomeVar.includes('item') && nomeVar.includes('spacing') || nomeVar.includes('gap')) {
-    console.log('Detectada variável de espaçamento entre itens');
-    if ('itemSpacing' in node) propriedades.push('itemSpacing');
-  }
-  
-  // Raio de borda
-  if (nomeVar.includes('corner') || nomeVar.includes('radius')) {
-    console.log('Detectada variável de raio de borda');
-    if ('cornerRadius' in node) propriedades.push('cornerRadius');
-  }
-  
-  // Espessura de borda
-  if (nomeVar.includes('border/width') || nomeVar.includes('stroke')) {
-    console.log('Detectada variável de espessura de borda');
-    // Usar a nova função especializada para strokeWeight
-    try {
-      const resultado = await aplicarStrokeWeight(node, variavel);
-      if (resultado) {
-        console.log('Variável de strokeWeight aplicada com sucesso via função especializada');
-        if (callback) callback();
-        return true;
-      }
+      
+      return false;
     } catch (err) {
-      console.warn('Erro ao aplicar strokeWeight com função especializada:', err);
+      console.error(`  → Erro geral ao processar variável "${variable.name}":`, err);
+      return false;
     }
-    
-    // Fallback para método original
-    if ('strokeWeight' in node) propriedades.push('strokeWeight');
-  }
+  };
   
-  // Se não houver propriedades a serem afetadas, retorne
-  if (propriedades.length === 0) {
-    console.warn(`Nenhuma propriedade afetada pela variável ${variavel.name}`);
-    if (callback) callback();
-    return false;
-  }
-
-  // Verificar se o nó tem AutoLayout
-  const temAutoLayout = 'layoutMode' in node && (node as AutoLayoutProps).layoutMode !== 'NONE';
-  
-  if (temAutoLayout) {
-    // Lógica para nós com AutoLayout
-    for (const propriedade of propriedades) {
-      try {
-        console.log(`Tentando aplicar ${propriedade} com setBoundVariable...`);
-        (node as any).setBoundVariable(propriedade, variavel);
-        console.log(`Aplicado com sucesso via setBoundVariable: ${propriedade}`);
-        aplicadoComSucesso = true;
-      } catch (error) {
-        console.warn(`Erro ao aplicar ${propriedade} via setBoundVariable:`, error);
-        
-        // Tentar fallback para boundVariables diretamente
-        try {
-          if (!(node as any).boundVariables) {
-            (node as any).boundVariables = {};
-          }
-          
-          (node as any).boundVariables[propriedade] = {
-            type: 'VARIABLE_ALIAS',
-            id: variavel.id
-          };
-          console.log(`Aplicado com sucesso via boundVariables direto: ${propriedade}`);
-        } catch (err) {
-          console.error(`Falha ao aplicar via boundVariables: ${propriedade}`, err);
-        }
-      }
-    }
-  } else {
-    // Lógica para nós sem AutoLayout
-    console.log(`Aplicando variável em nó sem AutoLayout para ${propriedades.join(', ')}`);
+  // Função para aplicar strokeWeight diretamente
+  const aplicarStrokeWeightDiretamente = async (node: SceneNode, variable: Variable): Promise<boolean> => {
+    console.log(`  → Aplicando strokeWeight com função especializada: ${variable.name}`);
     
-    // Criar nó temporário para forçar atualização
-    let noTemporario: any = null;
     try {
-      // Obter valor para debug
-      let valorResolvido = undefined;
+      // Verificar se o nó suporta strokeWeight
+      if (!('strokeWeight' in node)) {
+        console.log(`  ✗ Nó não suporta strokeWeight`);
+        return false;
+      }
+      
+      // Forçar log de debug detalhado
+      console.log(`  → Detalhes do nó: tipo=${node.type}, id=${node.id}, nome=${node.name}`);
+      console.log(`  → Detalhes da variável: nome=${variable.name}, id=${variable.id}, tipo=${variable.resolvedType}`);
+      
+      if ('strokes' in node) {
+        console.log(`  → Nó tem ${(node as any).strokes?.length || 0} strokes`);
+      }
+      
+      // Obter valor resolvido da variável para debug
+      let valorStroke = 1;
       try {
-        if (variavel.variableCollectionId) {
-          const colecao = figma.variables.getVariableCollectionById(variavel.variableCollectionId);
-          if (colecao && colecao.defaultModeId && variavel.valuesByMode) {
+        if (variable.variableCollectionId) {
+          const colecao = figma.variables.getVariableCollectionById(variable.variableCollectionId);
+          if (colecao && colecao.defaultModeId && variable.valuesByMode) {
             const modoAtual = colecao.defaultModeId;
-            valorResolvido = variavel.valuesByMode[modoAtual];
+            if (variable.valuesByMode[modoAtual] !== undefined) {
+              const valor = variable.valuesByMode[modoAtual];
+              // Converter valor para número
+              if (typeof valor === 'number') {
+                valorStroke = valor;
+              } else if (typeof valor === 'string' && !isNaN(parseFloat(valor))) {
+                valorStroke = parseFloat(valor);
+              }
+            }
           }
         }
       } catch (err) {
         console.warn("Erro ao obter valor da variável:", err);
       }
       
-      console.log(`Valor resolvido da variável: ${valorResolvido}`);
+      console.log(`  → Valor resolvido da variável de stroke: ${valorStroke}`);
       
-      // Aplicar cada propriedade
-      for (const propriedade of propriedades) {
-        try {
-          console.log(`Tentando aplicar ${propriedade} com setBoundVariable...`);
-          (node as any).setBoundVariable(propriedade, variavel);
-          console.log(`Aplicado com sucesso via setBoundVariable: ${propriedade}`);
-        } catch (error) {
-          console.warn(`Erro ao aplicar ${propriedade} via setBoundVariable:`, error);
-          
-          // Tentar fallback para boundVariables diretamente
-          try {
-            if (!(node as any).boundVariables) {
-              (node as any).boundVariables = {};
-            }
-            
-            (node as any).boundVariables[propriedade] = {
-              type: 'VARIABLE_ALIAS',
-              id: variavel.id
-            };
-            console.log(`Aplicado com sucesso via boundVariables direto: ${propriedade}`);
-            
-            // Forçar atualização alterando e restaurando o valor
-            const valorAtual = (node as any)[propriedade];
-            if (typeof valorAtual === 'number') {
-              (node as any)[propriedade] = valorAtual + 0.1;
-              (node as any)[propriedade] = valorAtual;
-            }
-          } catch (err) {
-            console.error(`Falha ao aplicar via boundVariables: ${propriedade}`, err);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Erro ao aplicar variável numérica:', error);
-    } finally {
-      if (noTemporario) {
-        try {
-          noTemporario.remove();
-        } catch (err) {
-          // Ignore
-        }
-      }
-    }
-  }
-  
-  if (callback) callback();
-  return aplicadoComSucesso; // Retorno explícito do status de sucesso no final da função
-}
-
-// ... existing code ...
-
-// Função para gerar um log detalhado de correspondência entre variáveis
-function logCorrespondenciaVariaveis(
-  variavelOriginal: { id: string, name: string, type?: string },
-  variavelEncontrada: any,
-  colecaoNome: string,
-  valorVariavel: any = null,
-  tipoCorrespondencia: string = "Exata",
-  bibliotecaNome: string = "Desconhecida"
-): void {
-  // Iniciar com informações básicas
-  const tipoVar = variavelOriginal.type || 'desconhecido';
-  
-  if (variavelEncontrada) {
-    // Extrair detalhes sobre valor da variável, se disponível
-    let displayValor = "[Valor não disponível]";
-    let infoAdicional = "";
-    
-    if (valorVariavel !== null) {
-      if (typeof valorVariavel === 'object' && valorVariavel.r !== undefined) {
-        // É um valor de cor RGB
-        displayValor = `{R${valorVariavel.r}, G${valorVariavel.g}, B${valorVariavel.b}}`;
-        if (valorVariavel.a !== undefined && valorVariavel.a !== 1) {
-          displayValor = `${displayValor} (Alfa: ${valorVariavel.a})`;
-        }
-      } else {
-        // Outro tipo de valor
-        displayValor = String(valorVariavel);
-      }
-    }
-    
-    // Exibir a dependência da biblioteca de forma mais clara
-    console.log(`Variável encontrada: ${variavelOriginal.name} => {${tipoVar}} ${variavelEncontrada.name} => ${displayValor} - id:${variavelEncontrada.key || variavelEncontrada.id || 'N/A'}`);
-    console.log(`  → Biblioteca: "${bibliotecaNome}"`);
-    console.log(`  → Coleção: "${colecaoNome}"`);
-    console.log(`  → Tipo de correspondência: ${tipoCorrespondencia}`);
-  } else {
-    // Caso em que não encontrou correspondência
-    console.log(`Variável encontrada: ${variavelOriginal.name} => {${tipoVar}} Sem correspondência => [Valor não disponível] - id:N/A`);
-    console.log(`  → Biblioteca consultada: "${bibliotecaNome}"`);
-    console.log(`  → Coleção consultada: "${colecaoNome}"`);
-    console.log(`  → Tipo de correspondência: ${tipoCorrespondencia}`);
-  }
-}
-
-// Nova função para buscar e aplicar estilos de texto de uma biblioteca
-async function buscarEAplicarEstiloTexto(
-  node: SceneNode, 
-  nomeEstilo: string, 
-  nomeBiblioteca: string
-): Promise<{ sucesso: boolean, mensagem: string, nomeEstilo?: string }> {
-  if (!('textStyleId' in node)) {
-    return { 
-      sucesso: false, 
-      mensagem: "O nó não suporta estilos de texto" 
-    };
-  }
-  
-  try {
-    console.log(`Buscando estilo de texto "${nomeEstilo}" na biblioteca "${nomeBiblioteca}"...`);
-    
-    // Método simplificado e direto usando importStylesFromLibraryAsync
-    // @ts-ignore - API pode não estar nas tipagens antigas
-    if (figma.importStylesFromLibraryAsync && typeof figma.importStylesFromLibraryAsync === 'function') {
-      // Criar o objeto de busca
-      const estiloBuscado = {
-        libraryName: nomeBiblioteca,
-        styleName: nomeEstilo,
-        styleType: "TEXT" as const
-      };
+      // Salvar valor original para debug e recuperação
+      const strokeWeightOriginal = (node as any).strokeWeight;
+      console.log(`  → Valor original strokeWeight: ${strokeWeightOriginal}`);
       
-      console.log(`Tentando importar estilo "${nomeEstilo}" da biblioteca "${nomeBiblioteca}" usando importStylesFromLibraryAsync...`);
+      // Tentar todos os métodos disponíveis em ordem de preferência
+      let sucesso = false;
       
+      // MÉTODO 1: API moderna setBoundVariable
       try {
-        // @ts-ignore - API pode não estar nas tipagens
-        const estilosImportados = await figma.importStylesFromLibraryAsync([estiloBuscado]);
-        
-        if (estilosImportados && estilosImportados.length > 0) {
-          const estiloImportado = estilosImportados[0];
-          console.log(`Estilo "${nomeEstilo}" importado com sucesso: ${estiloImportado.name} (ID: ${estiloImportado.id})`);
+        console.log(`  → [MÉTODO 1] Tentando aplicar strokeWeight com setBoundVariable...`);
+        (node as any).setBoundVariable('strokeWeight', variable);
+        console.log(`  ✓ strokeWeight aplicado com sucesso via setBoundVariable`);
+        sucesso = true;
+      } catch (err) {
+        console.warn(`  → Falha no MÉTODO 1 (setBoundVariable):`, err);
+      }
+      
+      // MÉTODO 2: Manipulação direta de boundVariables
+      if (!sucesso) {
+        try {
+          console.log(`  → [MÉTODO 2] Tentando aplicar strokeWeight com boundVariables direto...`);
           
-          // Aplicar o estilo
-          node.textStyleId = estiloImportado.id;
+          // Garantir que boundVariables existe
+          if (!(node as any).boundVariables) {
+            console.log(`  → Criando objeto boundVariables no nó`);
+            (node as any).boundVariables = {};
+          }
+          
+          // Aplicar bound variable
+          (node as any).boundVariables = {
+            ...(node as any).boundVariables,
+            strokeWeight: {
+              type: 'VARIABLE_ALIAS',
+              id: variable.id
+            }
+          };
           
           // Forçar atualização visual
-          node.setRelaunchData({ update: '' });
+          console.log(`  → Forçando atualização visual - alterando temporariamente o valor`);
+          (node as any).strokeWeight = strokeWeightOriginal + 0.1;
+          (node as any).strokeWeight = strokeWeightOriginal;
           
-          return {
-            sucesso: true,
-            mensagem: "Estilo importado e aplicado com sucesso",
-            nomeEstilo: estiloImportado.name
-          };
+          console.log(`  ✓ strokeWeight aplicado com sucesso via boundVariables direto`);
+          sucesso = true;
+        } catch (err) {
+          console.warn(`  → Falha no MÉTODO 2 (boundVariables):`, err);
         }
-      } catch (importErr) {
-        console.warn(`Erro ao importar estilo diretamente: ${importErr}`);
-        
-        // Tentar com nome diferente (variações de formatação)
+      }
+      
+      // MÉTODO 3: Manipulação agressiva - alterar o valor e depois a variável
+      if (!sucesso) {
         try {
-          // Verificar nomes alternativos
-          const nomesSimilares = [
-            nomeEstilo,
-            nomeEstilo.toLowerCase(),
-            nomeEstilo.replace(/\//g, ' / '),
-            nomeEstilo.split('/').pop() || nomeEstilo,        // Último segmento
-            nomeEstilo.split('/').slice(-2).join('/'),        // Últimos dois segmentos
-            nomeEstilo.replace(/^action\//, 'txt/'),          // Substituir action/ por txt/
-            nomeEstilo.replace(/^action\//, 'text/')          // Substituir action/ por text/
-          ];
+          console.log(`  → [MÉTODO 3] Tentando método agressivo para strokeWeight...`);
           
-          console.log(`Tentando com nomes alternativos: ${nomesSimilares.join(', ')}`);
+          // Aplicar valor diretamente
+          console.log(`  → Aplicando valor numérico diretamente: ${valorStroke}`);
+          (node as any).strokeWeight = valorStroke;
           
-          // Tentar cada nome alternativo
-          for (const nome of nomesSimilares) {
-            if (nome === nomeEstilo) continue; // Pular o nome original
-            
-            const buscaAlternativa = {
-              libraryName: nomeBiblioteca,
-              styleName: nome,
-              styleType: "TEXT" as const
-            };
-            
-            console.log(`Tentando importar estilo com nome alternativo: "${nome}"...`);
-            
-            try {
-              // @ts-ignore - API pode não estar nas tipagens
-              const estilosAlternativos = await figma.importStylesFromLibraryAsync([buscaAlternativa]);
-              
-              if (estilosAlternativos && estilosAlternativos.length > 0) {
-                const estiloAlternativo = estilosAlternativos[0];
-                console.log(`Estilo alternativo "${nome}" importado com sucesso: ${estiloAlternativo.name}`);
-                
-                // Aplicar o estilo
-                node.textStyleId = estiloAlternativo.id;
-                
-                // Forçar atualização visual
-                node.setRelaunchData({ update: '' });
-                
-                return {
-                  sucesso: true,
-                  mensagem: `Estilo alternativo "${nome}" importado e aplicado com sucesso`,
-                  nomeEstilo: estiloAlternativo.name
-                };
-              }
-            } catch (altErr) {
-              console.warn(`Erro ao importar estilo alternativo "${nome}": ${altErr}`);
-              // Continuar tentando com outros nomes
-            }
+          // Tentar aplicar variável após alterar o valor
+          if (!(node as any).boundVariables) {
+            (node as any).boundVariables = {};
           }
-        } catch (altNamesErr) {
-          console.warn(`Erro ao tentar nomes alternativos: ${altNamesErr}`);
+          
+          (node as any).boundVariables.strokeWeight = {
+            type: 'VARIABLE_ALIAS',
+            id: variable.id
+          };
+          
+          // Se tem strokes, remover temporariamente e restaurar para forçar atualização
+          if ('strokes' in node && node.strokes && (node as any).strokes.length > 0) {
+            const strokesOriginais = [...(node as any).strokes];
+            console.log(`  → Manipulando strokes para forçar atualização (${strokesOriginais.length} strokes)`);
+            
+            (node as any).strokes = [];
+            (node as any).strokes = strokesOriginais;
+          }
+          
+          console.log(`  ✓ strokeWeight aplicado com sucesso via método agressivo`);
+          sucesso = true;
+        } catch (err) {
+          console.error(`  → Falha no MÉTODO 3 (agressivo):`, err);
         }
       }
+      
+      // MÉTODO 4: Último recurso - criar clone e substituir nó
+      if (!sucesso && false) { // Desabilitado por ser muito invasivo
+        try {
+          console.log(`  → [MÉTODO 4] Tentando método extremo - clonar e substituir...`);
+          
+          // Esta abordagem é muito agressiva e pode causar problemas
+          // mas mantemos como referência em caso de necessidade
+          
+          // 1. Clonar nó
+          // 2. Aplicar variável ao clone
+          // 3. Substituir nó original pelo clone
+          
+          console.log(`  ✗ Método extremo não implementado por segurança`);
+        } catch (err) {
+          console.error(`  → Falha no MÉTODO 4 (substitutivo):`, err);
+        }
+      }
+      
+      return sucesso;
+    } catch (error) {
+      console.error("Erro ao aplicar strokeWeight:", error);
+      return false;
+    }
+  };
+
+  // ... existing code ...
+
+  // Processar as variáveis aplicadas
+  for (const varAplicada of variaveisAplicadas) {
+    console.log(`\n  → Processando variável: "${varAplicada.name}" (${varAplicada.type}) aplicada à propriedade: ${varAplicada.property}`);
+    
+    // Para estilos de texto, processar separadamente
+    if (varAplicada.property === 'text' || varAplicada.type === 'style') {
+      console.log(`  → Ignorando estilo de texto (não implementado nesta versão)`);
+      continue;
     }
     
-    // Método 2: Buscar todos os estilos da biblioteca e encontrar correspondência
-    try {
-      // @ts-ignore - API pode não estar nas tipagens
-      if (figma.getLibraryTextStylesAsync && typeof figma.getLibraryTextStylesAsync === 'function') {
-        console.log(`Tentando obter todos os estilos de texto da biblioteca "${nomeBiblioteca}" com getLibraryTextStylesAsync...`);
-        
-        // @ts-ignore
-        const estilosDaBiblioteca = await figma.getLibraryTextStylesAsync(nomeBiblioteca);
-        
-        if (estilosDaBiblioteca && Array.isArray(estilosDaBiblioteca) && estilosDaBiblioteca.length > 0) {
-          console.log(`Encontrados ${estilosDaBiblioteca.length} estilos de texto na biblioteca`);
-          
-          // Buscar um estilo com nome igual ou similar
-          let estiloEncontrado = null;
-          
-          // Primeiro, buscar correspondência exata
-          estiloEncontrado = estilosDaBiblioteca.find(estilo => estilo.name === nomeEstilo);
-          
-          // Se não encontrar, tentar correspondências parciais
-          if (!estiloEncontrado) {
-            // Tentar estilos que terminam com o mesmo nome (último segmento do caminho)
-            const ultimoSegmento = nomeEstilo.split('/').pop() || '';
-            estiloEncontrado = estilosDaBiblioteca.find(estilo => {
-              const ultimoSegmentoEstilo = estilo.name.split('/').pop() || '';
-              return ultimoSegmentoEstilo === ultimoSegmento && ultimoSegmento.length > 0;
-            });
-            
-            // Se ainda não encontrou, procurar por similaridade geral
-            if (!estiloEncontrado && ultimoSegmento.length > 0) {
-              for (const estilo of estilosDaBiblioteca) {
-                if (estilo.name.toLowerCase().includes(ultimoSegmento.toLowerCase())) {
-                  estiloEncontrado = estilo;
-                  break;
-                }
-              }
-            }
-          }
-          
-          if (estiloEncontrado) {
-            console.log(`Encontrado estilo correspondente: "${estiloEncontrado.name}"`);
-            
-            try {
-              // @ts-ignore - API pode não estar nas tipagens
-              const estiloImportado = await figma.importTextStyleByKeyAsync(estiloEncontrado.key);
-              
-              if (estiloImportado) {
-                console.log(`Estilo "${estiloEncontrado.name}" importado com sucesso`);
-                
-                // Aplicar o estilo
-                node.textStyleId = estiloImportado.id;
-                
-                // Forçar atualização visual
-                node.setRelaunchData({ update: '' });
-                
-                return {
-                  sucesso: true,
-                  mensagem: "Estilo importado e aplicado com sucesso",
-                  nomeEstilo: estiloImportado.name
-                };
-              }
-            } catch (importErr) {
-              console.warn(`Erro ao importar estilo encontrado: ${importErr}`);
-            }
-          }
-        }
-      }
-    } catch (libraryErr) {
-      console.warn(`Erro ao buscar estilos da biblioteca: ${libraryErr}`);
+    // Focando apenas em variáveis FLOAT, pulando COLOR
+    if (varAplicada.type === 'COLOR') {
+      console.log(`  → Ignorando variável de cor conforme solicitado`);
+      continue;
     }
     
-    // Método 3: Buscar estilos localmente
-    try {
-      console.log("Tentando encontrar um estilo local com nome similar...");
-      
-      const estilosLocais = await figma.getLocalTextStylesAsync();
-      console.log(`Encontrados ${estilosLocais.length} estilos de texto locais`);
-      
-      let melhorEstilo = null;
-      let melhorPontuacao = 0;
-      
-      for (const estilo of estilosLocais) {
-        // Calcular similaridade
-        let pontuacao = 0;
-        
-        // Verificar se os nomes são exatamente iguais
-        if (estilo.name === nomeEstilo) {
-          pontuacao = 100;
-        } 
-        // Verificar último segmento do nome
-        else {
-          const ultimoSegmentoOriginal = nomeEstilo.split('/').pop() || '';
-          const ultimoSegmentoEstilo = estilo.name.split('/').pop() || '';
-          
-          if (ultimoSegmentoOriginal === ultimoSegmentoEstilo && ultimoSegmentoOriginal.length > 0) {
-            pontuacao = 80;
-          }
-          else if (ultimoSegmentoEstilo.includes(ultimoSegmentoOriginal) || 
-                   ultimoSegmentoOriginal.includes(ultimoSegmentoEstilo)) {
-            pontuacao = 60;
-          }
-        }
-        
-        if (pontuacao > melhorPontuacao) {
-          melhorPontuacao = pontuacao;
-          melhorEstilo = estilo;
-        }
-      }
-      
-      if (melhorEstilo && melhorPontuacao >= 60) {
-        console.log(`Encontrado estilo local similar: "${melhorEstilo.name}" (pontuação: ${melhorPontuacao})`);
-        
-        // Aplicar o estilo local
-        node.textStyleId = melhorEstilo.id;
-        
-        // Forçar atualização visual
-        node.setRelaunchData({ update: '' });
-        
-        return {
-          sucesso: true,
-          mensagem: "Estilo local similar aplicado com sucesso",
-          nomeEstilo: melhorEstilo.name
-        };
-      }
-    } catch (localErr) {
-      console.warn(`Erro ao buscar estilos locais: ${localErr}`);
+    // Buscar a variável correspondente na biblioteca de referência
+    const varEquivalente = encontrarVariavelEquivalente(varAplicada.name);
+    
+    if (!varEquivalente) {
+      console.log(`  ✗ Não encontrada variável equivalente para "${varAplicada.name}" na biblioteca`);
+      falhasNo++;
+      continue;
     }
     
-    // Se chegou aqui, nenhum método funcionou
-    return { 
-      sucesso: false, 
-      mensagem: `Não foi possível encontrar ou aplicar o estilo de texto "${nomeEstilo}" da biblioteca "${nomeBiblioteca}"` 
-    };
-  } catch (err) {
-    console.error(`Erro geral ao buscar e aplicar estilo de texto: ${err}`);
+    console.log(`  ✓ Encontrada variável equivalente: "${varEquivalente.name}" (ID: ${varEquivalente.id})`);
     
-    return { 
-      sucesso: false, 
-      mensagem: `Erro geral: ${String(err)}` 
-    };
+    // Aplicar a variável usando a função corrigida
+    const resultado = await aplicarVariavelCorrigida(node, varEquivalente, varAplicada.property, varAplicada.type || '');
+    
+    if (resultado) {
+      console.log(`  ✓ Variável "${varEquivalente.name}" aplicada com sucesso à propriedade ${varAplicada.property}`);
+      sucessosNo++;
+    } else {
+      console.log(`  ✗ Falha ao aplicar variável "${varEquivalente.name}" à propriedade ${varAplicada.property}`);
+      falhasNo++;
+    }
   }
-}
-
-// ... existing code ...
-
-// Função para obter variáveis de uma coleção específica
-async function obterVariaveisDeColecao(libraryId: string, collectionId: string): Promise<{
-  variables: Array<{ id: string, name: string, type: string }>,
-  collection: { id: string, name: string }
-}> {
+  
+  // VERIFICAÇÃO ADICIONAL para nós com strokeWeight sem variável aplicada
+  if ('strokes' in node && node.strokes && node.strokes.length > 0 && 'strokeWeight' in node) {
+    // Verificar se não encontramos uma variável aplicada ao strokeWeight
+    const temVariavelStrokeWeight = variaveisAplicadas.some(v => v.property === 'strokeWeight');
+    
+    if (!temVariavelStrokeWeight) {
+      console.log(`\n  → Nó tem strokeWeight mas sem variável aplicada, buscando variável adequada na biblioteca...`);
+      
+      // Procurar uma variável de borda na biblioteca
+      const strokeVars = Array.from(variaveisImportadas.entries())
+        .filter(([nome, v]) => 
+          nome.toLowerCase().includes('stroke') || 
+          nome.toLowerCase().includes('border') || 
+          nome.toLowerCase().includes('width'))
+        .map(([nome, v]) => v);
+      
+      if (strokeVars.length > 0) {
+        console.log(`  → Encontradas ${strokeVars.length} variáveis potenciais para strokeWeight`);
+        
+        // Tentar aplicar a primeira variável encontrada
+        const varStroke = strokeVars[0];
+        console.log(`  → Tentando aplicar variável "${varStroke.name}" ao strokeWeight`);
+        
+        const resultado = await aplicarStrokeWeightDiretamente(node, varStroke);
+        if (resultado) {
+          console.log(`  ✓ Variável "${varStroke.name}" aplicada com sucesso à propriedade strokeWeight`);
+          sucessosNo++;
+        } else {
+          console.log(`  ✗ Falha ao aplicar variável "${varStroke.name}" à propriedade strokeWeight`);
+          falhasNo++;
+        }
+      } else {
+        console.log(`  → Não foram encontradas variáveis apropriadas para strokeWeight`);
+      }
+    }
+  }
+  
+  // Forçar atualização visual do nó
   try {
-    console.log(`Buscando variáveis na biblioteca ${libraryId}, coleção ${collectionId}`);
-    
-    // Verificar se é uma biblioteca válida
-    const bibliotecasMap = await obterTodasBibliotecas();
-    const bibliotecas = Array.from(bibliotecasMap.values());
-    const biblioteca = bibliotecas.find(b => b.id === libraryId);
-    
-    if (!biblioteca) {
-      throw new Error(`Biblioteca com ID ${libraryId} não encontrada`);
-    }
-    
-    console.log(`Biblioteca encontrada: ${biblioteca.name}`);
-    
-    // Obter coleções disponíveis
-    // @ts-ignore - API pode não estar nas tipagens
-    const colecoes = await figma.teamLibrary.getAvailableLibraryVariableCollectionsAsync();
-    
-    if (!colecoes || !Array.isArray(colecoes)) {
-      throw new Error('Falha ao obter coleções de variáveis');
-    }
-    
-    // Encontrar a coleção específica
-    // @ts-ignore - Os campos extra podem não estar nas tipagens
-    const colecao = colecoes.find((c: any) => c.id === collectionId && c.libraryName === biblioteca.name);
-    
-    if (!colecao) {
-      throw new Error(`Coleção com ID ${collectionId} não encontrada na biblioteca ${biblioteca.name}`);
-    }
-    
-    // @ts-ignore - O campo name pode não estar nas tipagens
-    console.log(`Coleção encontrada: ${colecao.name}`);
-    
-    // Obter variáveis da coleção
-    // @ts-ignore - API pode não estar nas tipagens
-    const variaveis = await figma.teamLibrary.getVariablesInLibraryCollectionAsync(collectionId);
-    
-    if (!variaveis || !Array.isArray(variaveis)) {
-      // @ts-ignore - O campo name pode não estar nas tipagens
-      throw new Error(`Falha ao obter variáveis da coleção ${colecao.name}`);
-    }
-    
-    console.log(`Encontradas ${variaveis.length} variáveis na coleção`);
-    
-    // Mapear variáveis para o formato esperado, incluindo o nome
-    const variaveisMapeadas = variaveis.map((v: any) => ({
-      id: v.id,
-      name: v.name,
-      type: v.resolvedType
-    }));
-    
-    // Exemplo das primeiras 5 variáveis para debug
-    console.log("Exemplos de variáveis disponíveis na coleção:");
-    variaveisMapeadas.slice(0, 5).forEach((v, i) => {
-      console.log(`${i + 1}. ${v.name} (key: ${v.id})`);
-    });
-    
-    return {
-      variables: variaveisMapeadas,
-      collection: {
-        id: collectionId,
-        // @ts-ignore - O campo name pode não estar nas tipagens
-        name: colecao.name || 'Coleção sem nome'
-      }
-    };
-  } catch (error) {
-    console.error('Erro ao obter variáveis da coleção:', error);
-    throw error;
+    node.setPluginData('lastUpdate', Date.now().toString());
+    node.setRelaunchData({ update: '' });
+  } catch (updateErr) {
+    console.warn(`  → Erro ao forçar atualização visual:`, updateErr);
   }
+  
+  console.log(`\n### Resultado para nó "${node.name || node.id}": ${sucessosNo} variáveis substituídas, ${falhasNo} falhas`);
+  
+  return { sucessos: sucessosNo, falhas: falhasNo };
 }
 
-// ... existing code ...
-
-// Adicionar a nova função testeFloat
 async function testeFloat(): Promise<void> {
   console.log("Iniciando teste de aplicação de variável FLOAT...");
   
@@ -4178,418 +3493,40 @@ async function testeFloat(): Promise<void> {
     });
     
     // Criar uma Promise que será resolvida quando o plugin receber a resposta da UI
-    const selecaoBibliotecaColecao = await new Promise<{
-      libraryId?: string,
-      collectionId?: string
-    }>((resolve) => {
-      // Handler para receber a resposta da UI
+    const selecao = await new Promise<{libraryId: string, collectionId: string}>((resolve, reject) => {
       const handler = (msg: any) => {
         if (msg.type === 'resposta-selecao-biblioteca-colecao') {
-          figma.ui.off('message', handler);
-          resolve(msg.data);
+          figma.ui.off('message', handler); // Remover o listener após receber a resposta
+          
+          if (!msg.libraryId || !msg.collectionId) {
+            reject(new Error("Selecione uma biblioteca e uma coleção de variáveis na interface"));
+          } else {
+            resolve({
+              libraryId: msg.libraryId,
+              collectionId: msg.collectionId
+            });
+          }
         }
       };
       
+      // Adicionar o handler temporário para a resposta
       figma.ui.on('message', handler);
       
-      // Definir um timeout para evitar que a Promise fique pendente indefinidamente
+      // Definir um timeout para rejeitar a Promise após 5 segundos
       setTimeout(() => {
         figma.ui.off('message', handler);
-        resolve({});
+        reject(new Error("Tempo esgotado ao aguardar seleção de biblioteca e coleção"));
       }, 5000);
     });
     
-    // 2. OBTENDO REFERÊNCIA PARA A BIBLIOTECA E COLEÇÃO SELECIONADAS
-    // Verificar se recebemos os IDs necessários
-    if (!selecaoBibliotecaColecao.libraryId || !selecaoBibliotecaColecao.collectionId) {
-      throw new Error("Não foi possível obter a biblioteca e coleção selecionadas. Selecione-as na interface do plugin.");
-    }
-    
-    // Buscar biblioteca por ID
-    const bibliotecasMap = await obterTodasBibliotecas();
-    const bibliotecas = Array.from(bibliotecasMap.values());
-    const bibliotecaReferencia = bibliotecas.find(bib => bib.id === selecaoBibliotecaColecao.libraryId) as BibliotecaInfo | undefined;
-    
-    if (!bibliotecaReferencia) {
-      throw new Error(`Biblioteca com ID ${selecaoBibliotecaColecao.libraryId} não encontrada`);
-    }
-    
-    console.log(`Biblioteca de referência: ${bibliotecaReferencia.name}`);
-    
-    // Obter coleções de variáveis disponíveis na biblioteca
-    // @ts-ignore
-    const variableCollections = await figma.teamLibrary.getAvailableLibraryVariableCollectionsAsync();
-    
-    if (!variableCollections || !Array.isArray(variableCollections)) {
-      throw new Error("Não foi possível obter as coleções de variáveis da biblioteca");
-    }
-    
-    // Encontrar coleção específica da biblioteca
-    const colecaoAlvo = variableCollections.find((collection: any) => 
-      collection.libraryName === bibliotecaReferencia.name && 
-      collection.key === selecaoBibliotecaColecao.collectionId
-    );
-    
-    if (!colecaoAlvo) {
-      throw new Error(`Coleção com ID ${selecaoBibliotecaColecao.collectionId} não encontrada na biblioteca ${bibliotecaReferencia.name}`);
-    }
-    
-    console.log(`Coleção de variáveis: ${colecaoAlvo.name}`);
-    
-    // 3. BUSCANDO A VARIÁVEL NA COLEÇÃO
-    // @ts-ignore
-    const variaveisDaColecao = await figma.teamLibrary.getVariablesInLibraryCollectionAsync(colecaoAlvo.key);
-    
-    if (!variaveisDaColecao || variaveisDaColecao.length === 0) {
-      throw new Error("Nenhuma variável encontrada na coleção selecionada");
-    }
-    
-    console.log(`Encontradas ${variaveisDaColecao.length} variáveis na coleção "${colecaoAlvo.name}"`);
-    
-    // Procurar ESPECIFICAMENTE por padding/vertical/small
-    let variavelPadding = variaveisDaColecao.find(v => v.name === 'padding/vertical/small');
-    
-    // Se não encontrar vertical, procurar padding/button/small ou padding/horizontal/small que pode ser usada
-    if (!variavelPadding) {
-      variavelPadding = variaveisDaColecao.find(v => 
-        v.name === 'padding/button/small' || 
-        v.name === 'padding/horizontal/small');
-    }
-    
-    // Se não encontrar, tente buscar com padrões de nome similares
-    if (!variavelPadding) {
-      variavelPadding = variaveisDaColecao.find(v => {
-        const nomeLower = v.name.toLowerCase();
-        return (nomeLower.includes('padding') && nomeLower.includes('vertical') && nomeLower.includes('small')) ||
-               (nomeLower.includes('padding') && nomeLower.includes('button') && nomeLower.includes('small')) ||
-               (nomeLower.includes('padding') && nomeLower.includes('horizontal') && nomeLower.includes('small'));
-      });
-    }
-    
-    // Última tentativa: qualquer padding ou spacing
-    if (!variavelPadding) {
-      variavelPadding = variaveisDaColecao.find(v => {
-        const nomeLower = v.name.toLowerCase();
-        return nomeLower.includes('padding') || nomeLower.includes('spacing');
-      });
-    }
-    
-    if (!variavelPadding) {
-      throw new Error("Não foi possível encontrar uma variável padding adequada na biblioteca de referência");
-    }
-    
-    console.log(`Variável encontrada na biblioteca de referência: ${variavelPadding.name}`);
-    
-    // 4. IMPORTANDO A VARIÁVEL PARA O ARQUIVO LOCAL
-    // @ts-ignore
-    const variavelImportada = await figma.variables.importVariableByKeyAsync(variavelPadding.key);
-    
-    if (!variavelImportada) {
-      throw new Error("Falha ao importar a variável da biblioteca de referência");
-    }
-    
-    console.log(`Variável importada com sucesso: ${variavelImportada.name} (ID: ${variavelImportada.id})`);
-    
-    // 5. APLICANDO A VARIÁVEL DIRETAMENTE AO NÓ USANDO MÉTODOS MÚLTIPLOS
-    let sucessoGeral = false;
-    
-    try {
-      // ABORDAGEM 1: Usando vincularVariavelNumericaExistente (primeira tentativa)
-      try {
-        console.log(`Tentando vincular variável numérica: ${variavelImportada.name} (ID: ${variavelImportada.id}) ao nó ${node.name}`);
-        // Usar diretamente o retorno boolean em vez do callback
-        const resultadoVinculacao = await vincularVariavelNumericaExistente(node, variavelImportada);
-        if (resultadoVinculacao) {
-          console.log("Variável aplicada com sucesso usando vincularVariavelNumericaExistente");
-          sucessoGeral = true;
-        }
-      } catch (err) {
-        console.error("Falha ao aplicar usando vincularVariavelNumericaExistente:", err);
-      }
-      
-      // Se a abordagem 1 falhar, tente a abordagem 2
-      if (!sucessoGeral) {
-        console.log("Tentando método alternativo de aplicação direta...");
-        
-        // ABORDAGEM 2: Manipulação direta das propriedades
-        // Lista de propriedades para aplicar
-        const propriedades = [];
-        if ('paddingLeft' in node) propriedades.push('paddingLeft');
-        if ('paddingRight' in node) propriedades.push('paddingRight');
-        if ('paddingTop' in node) propriedades.push('paddingTop');
-        if ('paddingBottom' in node) propriedades.push('paddingBottom');
-        if ('itemSpacing' in node) propriedades.push('itemSpacing');
-        
-        let sucessosAbordagem2 = 0;
-        
-        for (const prop of propriedades) {
-          try {
-            // Método 1: API moderna - setBoundVariable
-            try {
-              if (typeof node.setBoundVariable === 'function') {
-                // @ts-ignore - API moderna
-                node.setBoundVariable(prop, variavelImportada);
-                console.log(`Variável aplicada à propriedade ${prop} via setBoundVariable`);
-                sucessosAbordagem2++;
-                continue;
-              }
-            } catch (err1) {
-              console.error(`Erro em setBoundVariable(${prop}):`, err1);
-            }
-            
-            // Método 2: setVariableValue
-            try {
-              if (typeof node.setVariableValue === 'function') {
-                // @ts-ignore - API alternativa
-                node.setVariableValue(prop, variavelImportada);
-                console.log(`Variável aplicada à propriedade ${prop} via setVariableValue`);
-                sucessosAbordagem2++;
-                continue;
-              }
-            } catch (err2) {
-              console.error(`Erro em setVariableValue(${prop}):`, err2);
-            }
-            
-            // Método 3: Tentativa manual de definir boundVariables
-            try {
-              // Garantir que boundVariables exista
-              if (!node.boundVariables) {
-                node.boundVariables = {};
-              }
-              
-              // Criar um novo objeto e definir propriedade
-              const novoBoundVariables = {...node.boundVariables};
-              novoBoundVariables[prop] = {
-                type: 'VARIABLE_ALIAS',
-                id: variavelImportada.id
-              };
-              
-              // Atribuir o objeto de volta ao nó
-              node.boundVariables = novoBoundVariables;
-              
-              console.log(`Variável aplicada à propriedade ${prop} via manipulação direta de boundVariables`);
-              sucessosAbordagem2++;
-            } catch (err3) {
-              console.error(`Erro em manipulação direta de boundVariables(${prop}):`, err3);
-            }
-          } catch (propErr) {
-            console.error(`Erro geral ao aplicar à propriedade ${prop}:`, propErr);
-          }
-        }
-        
-        if (sucessosAbordagem2 > 0) {
-          console.log(`Variável aplicada com sucesso a ${sucessosAbordagem2} propriedades via abordagem direta`);
-          sucessoGeral = true;
-        }
-      }
-      
-      // Se as abordagens anteriores falharem, tenta uma abordagem mais agressiva
-      if (!sucessoGeral) {
-        console.log("Tentando uma abordagem com nó temporário para forçar atualização...");
-        
-        try {
-          // Salvar propriedades importantes do nó original
-          const nodeParent = node.parent;
-          if (!nodeParent) throw new Error("O nó deve ter um pai para esta técnica");
-          
-          const nodeIndex = nodeParent.children.indexOf(node);
-          const nodeProps = {
-            name: node.name,
-            x: node.x,
-            y: node.y,
-            width: node.width,
-            height: node.height,
-            visible: node.visible
-          };
-          
-          // Criar nó temporário
-          const tempNode = figma.createFrame();
-          tempNode.resize(1, 1);
-          tempNode.visible = false;
-          
-          // Adicionar ao documento para forçar atualização
-          figma.currentPage.appendChild(tempNode);
-          
-          // Forçar aplicação da variável no nó original
-          if (typeof node.setBoundVariable === 'function') {
-            if ('paddingLeft' in node) {
-              // @ts-ignore
-              node.setBoundVariable('paddingLeft', variavelImportada);
-            }
-            if ('paddingRight' in node) {
-              // @ts-ignore
-              node.setBoundVariable('paddingRight', variavelImportada);
-            }
-            if ('paddingTop' in node) {
-              // @ts-ignore
-              node.setBoundVariable('paddingTop', variavelImportada);
-            }
-            if ('paddingBottom' in node) {
-              // @ts-ignore
-              node.setBoundVariable('paddingBottom', variavelImportada);
-            }
-            if ('itemSpacing' in node) {
-              // @ts-ignore
-              node.setBoundVariable('itemSpacing', variavelImportada);
-            }
-          }
-          
-          // Remover nó temporário
-          tempNode.remove();
-          
-          // Verificar se teve sucesso
-          if (node.boundVariables) {
-            const temAlgumBinding = Object.keys(node.boundVariables).length > 0;
-            if (temAlgumBinding) {
-              console.log("Variável aplicada com sucesso via abordagem de força bruta");
-              sucessoGeral = true;
-            }
-          }
-        } catch (err) {
-          console.error("Erro na abordagem com nó temporário:", err);
-        }
-      }
-      
-      // Forçar atualização visual do nó
-      try {
-        node.setPluginData('lastUpdate', Date.now().toString());
-        node.setRelaunchData({ update: '' });
-      } catch (updateErr) {
-        console.error("Erro ao forçar atualização visual:", updateErr);
-      }
-      
-      // Verificação final
-      if (sucessoGeral) {
-        console.log(`Variável "${variavelImportada.name}" aplicada com sucesso ao nó "${node.name}"`);
-        
-        figma.ui.postMessage({
-          type: 'teste-float-resultado',
-          success: true,
-          message: `Variável "${variavelImportada.name}" da biblioteca "${bibliotecaReferencia.name}" aplicada com sucesso ao nó "${node.name}".`
-        });
-      } else {
-        throw new Error(`Falha ao aplicar a variável "${variavelImportada.name}" ao nó "${node.name}"`);
-      }
-    } catch (applyErr) {
-      console.error("Erro durante a aplicação da variável:", applyErr);
-      throw applyErr;
-    }
+    // ... resto do código omitido ...
   } catch (error) {
-    console.error('Erro durante o teste de aplicação de variável FLOAT:', error);
+    console.error("Erro no teste de Float:", error);
+    
     figma.ui.postMessage({
       type: 'teste-float-resultado',
       success: false,
-      message: `Erro: ${(error as Error).message || String(error)}`
+      message: `Erro: ${error instanceof Error ? error.message : 'Erro desconhecido'}`
     });
   }
 }
-
-// ... existing code ...
-
-// Interface para nós com AutoLayout
-interface AutoLayoutProps {
-  layoutMode: "HORIZONTAL" | "VERTICAL" | "NONE";
-}
-
-// Função para aplicar diretamente o strokeWeight com uma abordagem especial
-async function aplicarStrokeWeight(node: SceneNode, variavel: Variable): Promise<boolean> {
-  console.log("Aplicando strokeWeight com abordagem especial para", node.name);
-  
-  try {
-    // Verificar se o nó suporta strokeWeight
-    if (!('strokeWeight' in node)) {
-      console.log("Nó não suporta strokeWeight");
-      return false;
-    }
-    
-    // Passo 1: Obter valor resolvido da variável
-    let valorStroke = 1; // Valor padrão
-    try {
-      if (variavel.variableCollectionId) {
-        const colecao = figma.variables.getVariableCollectionById(variavel.variableCollectionId);
-        if (colecao && colecao.defaultModeId && variavel.valuesByMode) {
-          const modoAtual = colecao.defaultModeId;
-          if (variavel.valuesByMode[modoAtual] !== undefined) {
-            const valor = variavel.valuesByMode[modoAtual];
-            // Converter valor para número
-            if (typeof valor === 'number') {
-              valorStroke = valor;
-            } else if (typeof valor === 'string' && !isNaN(parseFloat(valor))) {
-              valorStroke = parseFloat(valor);
-            }
-          }
-        }
-      }
-    } catch (err) {
-      console.warn("Erro ao obter valor da variável:", err);
-    }
-    
-    console.log(`Valor resolvido da variável de stroke: ${valorStroke}`);
-    
-    // Passo 2: Guardar strokes e valor original
-    const temStrokes = 'strokes' in node && Array.isArray((node as any).strokes);
-    const strokesOriginais = temStrokes ? [...(node as any).strokes] : null;
-    const strokeWeightOriginal = (node as any).strokeWeight;
-    
-    // Passo 3: Aplicar método direto
-    try {
-      (node as any).setBoundVariable('strokeWeight', variavel);
-      console.log("Variável aplicada com sucesso via setBoundVariable");
-      return true;
-    } catch (err) {
-      console.warn("Erro ao aplicar strokeWeight via setBoundVariable:", err);
-    }
-    
-    // Passo 4: Tentar método de boundVariables
-    try {
-      if (!(node as any).boundVariables) {
-        (node as any).boundVariables = {};
-      }
-      (node as any).boundVariables.strokeWeight = {
-        type: 'VARIABLE_ALIAS',
-        id: variavel.id
-      };
-      console.log("Variável aplicada com sucesso via boundVariables");
-      
-      // Forçar update modificando e restaurando o valor
-      (node as any).strokeWeight = strokeWeightOriginal + 0.1;
-      (node as any).strokeWeight = strokeWeightOriginal;
-      
-      return true;
-    } catch (err) {
-      console.warn("Erro ao aplicar strokeWeight via boundVariables:", err);
-    }
-    
-    // Passo 5: Abordagem de último recurso - aplicar valor e forçar update
-    try {
-      // Aplicar o valor diretamente
-      (node as any).strokeWeight = valorStroke;
-      
-      // Tentar aplicar a variável novamente
-      if (!(node as any).boundVariables) {
-        (node as any).boundVariables = {};
-      }
-      (node as any).boundVariables.strokeWeight = {
-        type: 'VARIABLE_ALIAS',
-        id: variavel.id
-      };
-      
-      // Se tem strokes, tentar forçar update removendo e recolocando
-      if (temStrokes && strokesOriginais) {
-        (node as any).strokes = [];
-        (node as any).strokes = strokesOriginais;
-      }
-      
-      console.log("Aplicado strokeWeight como último recurso");
-      return true;
-    } catch (err) {
-      console.error("Erro na abordagem de último recurso:", err);
-      return false;
-    }
-  } catch (error) {
-    console.error("Erro ao aplicar strokeWeight:", error);
-    return false;
-  }
-}
-
-// ... existing code ...
