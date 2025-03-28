@@ -3103,12 +3103,12 @@ async function substituirVariaveisNoEscopo(
                 if (varImportada) {
                   variaveisImportadas.set(varDoNo.name, varImportada);
                   console.log(`→ Importada variável "${varImportada.name}" para substituição`);
-                } else {
+          } else {
                   console.log(`✗ Falha ao importar variável "${varDoNo.name}"`);
                   falhas++;
                   continue;
-                }
-              } catch (err) {
+          }
+        } catch (err) {
                 console.warn(`→ Erro ao importar variável "${varDoNo.name}":`, err);
                 falhas++;
                 continue;
@@ -3206,9 +3206,9 @@ async function substituirVariaveisNoEscopo(
                   sucessos++;
                 } else {
                   console.log(`✗ Falha ao aplicar variável de cor: ${variavelImportada.name}`);
-                  falhas++;
-                }
-              } 
+        falhas++;
+      }
+    }
               else if (variavel.type === 'FLOAT') {
                 // Para variáveis de número (FLOAT), usar a função para FLOAT
                 console.log(`→ Aplicando variável FLOAT: ${variavelImportada.name}`);
@@ -3245,7 +3245,7 @@ async function substituirVariaveisNoEscopo(
       }
       
       // Retornar contadores para este nó
-      return { sucessos, falhas };
+    return { sucessos, falhas };
     }
     
     // Função para processar um nó e seus filhos recursivamente
