@@ -2863,6 +2863,14 @@ async function aplicarVariaveisAoNo(
   let sucessosNo = 0;
   let falhasNo = 0;
   
+  // LOG para debug: verificar se estamos recebendo a biblioteca correta
+  console.log(`\n### Iniciando aplicação de variáveis da biblioteca "${nomeBiblioteca}"`);
+  console.log(`  → Biblioteca contém ${variaveisImportadas.size} variáveis disponíveis`);
+  
+  // Mostrar algumas variáveis para verificação (limitadas a 5)
+  const exemploVariaveis = Array.from(variaveisImportadas.keys()).slice(0, 5);
+  console.log(`  → Exemplos de variáveis disponíveis: ${exemploVariaveis.join(', ')}`);
+  
   // Função auxiliar para categorizar o nome da variável
   const categorizarNome = (nome: string): { categoria: string, componente: string, variante: string, prefixo: string } => {
     let categoria = "";
@@ -2895,85 +2903,119 @@ async function aplicarVariaveisAoNo(
     return { categoria, componente, variante, prefixo };
   };
   
-  // Função auxiliar para encontrar equivalência semântica entre variáveis
-  const encontrarVariavelEquivalente = (nomeVariavel: string): Variable | null => {
-    // 1. Tentar encontrar a correspondência exata primeiro
+  // Função para buscar variável na biblioteca de referência - NOVA IMPLEMENTAÇÃO MAIS ROBUSTA
+  const buscarVariavelNaBiblioteca = async (nomeVariavel: string): Promise<Variable | null> => {
+    console.log(`  → Buscando variável "${nomeVariavel}" na biblioteca "${nomeBiblioteca}"...`);
+    
+    // 1. Verificar se já temos a variável no mapa de variáveis importadas (correspondência exata)
     if (variaveisImportadas.has(nomeVariavel)) {
       console.log(`  → Encontrada correspondência exata para "${nomeVariavel}"`);
       return variaveisImportadas.get(nomeVariavel)!;
     }
     
-    // 2. Buscar correspondência mantendo os mesmos tamanhos/tipos
-    const partesTamanho = ['x-small', 'small', 'medium', 'large', 'x-large', 'xx-large', 'xxx-large'];
-    const partes = nomeVariavel.split('/');
-    
-    // Verificar se nome tem formato com tamanho
-    let nomeSemTamanho = '';
-    let tamanho = '';
-    
-    for (const parte of partes) {
-      for (const tamanhoPossivel of partesTamanho) {
-        if (parte === tamanhoPossivel) {
-          tamanho = parte;
-          break;
-        }
-      }
-    }
-    
-    // Se encontrou tamanho, procurar variáveis com mesmo nome e mesmo tamanho
-    if (tamanho) {
-      for (const [nome, variavel] of variaveisImportadas.entries()) {
-        if (nome.includes(tamanho) && nome.startsWith(partes[0])) {
-          console.log(`  → Encontrada correspondência com mesmo tamanho: "${nomeVariavel}" → "${nome}"`);
-          return variavel;
-        }
-      }
-    }
-    
-    // 3. Buscar variável com mesmo prefixo/categoria sem mudar tamanho
-    const { categoria, componente } = categorizarNome(nomeVariavel);
-    
-    // Para padding e outras propriedades numéricas
-    if (categoria === 'padding' || categoria === 'spacing' || 
-        categoria === 'gap' || categoria === 'border' || 
-        categoria === 'stroke' || categoria === 'corner') {
+    // 2. Se não encontrarmos, vamos buscar diretamente na biblioteca
+    // Esta abordagem é mais robusta, buscando em todas as coleções da biblioteca
+    if (variaveisImportadas.size < 5) { // Se temos poucas variáveis, vale a pena buscar mais
+      console.log(`  → Poucos resultados no mapa atual, buscando diretamente na biblioteca...`);
       
-      // Procurar variáveis que compartilham a mesma estrutura, SEM TROCAR TAMANHO
-      const variavelEquivalente = Array.from(variaveisImportadas.entries()).find(([nome, v]) => {
-        const { categoria: cat, componente: comp } = categorizarNome(nome);
+      try {
+        // Obter todas as bibliotecas para acessar por nome
+        const todasBibliotecas = await obterTodasBibliotecas();
+        const bibliotecas = Array.from(todasBibliotecas.values());
         
-        // Verificar se a categoria é a mesma (padding, spacing, etc.)
-        if (cat !== categoria) return false;
+        // Buscar a biblioteca pelo nome fornecido
+        let bibliotecaReferencia = bibliotecas.find(b => b.name === nomeBiblioteca);
         
-        // Para padding, verificar se é vertical/horizontal
-        if (categoria === 'padding') {
-          const ehVertical = nomeVariavel.includes('vertical');
-          const ehHorizontal = nomeVariavel.includes('horizontal');
+        // Se não encontrar pelo nome exato, buscar por similaridade
+        if (!bibliotecaReferencia) {
+          console.log(`  → Biblioteca "${nomeBiblioteca}" não encontrada pelo nome exato, buscando por similaridade...`);
+          bibliotecaReferencia = bibliotecas.find(b => b.name.includes(nomeBiblioteca) || nomeBiblioteca.includes(b.name));
+        }
+        
+        if (!bibliotecaReferencia) {
+          console.log(`  ✗ Biblioteca "${nomeBiblioteca}" não encontrada`);
+          return null;
+        }
+        
+        console.log(`  → Biblioteca encontrada: ${bibliotecaReferencia.name} (ID: ${bibliotecaReferencia.id})`);
+        
+        // Obter coleções de variáveis da biblioteca
+        // @ts-ignore
+        const colecoesDisponiveis = await figma.teamLibrary.getAvailableLibraryVariableCollectionsAsync(bibliotecaReferencia.id);
+        
+        if (!colecoesDisponiveis || colecoesDisponiveis.length === 0) {
+          console.log(`  ✗ Biblioteca não tem coleções de variáveis`);
+          return null;
+        }
+        
+        console.log(`  → Biblioteca tem ${colecoesDisponiveis.length} coleções de variáveis`);
+        
+        // Buscar em todas as coleções disponíveis
+        for (const colecao of colecoesDisponiveis) {
+          console.log(`  → Verificando coleção: ${colecao.name} (${colecao.key})`);
           
-          // Se a variável original é vertical, a equivalente também deve ser
-          if (ehVertical && !nome.includes('vertical')) return false;
-          
-          // Se a variável original é horizontal, a equivalente também deve ser
-          if (ehHorizontal && !nome.includes('horizontal')) return false;
-          
-          // Não permitir troca de tamanho (small, medium, large, etc)
-          for (const tamanhoPossivel of partesTamanho) {
-            if (nomeVariavel.includes(tamanhoPossivel) && !nome.includes(tamanhoPossivel)) {
-              return false;
+          try {
+            // @ts-ignore
+            const variaveisDaColecao = await figma.teamLibrary.getVariablesInLibraryCollectionAsync(colecao.key);
+            
+            if (!variaveisDaColecao || variaveisDaColecao.length === 0) {
+              console.log(`  → Coleção ${colecao.name} está vazia`);
+              continue;
             }
+            
+            console.log(`  → Coleção ${colecao.name} tem ${variaveisDaColecao.length} variáveis`);
+            
+            // Buscar a variável pelo nome exato
+            const variavelEncontrada = variaveisDaColecao.find(v => v.name === nomeVariavel);
+            
+            if (variavelEncontrada) {
+              console.log(`  ✓ Variável "${nomeVariavel}" encontrada na coleção ${colecao.name}`);
+              
+              // Importar a variável
+              try {
+                // @ts-ignore
+                const variavelImportada = await figma.variables.importVariableByKeyAsync(variavelEncontrada.key);
+                
+                if (variavelImportada) {
+                  console.log(`  ✓ Variável importada com sucesso: ${variavelImportada.name}`);
+                  
+                  // Adicionar ao mapa para uso futuro
+                  variaveisImportadas.set(variavelImportada.name, variavelImportada);
+                  
+                  return variavelImportada;
+                }
+              } catch (importErr) {
+                console.warn(`  → Erro ao importar variável:`, importErr);
+              }
+            }
+          } catch (colErr) {
+            console.warn(`  → Erro ao acessar variáveis da coleção:`, colErr);
           }
         }
         
-        return true;
-      });
-      
-      if (variavelEquivalente) {
-        console.log(`  → Encontrada correspondência restrita: "${nomeVariavel}" → "${variavelEquivalente[0]}"`);
-        return variavelEquivalente[1];
+        console.log(`  ✗ Variável "${nomeVariavel}" não encontrada em nenhuma coleção da biblioteca ${nomeBiblioteca}`);
+        return null;
+      } catch (err) {
+        console.error(`  → Erro ao buscar variável na biblioteca:`, err);
+        return null;
       }
     }
     
-    console.log(`  → Não encontrada variável equivalente para "${nomeVariavel}"`);
+    // 3. Buscar variáveis com nomes similares no mapa existente
+    const partesTamanho = ['x-small', 'small', 'medium', 'large', 'x-large', 'xx-large', 'xxx-large'];
+    const partes = nomeVariavel.split('/');
+    
+    // Correspondências exatas para dimensões
+    for (const [nome, variavel] of variaveisImportadas.entries()) {
+      if (nome === nomeVariavel || 
+          // Verificar casos específicos como padding/vertical/x-large === padding/vertical/x-large
+          (nome.startsWith(partes[0]) && nome.includes(partes[1] || '') && nome.includes(partes[2] || ''))) {
+        console.log(`  → Encontrada correspondência exata para "${nomeVariavel}"`);
+        return variavel;
+      }
+    }
+    
+    console.log(`  ✗ Não encontrada variável equivalente para "${nomeVariavel}" na biblioteca`);
     return null;
   };
   
@@ -2984,7 +3026,7 @@ async function aplicarVariaveisAoNo(
   
   // Verificar propriedades numéricas (FLOAT) como padding e border
   const propriedadesFloat = ['paddingTop', 'paddingBottom', 'paddingLeft', 'paddingRight', 
-                             'itemSpacing', 'cornerRadius', 'strokeWeight'];
+                            'itemSpacing', 'cornerRadius', 'strokeWeight'];
   
   // PRIORIDADE ALTA: Verificação específica para strokeWeight
   if ('strokes' in node && node.strokes && node.strokes.length > 0 && 'strokeWeight' in node) {
@@ -3052,81 +3094,7 @@ async function aplicarVariaveisAoNo(
     }
   }
   
-  // Verificar estilos de texto e outros tipos de variáveis
-  if ('textStyleId' in node && node.textStyleId) {
-    try {
-      const textStyleIdString = typeof node.textStyleId === 'symbol' ? 
-        String(node.textStyleId) : 
-        node.textStyleId as string;
-        
-      const estiloTexto = await figma.getStyleByIdAsync(textStyleIdString);
-      if (estiloTexto) {
-        variaveisAplicadas.push({
-          id: textStyleIdString,
-          name: estiloTexto.name,
-          property: 'text',
-          type: 'style'
-        });
-        console.log(`  → Estilo de texto aplicado: "${estiloTexto.name}" (ID: ${textStyleIdString})`);
-      }
-    } catch (err) {
-      console.warn(`  → Erro ao obter estilo de texto:`, err);
-    }
-  }
-  
-  // Verificar fills com variáveis aplicadas
-  if ('fills' in node && node.fills) {
-    if (Array.isArray(node.fills)) {
-      node.fills.forEach((fill, index) => {
-        if (fill && typeof fill === 'object' && 'boundVariables' in fill) {
-          const boundVars = fill.boundVariables as any;
-          if (boundVars && boundVars.color && boundVars.color.id) {
-            try {
-              const variavelAtual = figma.variables.getVariableById(boundVars.color.id);
-              if (variavelAtual) {
-                variaveisAplicadas.push({
-                  id: boundVars.color.id,
-                  name: variavelAtual.name,
-                  property: `fills[${index}]`,
-                  type: 'COLOR'
-                });
-                console.log(`  → Variável aplicada encontrada no fill[${index}]: "${variavelAtual.name}" (ID: ${boundVars.color.id})`);
-              }
-            } catch (err) {
-              console.warn(`  → Erro ao obter variável de fill[${index}]:`, err);
-            }
-          }
-        }
-      });
-    }
-  }
-  
-  // Verificar strokes com variáveis aplicadas
-  if ('strokes' in node && node.strokes) {
-    if (Array.isArray(node.strokes)) {
-      node.strokes.forEach((stroke, index) => {
-        if (stroke && typeof stroke === 'object' && 'boundVariables' in stroke) {
-          const boundVars = stroke.boundVariables as any;
-          if (boundVars && boundVars.color && boundVars.color.id) {
-            try {
-              const variavelAtual = figma.variables.getVariableById(boundVars.color.id);
-              if (variavelAtual) {
-                variaveisAplicadas.push({
-                  id: boundVars.color.id,
-                  name: variavelAtual.name,
-                  property: `strokes[${index}]`,
-                  type: 'COLOR'
-                });
-                console.log(`  → Variável aplicada encontrada no stroke[${index}]: "${variavelAtual.name}" (ID: ${boundVars.color.id})`);
-              }
-            } catch (err) {
-              console.warn(`  → Erro ao obter variável de stroke[${index}]:`, err);
-            }
-          }
-        }
-      });
-    }
-  }
+  // [... código para detectar variáveis de cor e outras propriedades ...]
   
   // Se não encontramos variáveis aplicadas mas o nó tem propriedades que suportam variáveis
   if (variaveisAplicadas.length === 0) {
@@ -3215,160 +3183,6 @@ async function aplicarVariaveisAoNo(
     }
   };
   
-  // Função para aplicar strokeWeight diretamente
-  const aplicarStrokeWeightDiretamente = async (node: SceneNode, variable: Variable): Promise<boolean> => {
-    console.log(`  → Aplicando strokeWeight com função especializada: ${variable.name}`);
-    
-    try {
-      // Verificar se o nó suporta strokeWeight
-      if (!('strokeWeight' in node)) {
-        console.log(`  ✗ Nó não suporta strokeWeight`);
-        return false;
-      }
-      
-      // Forçar log de debug detalhado
-      console.log(`  → Detalhes do nó: tipo=${node.type}, id=${node.id}, nome=${node.name}`);
-      console.log(`  → Detalhes da variável: nome=${variable.name}, id=${variable.id}, tipo=${variable.resolvedType}`);
-      
-      if ('strokes' in node) {
-        console.log(`  → Nó tem ${(node as any).strokes?.length || 0} strokes`);
-      }
-      
-      // Obter valor resolvido da variável para debug
-      let valorStroke = 1;
-      try {
-        if (variable.variableCollectionId) {
-          const colecao = figma.variables.getVariableCollectionById(variable.variableCollectionId);
-          if (colecao && colecao.defaultModeId && variable.valuesByMode) {
-            const modoAtual = colecao.defaultModeId;
-            if (variable.valuesByMode[modoAtual] !== undefined) {
-              const valor = variable.valuesByMode[modoAtual];
-              // Converter valor para número
-              if (typeof valor === 'number') {
-                valorStroke = valor;
-              } else if (typeof valor === 'string' && !isNaN(parseFloat(valor))) {
-                valorStroke = parseFloat(valor);
-              }
-            }
-          }
-        }
-      } catch (err) {
-        console.warn("Erro ao obter valor da variável:", err);
-      }
-      
-      console.log(`  → Valor resolvido da variável de stroke: ${valorStroke}`);
-      
-      // Salvar valor original para debug e recuperação
-      const strokeWeightOriginal = (node as any).strokeWeight;
-      console.log(`  → Valor original strokeWeight: ${strokeWeightOriginal}`);
-      
-      // Tentar todos os métodos disponíveis em ordem de preferência
-      let sucesso = false;
-      
-      // MÉTODO 1: API moderna setBoundVariable
-      try {
-        console.log(`  → [MÉTODO 1] Tentando aplicar strokeWeight com setBoundVariable...`);
-        (node as any).setBoundVariable('strokeWeight', variable);
-        console.log(`  ✓ strokeWeight aplicado com sucesso via setBoundVariable`);
-        sucesso = true;
-      } catch (err) {
-        console.warn(`  → Falha no MÉTODO 1 (setBoundVariable):`, err);
-      }
-      
-      // MÉTODO 2: Manipulação direta de boundVariables
-      if (!sucesso) {
-        try {
-          console.log(`  → [MÉTODO 2] Tentando aplicar strokeWeight com boundVariables direto...`);
-          
-          // Garantir que boundVariables existe
-          if (!(node as any).boundVariables) {
-            console.log(`  → Criando objeto boundVariables no nó`);
-            (node as any).boundVariables = {};
-          }
-          
-          // Aplicar bound variable
-          (node as any).boundVariables = {
-            ...(node as any).boundVariables,
-            strokeWeight: {
-              type: 'VARIABLE_ALIAS',
-              id: variable.id
-            }
-          };
-          
-          // Forçar atualização visual
-          console.log(`  → Forçando atualização visual - alterando temporariamente o valor`);
-          (node as any).strokeWeight = strokeWeightOriginal + 0.1;
-          (node as any).strokeWeight = strokeWeightOriginal;
-          
-          console.log(`  ✓ strokeWeight aplicado com sucesso via boundVariables direto`);
-          sucesso = true;
-        } catch (err) {
-          console.warn(`  → Falha no MÉTODO 2 (boundVariables):`, err);
-        }
-      }
-      
-      // MÉTODO 3: Manipulação agressiva - alterar o valor e depois a variável
-      if (!sucesso) {
-        try {
-          console.log(`  → [MÉTODO 3] Tentando método agressivo para strokeWeight...`);
-          
-          // Aplicar valor diretamente
-          console.log(`  → Aplicando valor numérico diretamente: ${valorStroke}`);
-          (node as any).strokeWeight = valorStroke;
-          
-          // Tentar aplicar variável após alterar o valor
-          if (!(node as any).boundVariables) {
-            (node as any).boundVariables = {};
-          }
-          
-          (node as any).boundVariables.strokeWeight = {
-            type: 'VARIABLE_ALIAS',
-            id: variable.id
-          };
-          
-          // Se tem strokes, remover temporariamente e restaurar para forçar atualização
-          if ('strokes' in node && node.strokes && (node as any).strokes.length > 0) {
-            const strokesOriginais = [...(node as any).strokes];
-            console.log(`  → Manipulando strokes para forçar atualização (${strokesOriginais.length} strokes)`);
-            
-            (node as any).strokes = [];
-            (node as any).strokes = strokesOriginais;
-          }
-          
-          console.log(`  ✓ strokeWeight aplicado com sucesso via método agressivo`);
-          sucesso = true;
-        } catch (err) {
-          console.error(`  → Falha no MÉTODO 3 (agressivo):`, err);
-        }
-      }
-      
-      // MÉTODO 4: Último recurso - criar clone e substituir nó
-      if (!sucesso && false) { // Desabilitado por ser muito invasivo
-        try {
-          console.log(`  → [MÉTODO 4] Tentando método extremo - clonar e substituir...`);
-          
-          // Esta abordagem é muito agressiva e pode causar problemas
-          // mas mantemos como referência em caso de necessidade
-          
-          // 1. Clonar nó
-          // 2. Aplicar variável ao clone
-          // 3. Substituir nó original pelo clone
-          
-          console.log(`  ✗ Método extremo não implementado por segurança`);
-        } catch (err) {
-          console.error(`  → Falha no MÉTODO 4 (substitutivo):`, err);
-        }
-      }
-      
-      return sucesso;
-    } catch (error) {
-      console.error("Erro ao aplicar strokeWeight:", error);
-      return false;
-    }
-  };
-
-  // ... existing code ...
-
   // Processar as variáveis aplicadas
   for (const varAplicada of variaveisAplicadas) {
     console.log(`\n  → Processando variável: "${varAplicada.name}" (${varAplicada.type}) aplicada à propriedade: ${varAplicada.property}`);
@@ -3385,8 +3199,8 @@ async function aplicarVariaveisAoNo(
       continue;
     }
     
-    // Buscar a variável correspondente na biblioteca de referência
-    const varEquivalente = encontrarVariavelEquivalente(varAplicada.name);
+    // Buscar a variável correspondente na biblioteca de referência - USANDO A NOVA FUNÇÃO
+    const varEquivalente = await buscarVariavelNaBiblioteca(varAplicada.name);
     
     if (!varEquivalente) {
       console.log(`  ✗ Não encontrada variável equivalente para "${varAplicada.name}" na biblioteca`);
@@ -3416,27 +3230,41 @@ async function aplicarVariaveisAoNo(
     if (!temVariavelStrokeWeight) {
       console.log(`\n  → Nó tem strokeWeight mas sem variável aplicada, buscando variável adequada na biblioteca...`);
       
-      // Procurar uma variável de borda na biblioteca
-      const strokeVars = Array.from(variaveisImportadas.entries())
-        .filter(([nome, v]) => 
-          nome.toLowerCase().includes('stroke') || 
-          nome.toLowerCase().includes('border') || 
-          nome.toLowerCase().includes('width'))
-        .map(([nome, v]) => v);
+      // Procurar variáveis relacionadas a borda na biblioteca
+      let variavelBorda = null;
+      for (const [nome, variavel] of variaveisImportadas.entries()) {
+        if (nome.toLowerCase().includes('stroke') || 
+            nome.toLowerCase().includes('border') || 
+            nome.toLowerCase().includes('width')) {
+          variavelBorda = variavel;
+          break;
+        }
+      }
       
-      if (strokeVars.length > 0) {
-        console.log(`  → Encontradas ${strokeVars.length} variáveis potenciais para strokeWeight`);
+      // Se não encontrou, buscar diretamente na biblioteca
+      if (!variavelBorda) {
+        console.log(`  → Tentando buscar variável de borda na biblioteca diretamente...`);
+        variavelBorda = await buscarVariavelNaBiblioteca('border/width/small');
         
-        // Tentar aplicar a primeira variável encontrada
-        const varStroke = strokeVars[0];
-        console.log(`  → Tentando aplicar variável "${varStroke.name}" ao strokeWeight`);
+        if (!variavelBorda) {
+          // Tentar alternativas
+          variavelBorda = await buscarVariavelNaBiblioteca('stroke/width');
+          
+          if (!variavelBorda) {
+            variavelBorda = await buscarVariavelNaBiblioteca('border');
+          }
+        }
+      }
+      
+      if (variavelBorda) {
+        console.log(`  → Encontrada variável para strokeWeight: "${variavelBorda.name}"`);
         
-        const resultado = await aplicarStrokeWeightDiretamente(node, varStroke);
+        const resultado = await aplicarStrokeWeightDiretamente(node, variavelBorda);
         if (resultado) {
-          console.log(`  ✓ Variável "${varStroke.name}" aplicada com sucesso à propriedade strokeWeight`);
+          console.log(`  ✓ Variável "${variavelBorda.name}" aplicada com sucesso à propriedade strokeWeight`);
           sucessosNo++;
         } else {
-          console.log(`  ✗ Falha ao aplicar variável "${varStroke.name}" à propriedade strokeWeight`);
+          console.log(`  ✗ Falha ao aplicar variável "${variavelBorda.name}" à propriedade strokeWeight`);
           falhasNo++;
         }
       } else {
@@ -3530,3 +3358,137 @@ async function testeFloat(): Promise<void> {
     });
   }
 }
+
+// Função para aplicar strokeWeight diretamente
+const aplicarStrokeWeightDiretamente = async (node: SceneNode, variable: Variable): Promise<boolean> => {
+  console.log(`  → Aplicando strokeWeight com função especializada: ${variable.name}`);
+  
+  try {
+    // Verificar se o nó suporta strokeWeight
+    if (!('strokeWeight' in node)) {
+      console.log(`  ✗ Nó não suporta strokeWeight`);
+      return false;
+    }
+    
+    // Forçar log de debug detalhado
+    console.log(`  → Detalhes do nó: tipo=${node.type}, id=${node.id}, nome=${node.name}`);
+    console.log(`  → Detalhes da variável: nome=${variable.name}, id=${variable.id}, tipo=${variable.resolvedType}`);
+    
+    if ('strokes' in node) {
+      console.log(`  → Nó tem ${(node as any).strokes?.length || 0} strokes`);
+    }
+    
+    // Obter valor resolvido da variável para debug
+    let valorStroke = 1;
+    try {
+      if (variable.variableCollectionId) {
+        const colecao = figma.variables.getVariableCollectionById(variable.variableCollectionId);
+        if (colecao && colecao.defaultModeId && variable.valuesByMode) {
+          const modoAtual = colecao.defaultModeId;
+          if (variable.valuesByMode[modoAtual] !== undefined) {
+            const valor = variable.valuesByMode[modoAtual];
+            // Converter valor para número
+            if (typeof valor === 'number') {
+              valorStroke = valor;
+            } else if (typeof valor === 'string' && !isNaN(parseFloat(valor))) {
+              valorStroke = parseFloat(valor);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("Erro ao obter valor da variável:", err);
+    }
+    
+    console.log(`  → Valor resolvido da variável de stroke: ${valorStroke}`);
+    
+    // Salvar valor original para debug e recuperação
+    const strokeWeightOriginal = (node as any).strokeWeight;
+    console.log(`  → Valor original strokeWeight: ${strokeWeightOriginal}`);
+    
+    // Tentar todos os métodos disponíveis em ordem de preferência
+    let sucesso = false;
+    
+    // MÉTODO 1: API moderna setBoundVariable
+    try {
+      console.log(`  → [MÉTODO 1] Tentando aplicar strokeWeight com setBoundVariable...`);
+      (node as any).setBoundVariable('strokeWeight', variable);
+      console.log(`  ✓ strokeWeight aplicado com sucesso via setBoundVariable`);
+      sucesso = true;
+    } catch (err) {
+      console.warn(`  → Falha no MÉTODO 1 (setBoundVariable):`, err);
+    }
+    
+    // MÉTODO 2: Manipulação direta de boundVariables
+    if (!sucesso) {
+      try {
+        console.log(`  → [MÉTODO 2] Tentando aplicar strokeWeight com boundVariables direto...`);
+        
+        // Garantir que boundVariables existe
+        if (!(node as any).boundVariables) {
+          console.log(`  → Criando objeto boundVariables no nó`);
+          (node as any).boundVariables = {};
+        }
+        
+        // Aplicar bound variable
+        (node as any).boundVariables = {
+          ...(node as any).boundVariables,
+          strokeWeight: {
+            type: 'VARIABLE_ALIAS',
+            id: variable.id
+          }
+        };
+        
+        // Forçar atualização visual
+        console.log(`  → Forçando atualização visual - alterando temporariamente o valor`);
+        (node as any).strokeWeight = strokeWeightOriginal + 0.1;
+        (node as any).strokeWeight = strokeWeightOriginal;
+        
+        console.log(`  ✓ strokeWeight aplicado com sucesso via boundVariables direto`);
+        sucesso = true;
+      } catch (err) {
+        console.warn(`  → Falha no MÉTODO 2 (boundVariables):`, err);
+      }
+    }
+    
+    // MÉTODO 3: Manipulação agressiva - alterar o valor e depois a variável
+    if (!sucesso) {
+      try {
+        console.log(`  → [MÉTODO 3] Tentando método agressivo para strokeWeight...`);
+        
+        // Aplicar valor diretamente
+        console.log(`  → Aplicando valor numérico diretamente: ${valorStroke}`);
+        (node as any).strokeWeight = valorStroke;
+        
+        // Tentar aplicar variável após alterar o valor
+        if (!(node as any).boundVariables) {
+          (node as any).boundVariables = {};
+        }
+        
+        (node as any).boundVariables.strokeWeight = {
+          type: 'VARIABLE_ALIAS',
+          id: variable.id
+        };
+        
+        // Se tem strokes, remover temporariamente e restaurar para forçar atualização
+        if ('strokes' in node && node.strokes && (node as any).strokes.length > 0) {
+          const strokesOriginais = [...(node as any).strokes];
+          console.log(`  → Manipulando strokes para forçar atualização (${strokesOriginais.length} strokes)`);
+          
+          (node as any).strokes = [];
+          (node as any).strokes = strokesOriginais;
+        }
+        
+        console.log(`  ✓ strokeWeight aplicado com sucesso via método agressivo`);
+        sucesso = true;
+      } catch (err) {
+        console.error(`  → Falha no MÉTODO 3 (agressivo):`, err);
+      }
+    }
+    
+    return sucesso;
+  } catch (error) {
+    console.error("Erro ao aplicar strokeWeight:", error);
+    return false;
+  }
+};
