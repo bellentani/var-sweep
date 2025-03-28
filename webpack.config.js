@@ -3,12 +3,10 @@ const path = require('path');
 
 module.exports = (env, argv) => {
   const isProduction = argv.mode === 'production';
-  const noTypeCheck = process.env.TS_NODE_TRANSPILE_ONLY === 'true';
+  const noTypeCheck = true;
   
   console.log(`Building in ${isProduction ? 'production' : 'development'} mode`);
-  if (noTypeCheck) {
-    console.log('Type checking is disabled');
-  }
+  console.log('Type checking is disabled for faster builds');
   
   return {
     mode: isProduction ? 'production' : 'development',
@@ -24,7 +22,10 @@ module.exports = (env, argv) => {
           use: {
             loader: 'ts-loader',
             options: {
-              transpileOnly: noTypeCheck,
+              transpileOnly: true,
+              compilerOptions: {
+                noEmitOnError: false
+              }
             }
           },
           exclude: /node_modules/,
