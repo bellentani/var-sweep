@@ -988,7 +988,7 @@
       
       <div id="loading-preview-var" class="loading" style="display: none;">Procurando variáveis com os mesmos nomes...</div>
       <button id="update-button-var" class="action-button" disabled>Substituir Variáveis</button>
-      <button id="teste-float-btn" class="secondary-button" style="margin-top: 10px;">Testar Float</button>
+      <!-- <button id="teste-float-btn" class="secondary-button" style="margin-top: 10px;">Testar Float</button> -->
     </div>
   </div>
   
@@ -2163,7 +2163,7 @@
     updateButtonVar.addEventListener('click', showConfirmModal);
 
     // Evento para o botão de teste float
-    document.getElementById('teste-float-btn').addEventListener('click', () => {
+    document.getElementById('teste-float-btn')?.addEventListener('click', () => {
       // Desabilitar o botão durante o teste
       const testeBtn = document.getElementById('teste-float-btn');
       testeBtn.disabled = true;
