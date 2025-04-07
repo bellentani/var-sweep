@@ -13,6 +13,14 @@ interface ColecaoInfo {
   type?: string;
 }
 
+// Definindo tipos para as funções de loading overlay
+type ShowLoadingOverlayFn = (message?: string) => void;
+type HideLoadingOverlayFn = () => void;
+
+// Acessando as funções definidas no HTML
+const showLoadingOverlay = (window as any).showLoadingOverlay as ShowLoadingOverlayFn;
+const hideLoadingOverlay = (window as any).hideLoadingOverlay as HideLoadingOverlayFn;
+
 console.log("UI carregada");
 
 // Elementos DOM
@@ -52,6 +60,8 @@ function requestLibraries() {
   listaElement.style.display = "none";
   emptyStateElement.style.display = "none";
   clearList();
+  // Mostrar o loading overlay
+  showLoadingOverlay("Carregando bibliotecas...");
   parent.postMessage({ pluginMessage: { type: 'obterBibliotecas' } }, '*');
 }
 
@@ -75,12 +85,14 @@ window.onmessage = async (event) => {
     
     if (!message) {
       showError("Mensagem inválida recebida do plugin");
+      hideLoadingOverlay(); // Esconder o loading em caso de erro
       return;
     }
     
     // Tratamento de erros
     if (message.type === 'error') {
       showError(message.message);
+      hideLoadingOverlay(); // Esconder o loading em caso de erro
       return;
     }
     
@@ -88,6 +100,9 @@ window.onmessage = async (event) => {
     if (message.type === 'libraries-data') {
       const libraries = message.libraries || [];
       showInfo(message.message || "");
+      
+      // Esconder o loading overlay
+      hideLoadingOverlay();
       
       // Limpar e preencher o select com as bibliotecas
       librarySelect.innerHTML = '';
@@ -157,6 +172,9 @@ window.onmessage = async (event) => {
     if (message.type === 'collections-data') {
       const collections = message.collections || [];
       
+      // Esconder o loading overlay
+      hideLoadingOverlay();
+      
       clearCollectionsList();
       
       if (collections.length === 0) {
@@ -189,6 +207,8 @@ window.onmessage = async (event) => {
   } catch (error: any) {
     console.error("Erro ao processar mensagem:", error);
     showError("Erro ao processar dados: " + (error.message || "erro desconhecido"));
+    // Esconder o loading overlay em caso de erro
+    hideLoadingOverlay();
   }
 };
 
@@ -244,6 +264,10 @@ refreshButton.addEventListener('click', () => {
   hideError();
   showInfo("");
   showCollectionsLoading();
+  
+  // Mostrar loading overlay
+  showLoadingOverlay("Recarregando dados...");
+  
   parent.postMessage({ pluginMessage: { type: 'recarregar' } }, '*');
 });
 
@@ -260,6 +284,9 @@ librarySelect.addEventListener('change', () => {
   clearCollectionsList();
   showCollectionsLoading();
   collectionsLoading.textContent = "Carregando coleções...";
+  
+  // Mostrar loading overlay
+  showLoadingOverlay("Carregando coleções...");
   
   // Solicitar coleções da biblioteca selecionada
   parent.postMessage({ 

@@ -767,6 +767,51 @@
     }
 
     /* Estilos para o modal de confirmação */
+    /* Loading overlay styles */
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(255, 255, 255, 0.8);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.2s ease, visibility 0.2s ease;
+    }
+    
+    .loading-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+    
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #18a0fb;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 16px;
+    }
+    
+    .loading-text {
+      font-size: 14px;
+      color: #333;
+      font-weight: 500;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    /* Modal overlay styles */
     .modal-overlay {
       position: fixed;
       top: 0;
@@ -2238,6 +2283,29 @@
       }
     });
     });
+    
+    // Funções para controlar o loading overlay
+    function showLoadingOverlay(message = "Processando...") {
+      const loadingOverlay = document.getElementById('loading-overlay');
+      const loadingText = document.getElementById('loading-text');
+      loadingText.textContent = message;
+      loadingOverlay.classList.add('active');
+    }
+    
+    function hideLoadingOverlay() {
+      const loadingOverlay = document.getElementById('loading-overlay');
+      loadingOverlay.classList.remove('active');
+    }
+    
+    // Expor as funções globalmente para que possam ser chamadas de qualquer lugar
+    window.showLoadingOverlay = showLoadingOverlay;
+    window.hideLoadingOverlay = hideLoadingOverlay;
   </script>
+  
+  <!-- Loading Overlay -->
+  <div id="loading-overlay" class="loading-overlay">
+    <div class="loading-spinner"></div>
+    <div id="loading-text" class="loading-text">Processando...</div>
+  </div>
 </body>
 </html> 
