@@ -2405,6 +2405,40 @@ figma.ui.onmessage = async (msg) => {
     return;
   }
   
+  // Tratar mensagem para salvar preferência de tema
+  if (msg.type === 'save-theme-preference') {
+    console.log("[BIBLIOTECA-SWEEP] Salvando preferência de tema:", msg.theme);
+    try {
+      await figma.clientStorage.setAsync('theme', msg.theme);
+      console.log("[BIBLIOTECA-SWEEP] Preferência de tema salva com sucesso");
+    } catch (error) {
+      console.error("[BIBLIOTECA-SWEEP] Erro ao salvar preferência de tema:", error);
+    }
+    return;
+  }
+  
+  // Tratar mensagem para obter o tema do Figma
+  if (msg.type === 'get-figma-theme') {
+    console.log("[BIBLIOTECA-SWEEP] Obtendo tema do Figma");
+    try {
+      // Como não podemos acessar diretamente o tema do Figma via API,
+      // vamos usar uma abordagem alternativa.
+      // Enviamos uma mensagem para a UI com um tema padrão (light)
+      // e deixamos que o usuário escolha o tema nas configurações.
+      figma.ui.postMessage({
+        type: 'figma-theme',
+        theme: 'light' // Tema padrão
+      });
+    } catch (error) {
+      console.error("[BIBLIOTECA-SWEEP] Erro ao obter tema do Figma:", error);
+      figma.ui.postMessage({
+        type: 'figma-theme',
+        theme: 'light'
+      });
+    }
+    return;
+  }
+  
   // Tratar mensagem para obter preferência de idioma
   if (msg.type === 'get-language-preference') {
     console.log("[BIBLIOTECA-SWEEP] Obtendo preferência de idioma");
@@ -2415,11 +2449,30 @@ figma.ui.onmessage = async (msg) => {
         type: 'language-preference',
         language: savedLanguage || 'pt-br' // Usa pt-br como padrão se não houver preferência salva
       });
+      
+      // Também enviar a preferência de tema salva
+      const savedTheme = await figma.clientStorage.getAsync('theme');
+      console.log("[BIBLIOTECA-SWEEP] Preferência de tema obtida:", savedTheme);
+      figma.ui.postMessage({
+        type: 'theme-preference',
+        theme: savedTheme || 'default' // Usa 'default' como padrão se não houver preferência salva
+      });
+      
+      // Como não podemos acessar diretamente o tema do Figma via API,
+      // enviamos um tema padrão (light)
+      figma.ui.postMessage({
+        type: 'figma-theme',
+        theme: 'light' // Tema padrão
+      });
     } catch (error) {
-      console.error("[BIBLIOTECA-SWEEP] Erro ao obter preferência de idioma:", error);
+      console.error("[BIBLIOTECA-SWEEP] Erro ao obter preferências:", error);
       figma.ui.postMessage({
         type: 'language-preference',
         language: 'pt-br' // Usa pt-br como padrão em caso de erro
+      });
+      figma.ui.postMessage({
+        type: 'theme-preference',
+        theme: 'default' // Usa 'default' como padrão em caso de erro
       });
     }
     return;
