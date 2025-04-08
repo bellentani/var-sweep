@@ -1,6 +1,6 @@
 {
   "name": "biblioteca-sweep",
-  "version": "0.5.0-beta",
+  "version": "0.6.0-beta",
   "description": "Plugin para listar bibliotecas do Figma",
   "main": "dist/code.js",
   "scripts": {

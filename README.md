@@ -66,6 +66,16 @@ Acesse as configurações através do ícone no rodapé do plugin para seleciona
 
 ## Log de Alterações
 
+### v0.6.0-beta
+- Implementado tema escuro baseado no Dracula Theme
+- Melhorada a acessibilidade e contraste em ambos os temas
+- Corrigido o estilo dos modais para respeitar o tema selecionado
+- Aprimorada a experiência visual com cores consistentes
+- Adicionado sistema de persistência de preferência de tema
+- Corrigido o estilo dos botões desabilitados
+- Reorganizadas as variáveis CSS para facilitar manutenção
+- Melhorada a aparência geral da interface
+
 ### v0.5.0-beta
 - Adicionada funcionalidade de atualização de collections
 - Implementada interface com abas para diferentes funcionalidades
