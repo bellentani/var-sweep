@@ -382,7 +382,6 @@
     
     .variable-preview {
       background-color: var(--preview-bg);
-      border: 1px solid #e5e7eb;
       border-radius: 6px;
       padding: 12px;
       margin-top: 16px;
@@ -398,9 +397,8 @@
     .preview-content {
       font-size: 12px;
       color: var(--text-color);
-      opacity: 0.8;
+      opacity: 0.9;
       font-family: 'Roboto Mono', monospace;
-      white-space: pre-wrap;
     }
     
     /* Estilos para radio buttons */
@@ -488,17 +486,29 @@
       align-items: center;
       padding: 4px 8px;
       border-radius: 4px;
-      background-color: #ffffff;
+      background-color: var(--input-background);
       margin-bottom: 4px;
       font-size: 12px;
+      color: var(--text-color);
+      border: 1px solid var(--border-color);
     }
 
     .preview-item:hover {
-      background-color: #f3f4f6;
+      background-color: var(--component-hover);
+    }
+    
+    /* Estilos específicos para o modo escuro */
+    body.dark-theme .preview-item {
+      background-color: var(--component-bg);
+      border-color: var(--border-color);
+    }
+    
+    body.dark-theme .preview-item:hover {
+      background-color: var(--component-hover);
     }
 
     .variable-name {
-      color: #111827;
+      color: var(--text-color);
       font-family: 'Roboto Mono', monospace;
     }
 
@@ -693,11 +703,13 @@
     }
     
     .match-item {
-      padding: 8px;
-      background-color: #f9fafb;
-      border-radius: 4px;
-      margin-bottom: 6px;
+      padding: 15px;
+      margin-bottom: 0;
+      border-bottom: 1px solid var(--border-color);
+      background-color: var(--component-bg);
+      border-radius: 6px;
       font-size: 12px;
+      color: var(--text-color);
     }
     
     .match-local {
@@ -736,13 +748,6 @@
       background-color: #e0e0e0;
     }
     
-    .match-item {
-      padding: 8px;
-      border-bottom: 1px solid var(--border-color);
-      margin-bottom: 0;
-      color: var(--text-color);
-    }
-    
     .matches-container {
       max-height: 300px;
       overflow-y: auto;
@@ -760,13 +765,6 @@
     .match-library {
       font-size: 12px;
       color: #666;
-    }
-    
-    .matches-count {
-      font-size: 14px;
-      font-weight: 500;
-      color: #333;
-      margin-bottom: 8px;
     }
     
     .matches-filter {
@@ -831,15 +829,6 @@
       gap: 4px;
     }
 
-    .match-item {
-      padding: 15px;
-      border-bottom: 1px solid var(--border-color);
-      margin-bottom: 10px;
-      background-color: var(--component-bg);
-      border-radius: 6px;
-      color: var(--text-color);
-    }
-
     .preview-header {
       font-size: 16px;
       font-weight: 600;
@@ -849,40 +838,33 @@
     .matches-count {
       font-size: 14px;
       margin-bottom: 16px;
-      color: #666;
     }
 
     .matches-container {
       display: flex;
       flex-direction: column;
-      gap: 16px;
-    }
-
-    .match-item {
-      background-color: #f5f5f5;
-      border-radius: 8px;
-      padding: 16px;
+      gap: 0;
     }
 
     .variavel {
-      font-size: 14px;
+      font-size: 10px;
       font-weight: 500;
-      margin-bottom: 12px;
-      color: #333;
+      margin-bottom: 12px;;
     }
 
     .modes-container {
-      background-color: #ffffff;
+      background-color: var(--input-background);
       border-radius: 6px;
       padding: 12px;
       margin-top: 8px;
+      border: 1px solid var(--border-color);
     }
 
     .modes-title {
       font-weight: 600;
       font-size: 13px;
       margin-bottom: 8px;
-      color: #333;
+      color: var(--text-color);
     }
 
     .modes-list {
@@ -894,25 +876,32 @@
     .mode-row {
       display: flex;
       align-items: center;
-      background-color: #f9f9f9;
+      background-color: var(--component-bg);
       border-radius: 4px;
       overflow: hidden;
+      border: 1px solid var(--border-color);
     }
 
     .mode-name {
-      background-color: #666;
-      color: white;
+      background-color: var(--button-secondary-bg);
+      color: var(--button-secondary-text);
       padding: 4px 8px;
       font-size: 12px;
       font-weight: 500;
       min-width: 80px;
+    }
+    
+    /* Estilos específicos para o modo escuro */
+    body.dark-theme .mode-name {
+      background-color: #6272a4; /* Dracula Comment */
+      color: #f8f8f2; /* Dracula Foreground */
     }
 
     .mode-value {
       padding: 4px 8px;
       font-size: 12px;
       font-family: monospace;
-      color: #333;
+      color: var(--text-color);
       flex-grow: 1;
     }
 
@@ -2042,7 +2031,7 @@
       const selectedCollectionId = collectionSelectVar.value;
       
       if (!selectedCollectionId) {
-        previewContentVar.textContent = currentLanguage === 'en' ? "Select a collection to preview variables." : "Selecione uma coleção para visualizar variáveis.";
+        previewContentVar.textContent = t('select_collection_preview');
         updateButtonVar.disabled = true;
         return;
       }
@@ -2274,11 +2263,9 @@
               window.matchesData = [];
               
               updateButton.disabled = true;
-              previewContent.innerHTML = `<p class="warning">${message.message || 
-                (currentLanguage === 'en' ? 'No matches found' : 'Não há correspondências')
-              }</p>`;
+              previewContent.innerHTML = `<p class="warning">${message.message || t('no_matches_found')}</p>`;
               if (message.error) {
-                previewContent.innerHTML += `<p class="error">${message.error}</p>`;
+                previewContent.innerHTML += `<p class="error">${t('error')}: ${message.error}</p>`;
               }
             }
             break;
@@ -2307,7 +2294,7 @@
           }
           
           loadingPreviewVar.style.display = 'none';
-          previewContentVar.textContent = currentLanguage === 'en' ? "Select a collection to preview variables." : "Selecione uma coleção para visualizar variáveis.";
+          previewContentVar.textContent = t('select_collection_preview');
             break;
 
           case 'libraries-data':
@@ -2615,14 +2602,14 @@
         const currentItems = groupedArray.slice(startIndex, endIndex);
         
         // Construir HTML
-        let html = `<div class="preview-header">Preview</div>`;
-        html += `<div class="matches-count">Encontradas ${totalItems} correspondências</div>`;
+        let html = ``;
+        html += `<div class="matches-count">${t('found_matches', {count: totalItems})}</div>`;
         
         // Conteúdo principal
         html += '<div class="matches-container">';
         
         if (currentItems.length === 0) {
-          html += '<p>Nenhuma correspondência encontrada.</p>';
+          html += `<p>${t('no_matches_found')}</p>`;
             } else {
           currentItems.forEach(group => {
             html += `
@@ -2630,7 +2617,7 @@
                 <div class="variavel">${group.name}</div>
                 
                 <div class="modes-container">
-                  <div class="modes-title">Modes</div>
+                  <div class="modes-title">${t('modes')}</div>
                   <div class="modes-list">
             `;
             
@@ -3757,6 +3744,7 @@
         'fills': 'Fills',
         'strokes': 'Strokes',
         'numeric_variables': 'Numeric Variables',
+        'modes': 'Modes',
         'text_variables': 'Text Variables',
         'effects': 'Effects',
         'text_styles': 'Text Styles',
@@ -3832,6 +3820,10 @@
         // Success messages
         'success_updated': 'Successfully updated {count} variables',
         'success_replaced': 'Successfully replaced {count} variables',
+        'no_matches_found': 'No matches found',
+        'found_matches': 'Found {count} matches',
+        'starting_variable_replacement': 'Starting variable replacement...',
+        'select_collection_preview': 'Select a collection to preview variables.',
         
         // Footer
         'version': 'v{version}',
@@ -3876,6 +3868,7 @@
         'fills': 'Preenchimentos',
         'strokes': 'Bordas',
         'numeric_variables': 'Variáveis Numéricas',
+        'modes': 'Modos',
         'text_variables': 'Variáveis de Texto',
         'effects': 'Efeitos',
         'text_styles': 'Estilos de Texto',
@@ -3951,6 +3944,9 @@
         // Success messages
         'success_updated': 'Atualizadas com sucesso {count} variáveis',
         'success_replaced': 'Substituídas com sucesso {count} variáveis',
+        'found_matches': 'Encontradas {count} correspondências',
+        'starting_variable_replacement': 'Iniciando substituição de variáveis...',
+        'select_collection_preview': 'Selecione uma coleção para visualizar variáveis.',
         
         // Footer
         'version': 'v{version}',
