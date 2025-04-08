@@ -2066,10 +2066,31 @@
       // Limpar a lista de variáveis do modal
       modalVariablesList.innerHTML = '';
       
+      // Adicionar debug para entender a estrutura das variáveis
+      console.log('Todas as variáveis encontradas:', foundVariables);
+      
+      // Identificar variáveis reais (não estilos)
+      // Primeiro tentamos filtrar apenas variáveis com type definido
+      let realVariables = foundVariables.filter(v => 
+        v.type && (v.type === 'COLOR' || v.type === 'FLOAT' || v.type === 'STRING' || v.type === 'BOOLEAN')
+      );
+      
+      // Se não encontrarmos nenhuma variável com o filtro acima, usamos todas as variáveis
+      if (realVariables.length === 0) {
+        console.log('Nenhuma variável encontrada com o filtro restritivo, usando todas as variáveis');
+        realVariables = foundVariables;
+      }
+      
+      console.log('Variáveis filtradas para exibição:', realVariables);
+      
       // Classificar variáveis: correspondentes, sem correspondência e nativas
-      const matchingVars = foundVariables.filter(v => v.hasMatch && !v.isFromExternalLibrary);
-      const nonMatchingVars = foundVariables.filter(v => !v.hasMatch);
-      const nativeVars = foundVariables.filter(v => v.isFromExternalLibrary);
+      const matchingVars = realVariables.filter(v => v.hasMatch && !v.isFromExternalLibrary);
+      const nonMatchingVars = realVariables.filter(v => !v.hasMatch);
+      const nativeVars = realVariables.filter(v => v.isFromExternalLibrary);
+      
+      console.log('Variáveis correspondentes:', matchingVars);
+      console.log('Variáveis sem correspondência:', nonMatchingVars);
+      console.log('Variáveis nativas:', nativeVars);
       
       // Adicionar variáveis correspondentes
       if (matchingVars.length > 0) {
@@ -2147,8 +2168,20 @@
       const scopeRadio = document.querySelector('input[name="scope"]:checked');
       const scope = scopeRadio ? scopeRadio.value : 'selection';
       
-      // Filtrar apenas as variáveis que têm correspondência e não são nativas
-      const variablesToReplace = foundVariables.filter(v => v.hasMatch && !v.isFromExternalLibrary);
+      // Filtrar variáveis para substituição
+      // Primeiro tentamos com um filtro mais restritivo
+      let variablesToReplace = foundVariables.filter(v => 
+        v.type && (v.type === 'COLOR' || v.type === 'FLOAT' || v.type === 'STRING' || v.type === 'BOOLEAN') && 
+        v.hasMatch && !v.isFromExternalLibrary
+      );
+      
+      // Se não encontrarmos nenhuma variável com o filtro acima, usamos todas as variáveis com correspondência
+      if (variablesToReplace.length === 0) {
+        console.log('Nenhuma variável encontrada para substituição com o filtro restritivo, usando todas as variáveis com match');
+        variablesToReplace = foundVariables.filter(v => v.hasMatch && !v.isFromExternalLibrary);
+      }
+      
+      console.log('Variáveis a serem substituídas:', variablesToReplace);
       
       // Enviar mensagem para o plugin com as variáveis a serem substituídas
       parent.postMessage({ 
