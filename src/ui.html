@@ -1019,10 +1019,18 @@
           <input type="radio" id="page" name="scope" value="page">
           <label for="page">Página atual</label>
         </div>
+        <!-- Search button removed as functionality moved to update button -->
+      </div>
+      
+      <div id="variable-preview" class="variable-preview hidden" style="display: none;">
+        <div class="preview-title">Variáveis e estilos encontrados</div>
+        <div id="preview-content-var" class="preview-content">
+          <!-- Lista de variáveis será inserida aqui -->
+        </div>
       </div>
       
       <div id="loading-preview-var" class="loading" style="display: none;">Procurando variáveis com os mesmos nomes...</div>
-      <button id="update-button-var" class="action-button">Substituir Variáveis</button>
+      <button id="update-button-var" class="action-button" disabled>Substituir Variáveis</button>
       <!-- <button id="teste-float-btn" class="secondary-button" style="margin-top: 10px;">Testar Float</button> -->
     </div>
   </div>
@@ -1086,21 +1094,12 @@
     const infoContainerUpdate = document.getElementById('info-container-update');
       const librarySelectVar = document.getElementById('library-select-var');
     const collectionSelectVar = document.getElementById('collection-select-var');
-      // Helper function to safely set text content on an element that might not exist
-      function safeSetTextContent(elementId, text) {
-        const element = document.getElementById(elementId);
-        if (element) {
-          element.textContent = text;
-        }
-      }
-      
-      // This element was removed in the UI simplification
-      // We'll use the safeSetTextContent function instead of direct access
+      const previewContentVar = document.getElementById('preview-content-var');
       const updateButtonVar = document.getElementById('update-button-var');
       const errorContainerVar = document.getElementById('error-container-var');
       const infoContainerVar = document.getElementById('info-container-var');
       const loadingPreviewVar = document.getElementById('loading-preview-var');
-      const searchVariablesBtn = document.getElementById('searchVariablesBtn');
+      // Button removed - const searchVariablesBtn = document.getElementById('searchVariablesBtn');
       const variablePreview = document.getElementById('variable-preview');
       
       // Variável para armazenar as variáveis encontradas
@@ -1310,7 +1309,7 @@
         collectionSelectVar.innerHTML = '<option value="">Selecione uma biblioteca primeiro</option>';
         collectionSelectVar.disabled = true;
         
-          safeSetTextContent('preview-content-var', "Ainda não há nada para pré-visualizar.\nSelecione uma biblioteca.");
+          previewContentVar.textContent = "Ainda não há nada para pré-visualizar.\nSelecione uma biblioteca.";
           updateButtonVar.disabled = true;
           return;
         }
@@ -1320,7 +1319,7 @@
       collectionSelectVar.disabled = true;
       
       // Limpar a prévia
-      safeSetTextContent('preview-content-var', "Carregando coleções da biblioteca...");
+      previewContentVar.textContent = "Carregando coleções da biblioteca...";
       loadingPreviewVar.style.display = 'block';
       updateButtonVar.disabled = true;
         
@@ -1354,33 +1353,18 @@
       
       // Evento para o botão de atualizar - REMOVIDO PARA USAR APENAS O MODAL DE CONFIRMAÇÃO
       
-      // Função para atualizar a prévia quando a biblioteca e coleção são selecionadas
+      // Função para verificar se a biblioteca e coleção estão selecionadas e habilitar o botão
       function updatePreviewVar() {
         const libraryId = librarySelectVar.value;
-      const collectionId = collectionSelectVar.value;
-        const scope = document.querySelector('input[name="scope"]:checked').value;
+        const collectionId = collectionSelectVar.value;
         
-      if (!libraryId || !collectionId) {
-        safeSetTextContent('preview-content-var', "Ainda não há nada para pré-visualizar.\nSelecione uma biblioteca e uma coleção.");
+        if (!libraryId || !collectionId) {
           updateButtonVar.disabled = true;
           return;
         }
         
-        // Mostrar loading enquanto processa a prévia
-        safeSetTextContent('preview-content-var', "Procurando variáveis e estilos na seleção atual...");
-        loadingPreviewVar.style.display = 'block';
-        
-      // Enviar mensagem para pré-visualizar variáveis com a biblioteca e coleção selecionadas
-        parent.postMessage({
-          pluginMessage: {
-            type: 'search-variables',
-            libraryId: libraryId,
-          collectionId: collectionId,
-          scope: scope,
-          checkMatch: true, // Flag para verificar correspondências
-          matchByName: true // Verificar match pelo nome e não pelo ID
-          }
-        }, '*');
+        // Habilitar o botão de substituir se ambos estiverem selecionados
+        updateButtonVar.disabled = false;
       }
       
       // Função para mostrar erro na aba Update Variables
@@ -1464,7 +1448,7 @@
       // Variável para armazenar as variáveis completas por grupo
       let variablesByGroup = {};
 
-      // Removido o evento de clique no botão de procurar variáveis
+      // Evento de clique no botão de procurar variáveis - removido pois a funcionalidade foi movida para o botão de substituir
 
       // Manipulador de mensagens do plugin
     window.onmessage = async (event) => {
@@ -1481,7 +1465,7 @@
             
             // Organiza as variáveis por grupo para o carregamento posterior
             variablesByGroup = {
-              colors: foundVariables.filter(v => v.type === 'COLOR' && v.isRealVariable === true),
+            colors: foundVariables.filter(v => v.type === 'COLOR' && v.isRealVariable === true),
               numbers: foundVariables.filter(v => v.type === 'FLOAT'),
               texts: foundVariables.filter(v => v.type === 'STRING'),
               booleans: foundVariables.filter(v => v.type === 'BOOLEAN'),
@@ -1496,19 +1480,19 @@
             loadingPreviewVar.style.display = 'none';
             hideLoadingOverlay();
             
-            // Mostrar o modal de confirmação diretamente
+            // Mostra o modal de confirmação diretamente
             showConfirmModal();
             break;
 
           case 'no-variables-found':
-            updateButtonVar.disabled = false;
+            updateButtonVar.disabled = true;
             // Limpa as variáveis encontradas
             foundVariables = [];
             variablesByGroup = {};
             // Esconde o loading
             loadingPreviewVar.style.display = 'none';
             hideLoadingOverlay();
-            // Mostrar mensagem de erro
+            // Mostra mensagem de erro
             showErrorVar('Nenhuma variável ou estilo encontrado nos elementos selecionados.');
             break;
             
@@ -1565,7 +1549,7 @@
           }
           
           loadingPreviewVar.style.display = 'none';
-          safeSetTextContent('preview-content-var', "Selecione uma coleção para visualizar variáveis.");
+          previewContentVar.textContent = "Selecione uma coleção para visualizar variáveis.";
             break;
 
           case 'libraries-data':
@@ -1683,20 +1667,10 @@
             break;
 
         case 'substituicao-concluida':
-          console.log('Substituição concluída:', message);
           // Atualizar o resultado da substituição de variáveis
-          
-          // Esconder o loading overlay
+          updateButtonVar.disabled = false;
+          loadingPreviewVar.style.display = 'none';
           hideLoadingOverlay();
-          
-          // Habilitar botões e esconder loading com verificação de null
-          if (updateButtonVar) {
-            updateButtonVar.disabled = false;
-          }
-          
-          if (loadingPreviewVar) {
-            loadingPreviewVar.style.display = 'none';
-          }
           
           if (message.success) {
             showInfoVar(message.message || "Substituição concluída com sucesso!");
@@ -1977,14 +1951,9 @@
     const modalVariablesList = document.getElementById('modal-variables-list');
     const modalCancel = document.getElementById('modal-cancel');
     const modalConfirm = document.getElementById('modal-confirm');
-    
-    // Verificar se os elementos do modal existem
-    if (!confirmModal) console.error('Modal element not found');
-    if (!modalCancel) console.error('Modal cancel button not found');
-    if (!modalConfirm) console.error('Modal confirm button not found');
 
-    // Eventos para botões na aba Update Variables
-    searchVariablesBtn.addEventListener('click', () => {
+    // Função para procurar variáveis e estilos (agora chamada pelo botão de substituir)
+    function searchVariablesAndShowModal() {
       // Verificar se uma biblioteca e coleção foram selecionadas
       if (!librarySelectVar.value) {
         showErrorVar("Por favor, selecione uma biblioteca de referência primeiro.");
@@ -2000,10 +1969,7 @@
       loadingPreviewVar.style.display = 'block';
       // Esconder o erro
       hideErrorVar();
-      // This element was removed in UI simplification
-      // variablePreview.classList.remove('hidden');
       // Desabilitar o botão enquanto procura
-      searchVariablesBtn.disabled = true;
       updateButtonVar.disabled = true;
       
       // Obter o escopo selecionado
@@ -2012,6 +1978,9 @@
       
       // Limpar variáveis encontradas
       foundVariables = [];
+      
+      // Mostrar loading overlay
+      showLoadingOverlay("Procurando variáveis e estilos...");
       
       // Enviar mensagem para o plugin
       parent.postMessage({ 
@@ -2024,7 +1993,7 @@
           checkMatch: true
         } 
       }, '*');
-    });
+    }
     
     // Função para formatar a lista de variáveis para exibição
     function formatVariablesList(variables) {
@@ -2089,10 +2058,8 @@
     
     // Função para mostrar o modal de confirmação com as variáveis a serem substituídas
     function showConfirmModal() {
-      console.log('Showing confirmation modal');
       if (!foundVariables || foundVariables.length === 0) {
         showErrorVar("Nenhuma variável encontrada para substituir.");
-        hideLoadingOverlay();
         return;
       }
       
@@ -2158,143 +2125,45 @@
         });
       }
       
-      // Mostrar o modal usando a função dedicada
-      console.log('Showing modal via showConfirmModal');
-      showModal();
-      
-      // Garantir que os event listeners estão funcionando
-      console.log('Modal buttons:', modalCancel, modalConfirm);
-      
-      // Reconfigurar os event listeners para garantir que funcionem
-      setupModalEventListeners();
-    }
-    
-    // Reimplementar os event listeners para os botões do modal
-    function setupModalEventListeners() {
-      console.log('Setting up modal event listeners');
-      
-      // Remover event listeners existentes para evitar duplicação
-      modalCancel.removeEventListener('click', handleModalCancel);
-      modalConfirm.removeEventListener('click', handleModalConfirm);
-      
-      // Adicionar novos event listeners
-      modalCancel.addEventListener('click', handleModalCancel);
-      modalConfirm.addEventListener('click', handleModalConfirm);
-    }
-    
-    // Função para lidar com o clique no botão Cancelar
-    function handleModalCancel(event) {
-      console.log('Modal cancel clicked');
-      event.preventDefault();
-      event.stopPropagation();
-      hideModal();
-    }
-    
-    // Função para lidar com o clique no botão Confirmar
-    function handleModalConfirm(event) {
-      try {
-        console.log('Modal confirm clicked');
-        event.preventDefault();
-        event.stopPropagation();
-        
-        // Esconder o modal
-        hideModal();
-        
-        // Mostrar loading overlay
-        showLoadingOverlay("Substituindo variáveis...");
-        
-        // Mostrar loading e desabilitar botão com verificação de null
-        if (loadingPreviewVar) {
-          loadingPreviewVar.style.display = 'block';
-        }
-        
-        if (updateButtonVar) {
-          updateButtonVar.disabled = true;
-        }
-        
-        // Obter o escopo selecionado
-        const scopeRadio = document.querySelector('input[name="scope"]:checked');
-        const scope = scopeRadio ? scopeRadio.value : 'selection';
-        
-        // Filtrar apenas as variáveis que têm correspondência e não são nativas
-        const variablesToReplace = foundVariables.filter(v => v.hasMatch && !v.isFromExternalLibrary);
-        
-        console.log('Sending variables to replace:', variablesToReplace.length);
-        
-        // Enviar mensagem para o plugin com as variáveis a serem substituídas
-        parent.postMessage({ 
-          pluginMessage: { 
-            type: 'substituir-variaveis',
-            scope: scope,
-            libraryId: librarySelectVar.value,
-            collectionId: collectionSelectVar.value,
-            variables: variablesToReplace
-          } 
-        }, '*');
-      } catch (error) {
-        console.error('Error in handleModalConfirm:', error);
-        hideLoadingOverlay();
-        showErrorVar("Erro ao processar a substituição: " + error.message);
-      }
-    }
-    
-    // Função para mostrar o modal
-    function showModal() {
-      console.log('Showing modal');
+      // Mostrar o modal
       confirmModal.classList.add('active');
     }
     
-    // Função para esconder o modal
-    function hideModal() {
-      console.log('Hiding modal');
+    // Evento para fechar o modal ao clicar em cancelar
+    modalCancel.addEventListener('click', () => {
       confirmModal.classList.remove('active');
-    }
+    });
     
-    // Configurar os event listeners do modal
-    setupModalEventListeners();
-    
-    // Evento para o botão de atualizar variáveis - agora combina a busca e a exibição do modal
-    updateButtonVar.addEventListener('click', function() {
-      // Verificar se biblioteca e coleção estão selecionadas
-      if (!librarySelectVar.value) {
-        showErrorVar("Por favor, selecione uma biblioteca de referência primeiro.");
-        return;
-      }
+    // Evento para confirmar a substituição
+    modalConfirm.addEventListener('click', () => {
+      // Esconder o modal
+      confirmModal.classList.remove('active');
       
-      if (!collectionSelectVar.value) {
-        showErrorVar("Por favor, selecione uma coleção de referência primeiro.");
-        return;
-      }
-      
-      // Mostrar o loading overlay
-      showLoadingOverlay("Procurando variáveis...");
-      
-      // Mostrar o loading
+      // Mostrar loading e desabilitar botão
       loadingPreviewVar.style.display = 'block';
-      // Esconder o erro
-      hideErrorVar();
-      // Desabilitar o botão enquanto procura
       updateButtonVar.disabled = true;
       
       // Obter o escopo selecionado
       const scopeRadio = document.querySelector('input[name="scope"]:checked');
       const scope = scopeRadio ? scopeRadio.value : 'selection';
       
-      // Limpar variáveis encontradas
-      foundVariables = [];
+      // Filtrar apenas as variáveis que têm correspondência e não são nativas
+      const variablesToReplace = foundVariables.filter(v => v.hasMatch && !v.isFromExternalLibrary);
       
-      // Enviar mensagem para o plugin
+      // Enviar mensagem para o plugin com as variáveis a serem substituídas
       parent.postMessage({ 
         pluginMessage: { 
-          type: 'search-variables',
+          type: 'substituir-variaveis',
           scope: scope,
           libraryId: librarySelectVar.value,
           collectionId: collectionSelectVar.value,
-          matchByName: true,
-          checkMatch: true
+          variables: variablesToReplace
         } 
       }, '*');
     });
+    
+    // Evento para o botão de atualizar variáveis - agora também procura variáveis antes de mostrar o modal
+    updateButtonVar.addEventListener('click', searchVariablesAndShowModal);
 
     // Evento para o botão de teste float
     document.getElementById('teste-float-btn')?.addEventListener('click', () => {
