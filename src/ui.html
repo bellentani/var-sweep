@@ -1963,6 +1963,25 @@
         if (!message) return;
 
         switch (message.type) {
+          case 'language-preference':
+            // Recebe a preferência de idioma salva
+            if (message.language) {
+              console.log('Preferência de idioma recebida:', message.language);
+              currentLanguage = message.language;
+              
+              // Atualiza o seletor de idioma
+              const languageSelect = document.getElementById('language-select');
+              if (languageSelect) {
+                languageSelect.value = currentLanguage;
+              }
+              
+              // Aplica as traduções
+              updateUILanguage();
+              updateTabContent();
+              updateDynamicContent();
+            }
+            break;
+            
           case 'variables-found':
             updateButtonVar.disabled = false;
             // Armazena as variáveis encontradas para uso posterior
@@ -3521,22 +3540,22 @@
       },
       'pt-br': {
         // General
-        'language_code': 'PT',
+        'language_code': 'PT-BR',
         'language_name': 'Português',
         
         // Tabs
-        'update_collections': 'Atualizar Collections',
+        'update_collections': 'Atualizar Coleções',
         'update_variables': 'Atualizar Variáveis',
         'list_libraries': 'Listar Bibliotecas',
         
         // Update Collections tab
-        'update_collections_title': 'Atualizar Collections',
+        'update_collections_title': 'Atualizar Coleções',
         'reference_library': 'Biblioteca de referência:',
         'local_collection': 'Coleção local:',
         'select_library': 'Selecionar Biblioteca',
         'select_collection': 'Selecionar Coleção',
         'select_local_collection': 'Selecionar Coleção Local',
-        'update_button': 'Atualizar Collections',
+        'update_button': 'Atualizar Coleções',
         'no_libraries': 'Nenhuma biblioteca disponível',
         'select_library_first': 'Por favor, selecione uma biblioteca primeiro',
         'no_collections': 'Nenhuma coleção disponível nesta biblioteca',

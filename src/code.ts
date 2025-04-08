@@ -2393,6 +2393,38 @@ figma.ui.onmessage = async (msg) => {
     return;
   }
   
+  // Tratar mensagem para salvar preferência de idioma
+  if (msg.type === 'save-language-preference') {
+    console.log("[BIBLIOTECA-SWEEP] Salvando preferência de idioma:", msg.language);
+    try {
+      await figma.clientStorage.setAsync('language', msg.language);
+      console.log("[BIBLIOTECA-SWEEP] Preferência de idioma salva com sucesso");
+    } catch (error) {
+      console.error("[BIBLIOTECA-SWEEP] Erro ao salvar preferência de idioma:", error);
+    }
+    return;
+  }
+  
+  // Tratar mensagem para obter preferência de idioma
+  if (msg.type === 'get-language-preference') {
+    console.log("[BIBLIOTECA-SWEEP] Obtendo preferência de idioma");
+    try {
+      const savedLanguage = await figma.clientStorage.getAsync('language');
+      console.log("[BIBLIOTECA-SWEEP] Preferência de idioma obtida:", savedLanguage);
+      figma.ui.postMessage({
+        type: 'language-preference',
+        language: savedLanguage || 'pt-br' // Usa pt-br como padrão se não houver preferência salva
+      });
+    } catch (error) {
+      console.error("[BIBLIOTECA-SWEEP] Erro ao obter preferência de idioma:", error);
+      figma.ui.postMessage({
+        type: 'language-preference',
+        language: 'pt-br' // Usa pt-br como padrão em caso de erro
+      });
+    }
+    return;
+  }
+  
   // Tratar a resposta de seleção de biblioteca e coleção
   if (msg.type === 'resposta-selecao-biblioteca-colecao') {
     // Esta mensagem é tratada internamente na função testeFloat
