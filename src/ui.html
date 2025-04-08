@@ -17,7 +17,8 @@
       --tab-active-text: #ffffff;
       --tab-inactive-bg: #f3f4f6;
       --tab-inactive-text: #6b7280;
-      --error-color: #ef4444;
+      --error-color: #c62828;
+      --error-bg: #ffebee;
       --warning-color: #f59e0b;
       --success-color: #10b981;
       --component-bg: #f9fafb;
@@ -25,30 +26,48 @@
       --modal-bg: #ffffff;
       --modal-overlay: rgba(0, 0, 0, 0.5);
       --settings-bg: #ffffff;
+      --disabled-bg-light: #f3f4f6;
+      --disabled-text-light: #9ca3af;
+      --tag-bg: #dfcfd7; 
+      --tag-text: #912964;
     }
     
-    /* Dark theme */
+    /* Dark theme - Dracula Theme */
     body.dark-theme {
-      --background-color: #1e1e1e;
-      --text-color: #e5e7eb;
-      --border-color: #4b5563;
-      --input-background: #2d2d2d;
-      --button-primary-bg: #18a0fb;
-      --button-primary-text: #ffffff;
-      --button-secondary-bg: #4b5563;
-      --button-secondary-text: #e5e7eb;
-      --tab-active-bg: #18a0fb;
-      --tab-active-text: #ffffff;
-      --tab-inactive-bg: #374151;
-      --tab-inactive-text: #d1d5db;
-      --error-color: #f87171;
-      --warning-color: #fbbf24;
-      --success-color: #34d399;
-      --component-bg: #2d2d2d;
-      --component-hover: #374151;
-      --modal-bg: #2d2d2d;
+      --background-color: #282a36; /* Dracula Background */
+      --text-color: #f8f8f2; /* Dracula Foreground */
+      --border-color: #44475a; /* Dracula Current Line */
+      --input-background: #383a59; /* Darker than Selection */
+      --input-text: #f8f8f2; /* Dracula Foreground */
+      --button-primary-bg: #8be9fd; /* Dracula Cyan */
+      --button-primary-text: #282a36; /* Dracula Background */
+      --button-secondary-bg: #6272a4; /* Dracula Comment */
+      --button-secondary-text: #f8f8f2; /* Dracula Foreground */
+      --tab-active-bg: #bd93f9; /* Dracula Purple */
+      --tab-active-text: #282a36; /* Dracula Background */
+      --tab-inactive-bg: #44475a; /* Dracula Current Line */
+      --tab-inactive-text: #f8f8f2; /* Dracula Foreground */
+      --error-color: #ff5555; /* Dracula Red */
+      --warning-color: #ffb86c; /* Dracula Orange */
+      --success-color: #50fa7b; /* Dracula Green */
+      --component-bg: #44475a; /* Dracula Selection */
+      --component-hover: #6272a4; /* Dracula Comment */
+      --modal-bg: #282a36; /* Dracula Background */
       --modal-overlay: rgba(0, 0, 0, 0.7);
-      --settings-bg: #2d2d2d;
+      --settings-bg: #282a36; /* Dracula Background */
+      --label-color: #f8f8f2; /* Dracula Foreground - melhor contraste */
+      --form-label-color: #f8f8f2; /* Dracula Foreground - melhor contraste */
+      --description-color: #bd93f9; /* Dracula Purple - melhor contraste para textos descritivos */
+      --error-bg: rgba(255, 85, 85, 0.15); /* Dracula Red com opacidade reduzida - mais discreto */
+      --tag-bg: #ff79c6; /* Dracula Pink */
+      --tag-text: #282a36; /* Dracula Background */
+      --tag-secondary-bg: #bd93f9; /* Dracula Purple */
+      --tag-secondary-text: #282a36; /* Dracula Background */
+      --preview-bg: #383a59; /* Mais escuro que Selection - para preview */
+      --disabled-bg: #44475a; /* Dracula Selection - para botões desabilitados */
+      --disabled-text: #6272a4; /* Dracula Comment - para texto em botões desabilitados */
+      --radio-border: #6272a4; /* Dracula Comment */
+      --radio-checked: #bd93f9; /* Dracula Purple */
     }
     
     body {
@@ -82,8 +101,8 @@
       padding: 2px 6px;
       border-radius: 3px;
       margin-right: 6px;
-      background-color: #e0f2fe;
-      color: #0284c7;
+      background-color: var(--tag-bg);
+      color: var(--tag-text);
     }
     
     .component-name {
@@ -109,26 +128,34 @@
     }
     
     .no-components {
-      color: #888;
+      color: var(--description-color);
       font-style: italic;
     }
     
     .error-message {
-      background-color: #ffebee;
-      color: #c62828;
+      background-color: var(--error-bg);
+      color: var(--error-color);
       padding: 12px;
       border-radius: 6px;
       margin-bottom: 16px;
       font-size: 13px;
+      border-left: 4px solid var(--error-color);
+    }
+    
+    /* Ajustes específicos para o tema claro */
+    body:not(.dark-theme) .error-message {
+      background-color: #ffebee;
+      color: #c62828;
     }
     
     .info-message {
-      background-color: #e3f2fd;
-      color: #1565c0;
+      background-color: rgba(189, 147, 249, 0.15);
+      color: var(--tag-secondary-bg);
       padding: 12px;
       border-radius: 6px;
       margin-bottom: 16px;
       font-size: 13px;
+      border-left: 4px solid var(--tag-secondary-bg);
     }
     
     .action-button {
@@ -211,11 +238,10 @@
     /* Estilos para as abas */
     .tabs {
       display: flex;
-      margin-bottom: 16px;
-      border-bottom: 1px solid #ddd;
+      border-bottom: 1px solid var(--border-color);
       position: sticky;
       top: 0;
-      background-color: white;
+      background-color: var(--background-color);
       z-index: 100;
       padding: 16px 16px 0 16px;
     }
@@ -225,7 +251,8 @@
       margin-right: 0.5em;
       border: none;
       background: none;
-      color: #666;
+      color: var(--text-color);
+      opacity: 0.7;
       cursor: pointer;
       font-size: 12px;
       font-weight: 500;
@@ -233,8 +260,9 @@
     }
     
     .tab.active {
-      color: #18a0fb;
-      border-bottom: 2px solid #18a0fb;
+      color: var(--button-primary-bg);
+      border-bottom: 2px solid var(--button-primary-bg);
+      opacity: 1;
     }
     
     .tab-content {
@@ -244,7 +272,12 @@
     .tab-content.active {
       display: block;
     }
-    
+
+    .tab-content > h2 {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+    }
+
     /* Estilos para a aba Update Collections */
     .variable-form {
       margin-top: 16px;
@@ -259,30 +292,33 @@
       font-size: 13px;
       font-weight: 500;
       margin-bottom: 6px;
-      color: #374151;
+      color: var(--label-color);
     }
     
     .form-input, .form-select {
       width: 100%;
       padding: 8px;
       border-radius: 4px;
-      border: 1px solid #ccc;
+      border: 1px solid var(--border-color);
       font-size: 14px;
       margin-bottom: 8px;
+      background-color: var(--input-background);
+      color: var(--input-text);
     }
     
     .form-select {
-      background-color: white;
+      background-color: var(--input-background);
+      color: var(--input-text);
     }
     
     .form-help {
       font-size: 11px;
-      color: #6b7280;
+      color: var(--description-color);
       margin-top: 4px;
     }
     
     .variable-preview {
-      background-color: #f9fafb;
+      background-color: var(--preview-bg);
       border: 1px solid #e5e7eb;
       border-radius: 6px;
       padding: 12px;
@@ -293,12 +329,13 @@
       font-size: 13px;
       font-weight: 600;
       margin-bottom: 8px;
-      color: #374151;
+      color: var(--text-color);
     }
     
     .preview-content {
       font-size: 12px;
-      color: #4b5563;
+      color: var(--text-color);
+      opacity: 0.8;
       font-family: 'Roboto Mono', monospace;
       white-space: pre-wrap;
     }
@@ -307,6 +344,7 @@
     .radio-group {
       margin-bottom: 12px;
       font-size: 12px;
+      color: var(--text-color);
     }
     
     .radio-label {
@@ -314,6 +352,7 @@
       margin-bottom: 8px;
       font-size: 14px;
       cursor: pointer;
+      color: var(--text-color);
     }
     
     .radio-label input {
@@ -321,9 +360,9 @@
     }
 
     .secondary-button {
-      background-color: #f3f4f6;
-      color: #374151;
-      border: 1px solid #d1d5db;
+      background-color: var(--button-secondary-bg);
+      color: var(--button-secondary-text);
+      border: 1px solid var(--border-color);
       border-radius: 4px;
       padding: 8px 16px;
       font-size: 13px;
@@ -334,18 +373,33 @@
     }
     
     .secondary-button:hover {
-      background-color: #e5e7eb;
+      background-color: var(--component-hover);
     }
 
     .secondary-button:disabled {
-      background-color: #f3f4f6;
-      color: #9ca3af;
+      background-color: var(--disabled-bg);
+      color: var(--disabled-text);
       cursor: not-allowed;
+    }
+    
+    /* Estilos específicos para botões desabilitados no modo claro */
+    body:not(.dark-theme) .secondary-button:disabled {
+      background-color: var(--disabled-bg-light);
+      color: var(--disabled-text-light);
     }
 
     .action-button:disabled {
-      background-color: #9ca3af;
+      background-color: var(--disabled-bg);
+      color: var(--disabled-text);
       cursor: not-allowed;
+      opacity: 0.7;
+    }
+    
+    /* Estilos específicos para botões de ação desabilitados no modo claro */
+    body:not(.dark-theme) .action-button:disabled {
+      background-color: #9ca3af;
+      color: #ffffff;
+      opacity: 0.7;
     }
 
     .preview-section {
@@ -355,7 +409,7 @@
     .preview-subtitle {
       font-size: 12px;
       font-weight: 600;
-      color: #374151;
+      color: var(--label-color);
       margin-bottom: 8px;
     }
 
@@ -386,16 +440,18 @@
     }
 
     .variable-collection {
-      color: #6b7280;
+      color: var(--text-color);
+      opacity: 0.8;
       font-size: 11px;
       padding: 2px 6px;
-      background-color: #f3f4f6;
+      background-color: var(--component-bg);
       border-radius: 3px;
     }
 
     .preview-more {
       font-size: 11px;
-      color: #6b7280;
+      color: var(--text-color);
+      opacity: 0.7;
       padding: 4px 8px;
       font-style: italic;
     }
@@ -410,7 +466,8 @@
       font-size: 11px;
       font-weight: 500;
       margin: 4px 0;
-      color: #666;
+      color: var(--text-color);
+      opacity: 0.8;
     }
 
     .variable-group ul {
@@ -426,10 +483,11 @@
       padding: 3px 6px;
       margin: 1px 0;
       border-radius: 3px;
-      background: #f5f5f5;
+      background: var(--component-bg);
       font-size: 11px;
       max-width: 100%;
       box-sizing: border-box;
+      color: var(--text-color);
     }
 
     .var-name {
@@ -452,7 +510,7 @@
 
     .var-collection {
       font-size: 10px;
-      color: #999;
+      color: var(--description-color);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -488,7 +546,7 @@
     }
 
     .load-more-button:hover {
-      background-color: #e8f4fd;
+      background-color: var(--component-hover);
     }
 
     /* Seções - Layout mais compacto */
@@ -497,35 +555,35 @@
       font-weight: 600;
       margin: 12px 0 6px;
       padding-bottom: 3px;
-      border-bottom: 1px solid #e0e0e0;
-      color: #1e1e1e;
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-color);
     }
 
     /* Tipos específicos de variáveis */
     .var-type.color {
-      background: #ffebee;
-      color: #c62828;
+      background: rgba(198, 40, 40, 0.2);
+      color: var(--error-color);
     }
 
     .var-type.number {
-      background: #e8f5e9;
-      color: #2e7d32;
+      background: rgba(46, 125, 50, 0.2);
+      color: var(--success-color);
     }
 
     .var-type.text {
-      background: #e3f2fd;
-      color: #1565c0;
+      background: rgba(21, 101, 192, 0.2);
+      color: var(--tag-bg);
     }
 
     .var-type.boolean {
-      background: #fff3e0;
-      color: #ef6c00;
+      background: rgba(239, 108, 0, 0.2);
+      color: var(--warning-color);
     }
 
     /* Tipos específicos de estilos */
     .var-type.fill {
-      background: #f3e5f5;
-      color: #7b1fa2;
+      background: rgba(123, 31, 162, 0.2);
+      color: var(--tag-secondary-bg);
     }
 
     .var-type.stroke {
@@ -584,12 +642,13 @@
     }
     
     .match-library {
-      color: #666;
+      color: var(--text-color);
+      opacity: 0.7;
       font-size: 11px;
     }
     
     .warning {
-      color: #b45309;
+      color: var(--warning-color);
       font-style: italic;
     }
 
@@ -601,12 +660,13 @@
     }
     
     .pagination-button {
-      background-color: #f0f0f0;
-      border: 1px solid #ddd;
+      background-color: var(--button-secondary-bg);
+      border: 1px solid var(--border-color);
       border-radius: 4px;
       padding: 4px 8px;
       font-size: 12px;
       cursor: pointer;
+      color: var(--button-secondary-text);
     }
     
     .pagination-button:hover {
@@ -615,16 +675,18 @@
     
     .match-item {
       padding: 8px;
-      border-bottom: 1px solid #eee;
+      border-bottom: 1px solid var(--border-color);
       margin-bottom: 0;
+      color: var(--text-color);
     }
     
     .matches-container {
       max-height: 300px;
       overflow-y: auto;
-      border: 1px solid #ddd;
+      border: 1px solid var(--border-color);
       border-radius: 4px;
       margin-top: 8px;
+      background-color: var(--component-bg);
     }
     
     .match-local {
@@ -681,7 +743,7 @@
       display: flex;
       justify-content: space-between;
       padding: 5px 10px;
-      background-color: #f4f4f4;
+      background-color: var(--component-bg);
       border-radius: 4px;
     }
 
@@ -689,8 +751,8 @@
       font-weight: 500;
       font-size: 12px;
       padding: 3px 10px;
-      background-color: #4b4b4b;
-      color: white;
+      background-color: var(--button-secondary-bg);
+      color: var(--button-secondary-text);
       border-radius: 3px;
     }
 
@@ -708,10 +770,11 @@
 
     .match-item {
       padding: 15px;
-      border-bottom: 1px solid #eee;
+      border-bottom: 1px solid var(--border-color);
       margin-bottom: 10px;
-      background-color: #f9fafb;
+      background-color: var(--component-bg);
       border-radius: 6px;
+      color: var(--text-color);
     }
 
     .preview-header {
@@ -838,20 +901,21 @@
       left: 0;
       width: 100%;
       height: 40px;
-      background-color: #f9fafb;
-      border-top: 1px solid #e5e7eb;
+      background-color: var(--component-bg);
+      border-top: 1px solid var(--border-color);
       display: flex;
       justify-content: space-between;
       align-items: center;
       padding: 0 16px;
       font-size: 11px;
-      color: #6b7280;
+      color: var(--text-color);
       z-index: 1001;
       box-sizing: border-box;
     }
 
     .footer-version {
       font-weight: 500;
+      opacity: 0.8;
     }
 
     .footer-settings {
@@ -870,6 +934,7 @@
       justify-content: center;
       border-radius: 4px;
       gap: 4px;
+      color: var(--text-color);
     }
     
     .settings-button span.material-icons {
@@ -877,7 +942,7 @@
     }
 
     .settings-button:hover {
-      background-color: #e5e7eb;
+      background-color: var(--component-hover);
     }
 
     /* Settings overlay styles */
@@ -905,13 +970,14 @@
     }
 
     .settings-container {
-      background-color: white;
+      background-color: var(--settings-bg);
       border-radius: 8px;
       width: 80%;
       max-width: 400px;
       max-height: 80%;
       overflow-y: auto;
       box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      border: 1px solid var(--border-color);
     }
 
     .settings-header {
@@ -1071,7 +1137,7 @@
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0, 0, 0, 0.5);
+      background: var(--modal-overlay);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -1087,16 +1153,18 @@
     }
     
     .modal-container {
-      background: white;
+      background: var(--modal-bg);
       border-radius: 8px;
       padding: 24px;
-      width: 90%;
+      width: 80%;
       max-width: 500px;
       max-height: 80vh;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
       display: flex;
       flex-direction: column;
-      font-size: 14px;
+      font-size: 12px;
+      color: var(--text-color);
+      border: 1px solid var(--border-color);
     }
     
     .modal-header {
@@ -1104,9 +1172,10 @@
     }
     
     .modal-title {
-      font-size: 16px;
+      font-size: 0.75rem;
+      text-transform: uppercase;
       font-weight: 600;
-      color: #333;
+      color: var(--text-color);
       margin: 0;
     }
     
@@ -1115,7 +1184,17 @@
       overflow-y: auto;
       margin-bottom: 16px;
     }
+    .modal-group-header {
+      font-size: 0.75em;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: var(--text-color);
+      padding: 0.5em;
+    }
     
+    .modal-group-header:not(:first-child) {
+      margin-top: 1em;
+    }
     .modal-variables-list {
       max-height: 300px;
       overflow-y: auto;
@@ -1137,30 +1216,30 @@
     }
     
     .modal-item-match {
-      color: #059669;
+      color: var(--background-color);
       margin-left: 4px;
       padding: 2px 6px;
       border-radius: 4px;
       font-size: 11px;
-      background-color: #d1fae5;
+      background-color: var(--success-color);
     }
     
     .modal-item-no-match {
-      color: #b91c1c;
+      color: var(--background-color);
       margin-left: 4px;
       padding: 2px 6px;
       border-radius: 4px;
       font-size: 11px;
-      background-color: #fee2e2;
+      background-color: var(--error-color);
     }
     
     .modal-item-native {
-      color: #2563eb;
+      color: var(--background-color);
       margin-left: 4px;
       padding: 2px 6px;
       border-radius: 4px;
       font-size: 11px;
-      background-color: #dbeafe;
+      background-color: var(--tag-bg);
     }
     
     .modal-footer {
@@ -1178,21 +1257,23 @@
     }
     
     .modal-button-cancel {
-      background-color: #e5e7eb;
-      color: #374151;
+      background-color: var(--button-secondary-bg);
+      color: var(--button-secondary-text);
     }
     
     .modal-button-confirm {
-      background-color: #18a0fb;
-      color: white;
+      background-color: var(--button-primary-bg);
+      color: var(--button-primary-text);
     }
     
     .modal-button-confirm:hover {
-      background-color: #0d8fe0;
+      background-color: var(--button-primary-bg);
+      opacity: 0.9;
     }
     
     .modal-button-cancel:hover {
-      background-color: #d1d5db;
+      background-color: var(--button-secondary-bg);
+      opacity: 0.9;
     }
   </style>
 </head>
