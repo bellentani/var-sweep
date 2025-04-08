@@ -2400,18 +2400,23 @@ async function substituirVariaveisEmColecao(matches: Array<{
     
     console.log(`Substituição concluída: ${variaveisAlteradas} variáveis alteradas, ${variaveisComErro} erros`);
     
-    // Enviar resultado para a UI
+    // Enviar resultado para a UI com suporte a idiomas
+    const currentLanguage = await figma.clientStorage.getAsync('language') || 'pt-br';
+    
     if (variaveisAlteradas > 0) {
       figma.ui.postMessage({
         type: 'update-collections-result',
         success: true,
-        message: `${variaveisAlteradas} variáveis atualizadas com sucesso. ${variaveisComErro} variáveis com erro.`
+        count: variaveisAlteradas,
+        errors: variaveisComErro,
+        messageKey: 'success_updated_with_errors'
       });
     } else {
       figma.ui.postMessage({
         type: 'update-collections-result',
         success: false,
-        message: `Não foi possível atualizar as variáveis. ${variaveisComErro} variáveis com erro.`
+        errors: variaveisComErro,
+        messageKey: 'failed_update_variables'
       });
     }
   } catch (error) {
