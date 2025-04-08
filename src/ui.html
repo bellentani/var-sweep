@@ -1148,7 +1148,7 @@
   
   <!-- Conteúdo da Aba Update Collections -->
   <div id="update-collections" class="tab-content active container">
-    <h2>Atualizar Collections</h2>
+    <h2 id="update-collections-heading">Atualizar Collections</h2>
     <div id="error-container-update" style="display: none;" class="error-message"></div>
     <div id="info-container-update" style="display: none;" class="info-message"></div>
     
@@ -1156,17 +1156,17 @@
       <div class="form-group">
         <label class="form-label">Biblioteca de referência:</label>
         <select id="library-select-update" class="form-select">
-          <option value="">Carregando bibliotecas...</option>
+          <option value="" data-i18n="loading_libraries">Carregando bibliotecas...</option>
         </select>
-        <p class="form-help">Selecione a biblioteca externa com as variáveis que deseja usar como referência</p>
+        <p class="form-help" data-i18n="select_external_library_help">Selecione a biblioteca externa com as variáveis que deseja usar como referência</p>
       </div>
       
       <div class="form-group">
         <label class="form-label">Coleção local:</label>
         <select id="local-collection-select" class="form-select">
-          <option value="">Carregando coleções locais...</option>
+          <option value="" id="loading-collections-option" data-i18n="loading_local_collections">Carregando coleções locais...</option>
         </select>
-        <p class="form-help">Selecione a coleção local cujas variáveis serão substituídas</p>
+        <p class="form-help" data-i18n="select_local_collection_help">Selecione a coleção local que deseja atualizar</p>
       </div>
       
       <div class="variable-preview">
@@ -1191,17 +1191,17 @@
       <div class="form-group">
         <label class="form-label">Biblioteca de referência:</label>
         <select id="library-select-var" class="form-select">
-          <option value="">Carregando bibliotecas...</option>
+          <option value="">${getTranslation(currentLanguage, 'loading_libraries')}</option>
         </select>
-        <p class="form-help">Selecione a biblioteca externa com as variáveis que deseja usar como referência</p>
+        <p class="form-help">${getTranslation(currentLanguage, 'select_external_library_help')}</p>
       </div>
       
       <div class="form-group">
         <label class="form-label">Coleção de referência:</label>
         <select id="collection-select-var" class="form-select">
-          <option value="">Selecione uma biblioteca primeiro</option>
+          <option value="" data-i18n="select_library_first">Selecione uma biblioteca primeiro</option>
         </select>
-        <p class="form-help">Selecione a coleção de variáveis que deseja utilizar como referência</p>
+        <p class="form-help" id="collection-help-text" data-i18n="reference_collection_help">Selecione a coleção de variáveis que deseja utilizar como referência</p>
       </div>
       
       <div class="form-group">
@@ -1218,7 +1218,7 @@
       </div>
       
       <div id="variable-preview" class="variable-preview hidden" style="display: none;">
-        <div class="preview-title">Variáveis e estilos encontrados</div>
+        <div class="preview-title" id="variables-found-title" data-i18n="variables_found_title">Variáveis encontradas:</div>
         <div id="preview-content-var" class="preview-content">
           <!-- Lista de variáveis será inserida aqui -->
         </div>
@@ -1268,143 +1268,229 @@
 
   <script>
     // Localization system
-    const translations = {
-      'en': {
-        // Tabs
-        'update_collections': 'Update Collections',
-        'update_variables': 'Update Variables',
-        'list_libraries': 'List Libraries',
-        
-        // Update Collections tab
-        'update_collections_title': 'Update Collections',
-        'select_library': 'Select Library',
-        'select_collection': 'Select Collection',
-        'update_button': 'Update',
-        'no_libraries': 'No libraries available',
-        'select_library_first': 'Please select a library first',
-        
-        // Update Variables tab
-        'update_variables_title': 'Update Variables',
-        'scope_selection': 'Scope',
-        'current_selection': 'Current Selection',
-        'current_page': 'Current Page',
-        'search_variables': 'Search Variables',
-        'replace_variables': 'Replace Variables',
-        
-        // List Libraries tab
-        'list_libraries_title': 'Aplica Variables Sweep',
-        'all_libraries': 'All libraries:',
-        'searching_libraries': 'Searching libraries...',
-        'reload': 'Reload',
-        
-        // Settings
-        'settings': 'Settings',
-        'settings_title': 'Settings',
-        'language': 'Language / Idioma',
-        'cancel': 'Cancel',
-        'save': 'Save',
-        
-        // Messages
-        'processing': 'Processing...',
-        'no_selection': 'No elements selected',
-        'select_elements': 'Please select elements to process',
-        'no_variables_found': 'No variables found',
-        'variables_found': 'Variables found:',
-        'success': 'Success',
-        'error': 'Error',
-      },
-      'pt-br': {
-        // Tabs
-        'update_collections': 'Atualizar Collections',
-        'update_variables': 'Atualizar Variáveis',
-        'list_libraries': 'Listar Bibliotecas',
-        
-        // Update Collections tab
-        'update_collections_title': 'Atualizar Collections',
-        'select_library': 'Selecionar Biblioteca',
-        'select_collection': 'Selecionar Coleção',
-        'update_button': 'Atualizar',
-        'no_libraries': 'Nenhuma biblioteca disponível',
-        'select_library_first': 'Por favor, selecione uma biblioteca primeiro',
-        
-        // Update Variables tab
-        'update_variables_title': 'Atualizar Variáveis',
-        'scope_selection': 'Escopo',
-        'current_selection': 'Seleção Atual',
-        'current_page': 'Página Atual',
-        'search_variables': 'Buscar Variáveis',
-        'replace_variables': 'Substituir Variáveis',
-        
-        // List Libraries tab
-        'list_libraries_title': 'Aplica Variables Sweep',
-        'all_libraries': 'Todas as bibliotecas:',
-        'searching_libraries': 'Procurando bibliotecas...',
-        'reload': 'Recarregar',
-        
-        // Settings
-        'settings': 'Configurações',
-        'settings_title': 'Configurações',
-        'language': 'Idioma / Language',
-        'cancel': 'Cancelar',
-        'save': 'Salvar',
-        
-        // Messages
-        'processing': 'Processando...',
-        'no_selection': 'Nenhum elemento selecionado',
-        'select_elements': 'Por favor, selecione elementos para processar',
-        'no_variables_found': 'Nenhuma variável encontrada',
-        'variables_found': 'Variáveis encontradas:',
-        'success': 'Sucesso',
-        'error': 'Erro',
-      }
-    };
-    
-    // Current language
     let currentLanguage = 'pt-br'; // Default language
     
     // Function to get translation
-    function t(key) {
-      return translations[currentLanguage][key] || key;
+    function t(key, params = {}) {
+      // Access translations directly from the global object
+      if (!window.translations || !window.translations[currentLanguage] || !window.translations[currentLanguage][key]) {
+        console.warn(`Translation not found for key: ${key} in language: ${currentLanguage}`);
+        return key; // Return the key itself if translation not found
+      }
+      
+      let text = window.translations[currentLanguage][key];
+      
+      // Replace any parameters in the text
+      Object.keys(params).forEach(param => {
+        text = text.replace(`{${param}}`, params[param]);
+      });
+      
+      return text;
+    }
+    
+    // Alias for t() function to maintain compatibility with existing code
+    function getTranslation(language, key, params = {}) {
+      return t(key, params);
+    }
+    
+    // Function to process all elements with data-i18n attributes
+    function processI18nElements() {
+      try {
+        console.log('Processing i18n elements for language:', currentLanguage);
+        
+        // Find all elements with data-i18n attribute
+        const i18nElements = document.querySelectorAll('[data-i18n]');
+        
+        i18nElements.forEach(element => {
+          const key = element.getAttribute('data-i18n');
+          if (key && window.translations && window.translations[currentLanguage] && window.translations[currentLanguage][key]) {
+            element.textContent = window.translations[currentLanguage][key];
+          } else {
+            console.warn(`Translation not found for key: ${key} in language: ${currentLanguage}`);
+          }
+        });
+        
+        console.log(`Processed ${i18nElements.length} i18n elements`);
+      } catch (error) {
+        console.error('Error processing i18n elements:', error);
+      }
     }
     
     // Function to update all UI text based on selected language
     function updateUILanguage() {
-      // Update tabs
-      document.querySelector('[data-tab="update-collections"]').textContent = t('update_collections');
-      document.querySelector('[data-tab="update-variables"]').textContent = t('update_variables');
-      document.querySelector('[data-tab="list-libs"]').textContent = t('list_libraries');
-      
-      // Update Update Collections tab
-      document.querySelector('#update-collections h2').textContent = t('update_collections_title');
-      document.querySelector('label[for="library-select"]').textContent = t('select_library');
-      document.querySelector('label[for="collection-select"]').textContent = t('select_collection');
-      document.querySelector('#update-button').textContent = t('update_button');
-      
-      // Update Update Variables tab
-      document.querySelector('#update-variables h2').textContent = t('update_variables_title');
-      document.querySelector('.scope-label').textContent = t('scope_selection');
-      document.querySelector('label[for="scope-selection"]').textContent = t('current_selection');
-      document.querySelector('label[for="scope-page"]').textContent = t('current_page');
-      document.querySelector('#search-button').textContent = t('search_variables');
-      document.querySelector('#replace-button').textContent = t('replace_variables');
-      
-      // Update List Libraries tab
-      document.querySelector('#list-libs h2').textContent = t('list_libraries_title');
-      document.querySelector('#list-libs .section-title').textContent = t('all_libraries');
-      document.querySelector('#components-container .no-components').textContent = t('searching_libraries');
-      document.querySelector('#refresh-button').textContent = t('reload');
-      
-      // Update Settings
-      document.querySelector('#settings-button span:last-child').textContent = t('settings');
-      document.querySelector('.settings-title').textContent = t('settings_title');
-      document.querySelector('label[for="language-select"]').textContent = t('language');
-      document.querySelector('#settings-cancel').textContent = t('cancel');
-      document.querySelector('#settings-update').textContent = t('save');
-      
-      // Update loading text
-      document.querySelector('#loading-text').textContent = t('processing');
-      
-      console.log(`UI language updated to: ${currentLanguage}`);
+      try {
+        console.log('Updating UI language to:', currentLanguage);
+        
+        // Process all data-i18n elements
+        processI18nElements();
+        
+        // Direct text replacements for all UI elements
+        const textReplacements = [
+          // Tabs
+          { selector: '[data-tab="update-collections"]', key: 'update_collections' },
+          { selector: '[data-tab="update-variables"]', key: 'update_variables' },
+          { selector: '[data-tab="list-libs"]', key: 'list_libraries' },
+          
+          // Update Collections tab
+          { selector: '#update-collections h2', key: 'update_collections_title' },
+          { selector: '#update-collections .form-label:nth-of-type(1)', key: 'reference_library' },
+          { selector: '#update-collections .form-label:nth-of-type(2)', key: 'local_collection' },
+          { selector: '#update-button', key: 'update_button' },
+          { selector: '.preview-title', key: 'preview_title' },
+          
+          // Update Variables tab
+          { selector: '#update-variables h2', key: 'update_variables_title' },
+          { selector: '#update-variables .form-label:nth-of-type(1)', key: 'reference_library_var' },
+          { selector: '#update-variables .form-label:nth-of-type(2)', key: 'reference_collection' },
+          { selector: '.scope-label', key: 'scope_selection' },
+          { selector: 'label[for="scope-selection"]', key: 'current_selection' },
+          { selector: 'label[for="scope-page"]', key: 'current_page' },
+          { selector: '#search-button', key: 'search_variables' },
+          { selector: '#replace-button', key: 'replace_variables' },
+          
+          // List Libraries tab
+          { selector: '#list-libs h2', key: 'list_libraries_title' },
+          { selector: '#list-libs .section-title', key: 'all_libraries' },
+          { selector: '#components-container .no-components', key: 'searching_libraries' },
+          { selector: '#refresh-button', key: 'reload' },
+          
+          // Settings
+          { selector: '#settings-button span:last-child', key: 'settings' },
+          { selector: '.settings-title', key: 'settings_title' },
+          { selector: 'label[for="language-select"]', key: 'language' },
+          { selector: '#settings-cancel', key: 'cancel' },
+          { selector: '#settings-update', key: 'save' },
+          
+          // Loading text
+          { selector: '#loading-text', key: 'processing' }
+        ];
+        
+        // Apply all text replacements
+        textReplacements.forEach(item => {
+          const element = document.querySelector(item.selector);
+          if (element) {
+            element.textContent = t(item.key);
+          }
+        });
+        
+        // Update help texts
+        const helpTexts = document.querySelectorAll('#update-collections .form-help');
+        if (helpTexts.length >= 2) {
+          helpTexts[0].textContent = t('select_external_library_help');
+          helpTexts[1].textContent = t('select_local_collection_help');
+        }
+        
+        // Update select options
+        const librarySelectUpdate = document.querySelector('#library-select-update');
+        if (librarySelectUpdate && librarySelectUpdate.options.length > 0) {
+          if (librarySelectUpdate.options[0].text.includes('Carregando') || 
+              librarySelectUpdate.options[0].text.includes('Loading')) {
+            librarySelectUpdate.options[0].text = t('loading_libraries');
+          }
+        }
+        
+        const localCollectionSelect = document.querySelector('#local-collection-select');
+        if (localCollectionSelect && localCollectionSelect.options.length > 0) {
+          if (localCollectionSelect.options[0].text.includes('Carregando') || 
+              localCollectionSelect.options[0].text.includes('Loading')) {
+            localCollectionSelect.options[0].text = t('loading_local_collections');
+          } else if (localCollectionSelect.options[0].text.includes('Nenhuma') || 
+                     localCollectionSelect.options[0].text.includes('No')) {
+            localCollectionSelect.options[0].text = t('no_collections');
+          }
+        }
+        
+        // Update preview content
+        const previewContent = document.querySelector('#preview-content');
+        if (previewContent) {
+          const contentText = previewContent.textContent.trim();
+          if (contentText.includes('Ainda não há nada') || contentText.includes('Nothing to preview')) {
+            previewContent.textContent = t('no_preview_yet');
+          }
+        }
+        
+        // Update error messages
+        const errorContainerUpdate = document.querySelector('#error-container-update');
+        if (errorContainerUpdate && errorContainerUpdate.style.display !== 'none') {
+          const errorText = errorContainerUpdate.textContent.trim();
+          if (errorText.includes('Nenhuma coleção local encontrada') || 
+              errorText.includes('No local collection found')) {
+            errorContainerUpdate.textContent = t('no_local_collections');
+          }
+        }
+        
+        // Update error messages in variables tab
+        const errorContainerVar = document.querySelector('#error-container-var');
+        if (errorContainerVar && errorContainerVar.style.display !== 'none') {
+          const errorText = errorContainerVar.textContent.trim();
+          if (errorText.includes('Nenhuma variável ou estilo encontrado') || 
+              errorText.includes('No variables or styles found')) {
+            errorContainerVar.textContent = t('no_variables_found_selection');
+          }
+        }
+        
+        // Update confirmation modal if it exists
+        const confirmTitle = document.querySelector('.modal-title');
+        if (confirmTitle) {
+          confirmTitle.textContent = t('confirm_replacement');
+        }
+        
+        const variablesToReplaceTitle = document.querySelector('.variables-to-replace-title');
+        if (variablesToReplaceTitle) {
+          const count = variablesToReplaceTitle.textContent.match(/\d+/);
+          if (count) {
+            variablesToReplaceTitle.textContent = t('variables_to_be_replaced', { count: count[0] });
+          }
+        }
+        
+        const variablesNoMatchTitle = document.querySelector('.variables-no-match-title');
+        if (variablesNoMatchTitle) {
+          const count = variablesNoMatchTitle.textContent.match(/\d+/);
+          if (count) {
+            variablesNoMatchTitle.textContent = t('variables_without_matches', { count: count[0] });
+          }
+        }
+        
+        // Update match/no match indicators
+        const willBeReplacedElements = document.querySelectorAll('.will-be-replaced');
+        willBeReplacedElements.forEach(el => {
+          el.textContent = t('will_be_replaced');
+        });
+        
+        const noMatchElements = document.querySelectorAll('.no-match');
+        noMatchElements.forEach(el => {
+          el.textContent = t('no_match_found');
+        });
+        
+        // Update note text
+        const noteElement = document.querySelector('.modal-note');
+        if (noteElement) {
+          noteElement.textContent = t('replacement_note');
+        }
+        
+        // Update modal buttons
+        const cancelButton = document.querySelector('.modal-button-cancel');
+        if (cancelButton) {
+          cancelButton.textContent = t('cancel');
+        }
+        
+        const confirmButton = document.querySelector('.modal-button-confirm');
+        if (confirmButton) {
+          confirmButton.textContent = t('confirm_button');
+        }
+        
+        // Update footer with language indicator
+        const footerVersion = document.querySelector('.footer-version');
+        if (footerVersion) {
+          const version = '0.5.0-beta';
+          const langCode = t('language_code');
+          footerVersion.textContent = t('version_with_lang', { version: version, lang: langCode });
+        }
+        
+        console.log('UI language updated successfully');
+      } catch (error) {
+        console.error('Error updating UI language:', error);
+      }
     }
     
     document.addEventListener('DOMContentLoaded', function() {
@@ -1554,7 +1640,7 @@
       }
       
       // Solicitar uma prévia das substituições
-      previewContent.textContent = "Carregando prévia das correspondências...";
+      previewContent.textContent = getTranslation(currentLanguage, 'loading_preview');
       
       parent.postMessage({ 
         pluginMessage: { 
@@ -1604,10 +1690,10 @@
         componentsContainer.innerHTML = `
           <p class="info-message">As bibliotecas foram carregadas, mas podem estar incompletas.</p>
           <div class="component-item">
-            <div class="library-label">Variáveis</div>
-            <div class="component-name">Biblioteca do documento atual</div>
+            <div class="library-label">${getTranslation(currentLanguage, 'variables_label')}</div>
+            <div class="component-name">${getTranslation(currentLanguage, 'current_document_library')}</div>
             <div class="component-id">ID: documento-atual</div>
-            <div class="library-name">Biblioteca de Variáveis</div>
+            <div class="library-name">${getTranslation(currentLanguage, 'library_type')}</div>
           </div>
         `;
       }
@@ -1618,15 +1704,15 @@
     refreshButton.addEventListener('click', () => {
       // Atualizar apenas os elementos que existem
       if (componentsContainer) {
-        componentsContainer.innerHTML = '<p class="no-components">Procurando bibliotecas...</p>';
+        componentsContainer.innerHTML = `<p class="no-components">${getTranslation(currentLanguage, 'searching_libraries')}</p>`;
       }
       
       // Esconder mensagens de erro e mostrar mensagem de info
       hideError();
-      showInfo("Recarregando bibliotecas...");
+      showInfo(getTranslation(currentLanguage, 'reloading_libraries'));
       
       // Mostrar loading overlay
-      showLoadingOverlay("Recarregando bibliotecas...");
+      showLoadingOverlay(getTranslation(currentLanguage, 'reloading_libraries'));
       
       // Limpar qualquer timeout existente
       if (libraryLoadingTimeout) {
@@ -1668,7 +1754,7 @@
       // Limpar e mostrar loading
       clearCollectionsList();
       showCollectionsLoading();
-      collectionsLoading.textContent = "Carregando coleções...";
+      collectionsLoading.textContent = getTranslation(currentLanguage, 'loading_collections');
       
       // Solicitar coleções da biblioteca selecionada
       parent.postMessage({ 
@@ -1731,11 +1817,11 @@
         }
         
       // Reset do select de coleções e mostrar loading
-      collectionSelectVar.innerHTML = '<option value="">Carregando coleções...</option>';
+      collectionSelectVar.innerHTML = `<option value="">${getTranslation(currentLanguage, 'loading_collections')}</option>`;
       collectionSelectVar.disabled = true;
       
       // Limpar a prévia
-      previewContentVar.textContent = "Carregando coleções da biblioteca...";
+      previewContentVar.textContent = getTranslation(currentLanguage, 'loading_library_collections');
       loadingPreviewVar.style.display = 'block';
       updateButtonVar.disabled = true;
         
@@ -1869,7 +1955,7 @@
       // Manipulador de mensagens do plugin
     window.onmessage = async (event) => {
         const message = event.data.pluginMessage;
-        console.log('Mensagem recebida:', message);
+        console.log(currentLanguage === 'en' ? 'Message received:' : 'Mensagem recebida:', message);
 
         if (!message) return;
 
@@ -1908,8 +1994,10 @@
             // Esconde o loading
             loadingPreviewVar.style.display = 'none';
             hideLoadingOverlay();
-            // Mostra mensagem de erro
-            showErrorVar('Nenhuma variável ou estilo encontrado nos elementos selecionados.');
+            // Show error message with language-aware text
+            showErrorVar(currentLanguage === 'en' ? 
+              'No variables or styles found in the selected elements.' : 
+              'Nenhuma variável ou estilo encontrado nos elementos selecionados.');
             break;
             
           case 'preview-correspondencias':
@@ -1934,7 +2022,9 @@
               window.matchesData = [];
               
               updateButton.disabled = true;
-              previewContent.innerHTML = `<p class="warning">${message.message || 'Não há correspondências'}</p>`;
+              previewContent.innerHTML = `<p class="warning">${message.message || 
+                (currentLanguage === 'en' ? 'No matches found' : 'Não há correspondências')
+              }</p>`;
               if (message.error) {
                 previewContent.innerHTML += `<p class="error">${message.error}</p>`;
               }
@@ -1993,7 +2083,7 @@
           if (message.error) {
             showError(message.error);
             if (componentsContainer) {
-              componentsContainer.innerHTML = '<p class="error-message">Falha ao carregar bibliotecas.</p>';
+              componentsContainer.innerHTML = `<p class="error-message">${getTranslation(currentLanguage, 'failed_load_libraries')}</p>`;
             }
             return;
           }
@@ -2162,8 +2252,8 @@
         
         // Adicionar indicador de correspondência
         const matchIndicator = item.hasMatch ? 
-          '<span class="match-indicator" style="color: green; margin-right: 4px;">match</span>' : 
-          '<span class="match-indicator" style="color: red; margin-right: 4px;">unmatch</span>';
+          `<span class="match-indicator" style="color: green; margin-right: 4px;">${getTranslation(currentLanguage, 'match')}</span>` : 
+          `<span class="match-indicator" style="color: red; margin-right: 4px;">${getTranslation(currentLanguage, 'unmatch')}</span>`;
           
         li.innerHTML = `
           ${matchIndicator}
@@ -2179,7 +2269,7 @@
       liCollapse.className = 'more-items';
       liCollapse.innerHTML = `
         <button class="load-more-button" data-group="${groupId}" data-type="${groupType}" data-action="collapse">
-          Mostrar menos
+          ${getTranslation(currentLanguage, 'show_less')}
         </button>
       `;
       ulElement.appendChild(liCollapse);
@@ -2215,7 +2305,7 @@
       const items = variablesByGroup[groupType];
       liMore.innerHTML = `
             <button class="load-more-button" data-group="${groupId}" data-type="${groupType}">
-          Mostrar +${items.length - 5} itens
+          ${getTranslation(currentLanguage, 'show_more_items', {count: items.length - 5})}
             </button>
           `;
       ulElement.appendChild(liMore);
@@ -2367,7 +2457,7 @@
       // Função para atualizar a exibição de correspondências
       function updateMatchesDisplay() {
         if (!window.matchesData || !Array.isArray(window.matchesData)) {
-          previewContent.innerHTML = '<p class="warning">Não há correspondências disponíveis</p>';
+          previewContent.innerHTML = `<p class="warning">${getTranslation(currentLanguage, 'no_matches_available')}</p>`;
           return;
         }
         
@@ -2500,11 +2590,50 @@
       return html;
     }
     
-    // Função para mostrar o modal de confirmação com as variáveis a serem substituídas
+    // Function to show the confirmation modal with variables to be replaced
     function showConfirmModal() {
       if (!foundVariables || foundVariables.length === 0) {
-        showErrorVar("Nenhuma variável encontrada para substituir.");
+        showErrorVar(currentLanguage === 'en' ? 
+          "No variables found to replace." : 
+          "Nenhuma variável encontrada para substituir.");
         return;
+      }
+      
+      // Update modal title and description based on current language
+      const modalTitle = document.querySelector('.modal-title');
+      const modalDescription = document.querySelector('#confirm-modal .modal-content > p:first-child');
+      const modalNote = document.querySelector('.modal-note');
+      
+      if (modalTitle) {
+        modalTitle.textContent = currentLanguage === 'en' ? 
+          'Confirm Variable Replacement' : 
+          'Confirmar Substituição de Variáveis';
+      }
+      
+      if (modalDescription) {
+        modalDescription.textContent = currentLanguage === 'en' ? 
+          'You are about to replace the following variables and styles:' : 
+          'Você está prestes a substituir as seguintes variáveis e estilos:';
+      }
+      
+      if (modalNote) {
+        modalNote.textContent = currentLanguage === 'en' ? 
+          'Note: The replacement will only be applied to the selected scope.' : 
+          'Nota: A substituição será aplicada apenas ao escopo selecionado.';
+      }
+      
+      // Update buttons
+      const cancelButton = document.querySelector('#modal-cancel');
+      const confirmButton = document.querySelector('#modal-confirm');
+      
+      if (cancelButton) {
+        cancelButton.textContent = currentLanguage === 'en' ? 'Cancel' : 'Cancelar';
+      }
+      
+      if (confirmButton) {
+        confirmButton.textContent = currentLanguage === 'en' ? 
+          'Confirm Replacement' : 
+          'Confirmar Substituição';
       }
       
       // Limpar a lista de variáveis do modal
@@ -2540,7 +2669,11 @@
       if (matchingVars.length > 0) {
         const matchingHeader = document.createElement('div');
         matchingHeader.className = 'modal-group-header';
-        matchingHeader.innerHTML = `<strong>Variáveis a serem substituídas (${matchingVars.length})</strong>`;
+        matchingHeader.innerHTML = `<strong>${
+          currentLanguage === 'en' ? 
+            `Variables to be replaced (${matchingVars.length})` : 
+            `Variáveis a serem substituídas (${matchingVars.length})`
+        }</strong>`;
         modalVariablesList.appendChild(matchingHeader);
         
         matchingVars.forEach(v => {
@@ -2548,7 +2681,9 @@
           item.className = 'var-item';
           item.innerHTML = `
             <span class="var-name">${v.name}</span>
-            <span class="modal-item-match">Será substituída</span>
+            <span class="modal-item-match">${
+              currentLanguage === 'en' ? 'Will be replaced' : 'Será substituída'
+            }</span>
           `;
           modalVariablesList.appendChild(item);
         });
@@ -2558,7 +2693,11 @@
       if (nativeVars.length > 0) {
         const nativeHeader = document.createElement('div');
         nativeHeader.className = 'modal-group-header';
-        nativeHeader.innerHTML = `<strong>Variáveis nativas que não serão alteradas (${nativeVars.length})</strong>`;
+        nativeHeader.innerHTML = `<strong>${
+          currentLanguage === 'en' ? 
+            `Native variables that won't be changed (${nativeVars.length})` : 
+            `Variáveis nativas que não serão alteradas (${nativeVars.length})`
+        }</strong>`;
         modalVariablesList.appendChild(nativeHeader);
         
         nativeVars.forEach(v => {
@@ -2566,7 +2705,9 @@
           item.className = 'var-item';
           item.innerHTML = `
             <span class="var-name">${v.name}</span>
-            <span class="modal-item-native">Já é nativa</span>
+            <span class="modal-item-native">${
+              currentLanguage === 'en' ? 'Already native' : 'Já é nativa'
+            }</span>
           `;
           modalVariablesList.appendChild(item);
         });
@@ -2576,7 +2717,11 @@
       if (nonMatchingVars.length > 0) {
         const nonMatchingHeader = document.createElement('div');
         nonMatchingHeader.className = 'modal-group-header';
-        nonMatchingHeader.innerHTML = `<strong>Variáveis sem correspondência (${nonMatchingVars.length})</strong>`;
+        nonMatchingHeader.innerHTML = `<strong>${
+          currentLanguage === 'en' ? 
+            `Variables without matches (${nonMatchingVars.length})` : 
+            `Variáveis sem correspondência (${nonMatchingVars.length})`
+        }</strong>`;
         modalVariablesList.appendChild(nonMatchingHeader);
         
         nonMatchingVars.forEach(v => {
@@ -2584,7 +2729,9 @@
           item.className = 'var-item';
           item.innerHTML = `
             <span class="var-name">${v.name}</span>
-            <span class="modal-item-no-match">Sem correspondência</span>
+            <span class="modal-item-no-match">${
+              currentLanguage === 'en' ? 'No match found' : 'Sem correspondência'
+            }</span>
           `;
           modalVariablesList.appendChild(item);
         });
@@ -2720,10 +2867,14 @@
     });
     
     // Funções para controlar o loading overlay
-    function showLoadingOverlay(message = "Processando...") {
+    function showLoadingOverlay(message = null) {
       const loadingOverlay = document.getElementById('loading-overlay');
       const loadingText = document.getElementById('loading-text');
-      loadingText.textContent = message;
+      
+      // Use provided message or default based on current language
+      const defaultMessage = getTranslation(currentLanguage, 'processing');
+      loadingText.textContent = message || defaultMessage;
+      
       loadingOverlay.classList.add('active');
     }
     
@@ -2803,17 +2954,24 @@
           const selectedLanguage = languageSelect ? languageSelect.value : 'pt-br';
           console.log(`Saving language setting: ${selectedLanguage}`);
           
-          // Save the language preference
+          // Only update the language and refresh UI after clicking Save
+          currentLanguage = selectedLanguage;
+          
+          // Apply all translations
+          updateUILanguage();
+          updateTabContent();
+          updateDynamicContent();
+          
+          // In Figma plugin, we would save to clientStorage
           try {
-            // In Figma plugin, we would use clientStorage instead of localStorage
-            // This is just a mock for the UI preview
-            localStorage.setItem('aplica-variables-sweep-language', selectedLanguage);
+            // Send message to plugin code to save the preference
+            parent.postMessage({
+              pluginMessage: {
+                type: 'save-language-preference',
+                language: selectedLanguage
+              }
+            }, '*');
             
-            // Update current language and refresh UI
-            currentLanguage = selectedLanguage;
-            updateUILanguage();
-            
-            // Show success message (could be implemented with a toast notification)
             console.log('Settings saved successfully');
           } catch (error) {
             console.error('Error saving language preference:', error);
@@ -2848,49 +3006,309 @@
         return;
       }
       
-      // Handle language change
+      // Handle language change in the dropdown (just preview, don't apply yet)
       languageSelect.addEventListener('change', function(e) {
         const selectedLanguage = e.target.value;
-        console.log(`Language changed to: ${selectedLanguage}`);
-        // Update current language and refresh UI
-        currentLanguage = selectedLanguage;
-        updateUILanguage();
+        console.log(`Language selection changed to: ${selectedLanguage}`);
+        // Don't update the UI yet - wait for Save button
       });
       
-      // Try to get language from localStorage or plugin storage
+      // Set default language (Portuguese)
+      currentLanguage = 'pt-br';
+      languageSelect.value = currentLanguage;
+      
+      // Try to get language from plugin storage if available
       try {
-        // In Figma plugin, we would use clientStorage instead of localStorage
-        // This is just a mock for the UI preview
-        const savedLanguage = localStorage.getItem('aplica-variables-sweep-language');
-        if (savedLanguage && (savedLanguage === 'en' || savedLanguage === 'pt-br')) {
-          currentLanguage = savedLanguage;
-          // Update the select element to match the current language
-          languageSelect.value = currentLanguage;
-        } else {
-          // If no saved preference, try to detect from browser
-          const browserLanguage = navigator.language.toLowerCase();
-          if (browserLanguage.startsWith('pt')) {
-            currentLanguage = 'pt-br';
-          } else {
-            currentLanguage = 'en';
-          }
-          languageSelect.value = currentLanguage;
-        }
+        // In Figma plugin environment, we would use clientStorage
+        // For now, we'll just use the default language
+        parent.postMessage({ pluginMessage: { type: 'get-language-preference' } }, '*');
       } catch (error) {
         console.error('Error getting language preference:', error);
-        // Default to Portuguese if there's an error
-        currentLanguage = 'pt-br';
-        languageSelect.value = currentLanguage;
       }
       
       // Apply initial language
       updateUILanguage();
+      updateTabContent();
+      updateDynamicContent();
       console.log('Language system initialized with language:', currentLanguage);
+    }
+    
+    // Function to update all tab content based on current language
+    function updateTabContent() {
+      try {
+        // Update Update Collections tab
+        const updateCollectionsHeading = document.getElementById('update-collections-heading');
+        if (updateCollectionsHeading) {
+          updateCollectionsHeading.textContent = currentLanguage === 'en' ? 'Update Collections' : 'Atualizar Collections';
+        }
+        
+        // Update form labels in Update Collections tab
+        const formLabels = document.querySelectorAll('#update-collections .form-label');
+        if (formLabels.length >= 2) {
+          formLabels[0].textContent = currentLanguage === 'en' ? 'Reference Library:' : 'Biblioteca de referência:';
+          formLabels[1].textContent = currentLanguage === 'en' ? 'Local Collection:' : 'Coleção local:';
+        }
+        
+        // Update help text in Update Collections tab
+        const formHelp = document.querySelectorAll('#update-collections .form-help');
+        if (formHelp.length >= 2) {
+          formHelp[0].textContent = currentLanguage === 'en' ? 
+            'Select the external library with the variables you want to use as reference' : 
+            'Selecione a biblioteca externa com as variáveis que deseja usar como referência';
+          formHelp[1].textContent = currentLanguage === 'en' ? 
+            'Select the local collection whose variables will be replaced' : 
+            'Selecione a coleção local cujas variáveis serão substituídas';
+        }
+        
+        // Update preview title
+        const previewTitle = document.querySelector('.preview-title');
+        if (previewTitle) {
+          previewTitle.textContent = currentLanguage === 'en' ? 'Preview:' : 'Pré-visualização:';
+        }
+        
+        // Update preview content if it contains the default text
+        const previewContent = document.getElementById('preview-content');
+        if (previewContent && (previewContent.textContent.includes('Ainda não há nada') || previewContent.textContent.includes('Nothing to preview'))) {
+          previewContent.textContent = currentLanguage === 'en' ? 
+            'Nothing to preview yet. Select an external library and a local collection to see the matches.' : 
+            'Ainda não há nada para pré-visualizar. Selecione uma biblioteca externa e uma coleção local para ver as correspondências.';
+        }
+        
+        // Update button text
+        const updateButton = document.getElementById('update-button');
+        if (updateButton) {
+          updateButton.textContent = currentLanguage === 'en' ? 'Update Collections' : 'Atualizar Collections';
+        }
+        
+        // Update Variables tab
+        const updateVariablesHeading = document.querySelector('#update-variables h2');
+        if (updateVariablesHeading) {
+          updateVariablesHeading.textContent = currentLanguage === 'en' ? 'Update Variables' : 'Substituir Variáveis por Nó';
+        }
+        
+        // Update form labels in Update Variables tab
+        const varFormLabels = document.querySelectorAll('#update-variables .form-label');
+        if (varFormLabels.length >= 2) {
+          varFormLabels[0].textContent = currentLanguage === 'en' ? 'Reference Library:' : 'Biblioteca de referência:';
+          varFormLabels[1].textContent = currentLanguage === 'en' ? 'Reference Collection:' : 'Coleção de referência:';
+        }
+        
+        // Update all help text elements
+        const helpTextElements = document.querySelectorAll('.form-help');
+        helpTextElements.forEach(helpText => {
+          if (helpText.textContent.includes('Selecione a coleção de variáveis') || 
+              helpText.textContent.includes('Select the variable collection')) {
+            helpText.textContent = currentLanguage === 'en' ? 
+              'Select the variable collection you want to use as reference' : 
+              'Selecione a coleção de variáveis que deseja utilizar como referência';
+          } else if (helpText.textContent.includes('Selecione a biblioteca externa') || 
+                     helpText.textContent.includes('Select the external library')) {
+            helpText.textContent = currentLanguage === 'en' ? 
+              'Select the external library with the variables you want to use as reference' : 
+              'Selecione a biblioteca externa com as variáveis que deseja usar como referência';
+          } else if (helpText.textContent.includes('Selecione a coleção local') || 
+                     helpText.textContent.includes('Select the local collection')) {
+            helpText.textContent = currentLanguage === 'en' ? 
+              'Select the local collection whose variables will be replaced' : 
+              'Selecione a coleção local cujas variáveis serão substituídas';
+          }
+        });
+        
+        // Update help text in Update Variables tab
+        const varFormHelp = document.querySelectorAll('#update-variables .form-help');
+        if (varFormHelp.length >= 1) {
+          varFormHelp[0].textContent = currentLanguage === 'en' ? 
+            'Select the external library with the variables you want to use as reference' : 
+            'Selecione a biblioteca externa com as variáveis que deseja usar como referência';
+        }
+        
+        // Update scope label
+        const scopeLabel = document.querySelector('.scope-label');
+        if (scopeLabel) {
+          scopeLabel.textContent = currentLanguage === 'en' ? 'Substitution Scope' : 'Escopo de substituição';
+        }
+        
+        // Update scope options
+        const scopeLabels = document.querySelectorAll('#update-variables .radio-label');
+        if (scopeLabels.length >= 2) {
+          scopeLabels[0].textContent = currentLanguage === 'en' ? 'Current Selection' : 'Seleção Atual';
+          scopeLabels[1].textContent = currentLanguage === 'en' ? 'Current Page' : 'Página Atual';
+        }
+        
+        // Update buttons
+        const searchButton = document.getElementById('search-button');
+        if (searchButton) {
+          searchButton.textContent = currentLanguage === 'en' ? 'Search Variables' : 'Buscar Variáveis';
+        }
+        
+        const replaceButton = document.getElementById('replace-button');
+        if (replaceButton) {
+          replaceButton.textContent = currentLanguage === 'en' ? 'Replace Variables' : 'Substituir Variáveis';
+        }
+        
+        console.log('Tab content updated successfully');
+      } catch (error) {
+        console.error('Error updating tab content:', error);
+      }
+    }
+    
+    // Function to update dynamic content that might not be covered by other update functions
+    function updateDynamicContent() {
+      try {
+        // Update library type labels in List Libraries tab
+        const libraryTypeLabels = document.querySelectorAll('.library-type');
+        libraryTypeLabels.forEach(label => {
+          if (label.textContent === 'Variáveis' || label.textContent === 'Variables') {
+            label.textContent = currentLanguage === 'en' ? 'Variables' : 'Variáveis';
+          }
+        });
+        
+        // Update library description labels
+        const libraryDescLabels = document.querySelectorAll('.component-id');
+        libraryDescLabels.forEach(label => {
+          if (label.textContent === 'Biblioteca de Variáveis' || label.textContent === 'Variable Library') {
+            label.textContent = currentLanguage === 'en' ? 'Variable Library' : 'Biblioteca de Variáveis';
+          }
+        });
+        
+        // Update all library-related text in the list libraries tab
+        const allLibrariesText = document.querySelector('#list-libs h3 + p');
+        if (allLibrariesText && (allLibrariesText.textContent === 'All libraries:' || allLibrariesText.textContent === 'Todas as bibliotecas:')) {
+          allLibrariesText.textContent = currentLanguage === 'en' ? 'All libraries:' : 'Todas as bibliotecas:';
+        }
+        
+        // Update loading options
+        const loadingLibrariesOption = document.getElementById('loading-libraries-option');
+        if (loadingLibrariesOption) {
+          loadingLibrariesOption.textContent = currentLanguage === 'en' ? 
+            'Loading libraries...' : 'Carregando bibliotecas...';
+        }
+        
+        const loadingCollectionsOption = document.getElementById('loading-collections-option');
+        if (loadingCollectionsOption) {
+          loadingCollectionsOption.textContent = currentLanguage === 'en' ? 
+            'Loading local collections...' : 'Carregando coleções locais...';
+        }
+        
+        // Update dropdown options
+        const selectElements = document.querySelectorAll('select');
+        selectElements.forEach(select => {
+          Array.from(select.options).forEach(option => {
+            // Library selection placeholder
+            if (option.text === 'Selecione uma biblioteca...' || option.text === 'Select Library...') {
+              option.text = currentLanguage === 'en' ? 'Select Library...' : 'Selecione uma biblioteca...';
+            }
+            // Collection selection placeholder
+            else if (option.text === 'Selecione uma biblioteca primeiro' || option.text === 'Please select a library first') {
+              option.text = currentLanguage === 'en' ? 'Please select a library first' : 'Selecione uma biblioteca primeiro';
+            }
+            // No collections available
+            else if (option.text === 'Nenhuma coleção disponível nesta biblioteca' || 
+                     option.text === 'No collections available in this library') {
+              option.text = currentLanguage === 'en' ? 
+                'No collections available in this library' : 
+                'Nenhuma coleção disponível nesta biblioteca';
+            }
+            // Loading collections
+            else if (option.text === 'Carregando coleções...' || option.text === 'Loading collections...') {
+              option.text = currentLanguage === 'en' ? 'Loading collections...' : 'Carregando coleções...';
+            }
+            // Loading libraries
+            else if (option.text === 'Carregando bibliotecas...' || option.text === 'Loading libraries...') {
+              option.text = currentLanguage === 'en' ? 'Loading libraries...' : 'Carregando bibliotecas...';
+            }
+          });
+        });
+        
+        // Update help text in Variables tab
+        const collectionHelpText = document.getElementById('collection-help-text');
+        if (collectionHelpText) {
+          collectionHelpText.textContent = currentLanguage === 'en' ? 
+            'Select the variable collection you want to use as reference' : 
+            'Selecione a coleção de variáveis que deseja utilizar como referência';
+        }
+        
+        // Update variables found title
+        const variablesFoundTitle = document.getElementById('variables-found-title');
+        if (variablesFoundTitle) {
+          variablesFoundTitle.textContent = currentLanguage === 'en' ? 
+            'Variables and styles found' : 
+            'Variáveis e estilos encontrados';
+        }
+        
+        // Update modal note
+        const modalNote = document.querySelector('.modal-note');
+        if (modalNote) {
+          modalNote.textContent = currentLanguage === 'en' ? 
+            'Note: The replacement will only be applied to the selected scope.' : 
+            'Nota: A substituição será aplicada apenas ao escopo selecionado.';
+        }
+        
+        // Update radio labels
+        const radioLabels = document.querySelectorAll('.radio-group label');
+        if (radioLabels.length >= 2) {
+          if (radioLabels[0].textContent === 'Seleção atual' || radioLabels[0].textContent === 'Current Selection') {
+            radioLabels[0].textContent = currentLanguage === 'en' ? 'Current Selection' : 'Seleção atual';
+          }
+          if (radioLabels[1].textContent === 'Página atual' || radioLabels[1].textContent === 'Current Page') {
+            radioLabels[1].textContent = currentLanguage === 'en' ? 'Current Page' : 'Página atual';
+          }
+        }
+        
+        // Update all substitution scope labels
+        const scopeLabels = document.querySelectorAll('.form-label');
+        scopeLabels.forEach(label => {
+          if (label.textContent === 'Escopo de substituição' || label.textContent === 'Substitution Scope') {
+            label.textContent = currentLanguage === 'en' ? 'Substitution Scope' : 'Escopo de substituição';
+          }
+        });
+        
+        // Update all buttons
+        const buttons = document.querySelectorAll('button');
+        buttons.forEach(button => {
+          if (button.textContent === 'Substituir Variáveis' || button.textContent === 'Replace Variables') {
+            button.textContent = currentLanguage === 'en' ? 'Replace Variables' : 'Substituir Variáveis';
+          }
+        });
+        
+        // Specifically target the replace button
+        const replaceButton = document.querySelector('#replace-button');
+        if (replaceButton) {
+          replaceButton.textContent = currentLanguage === 'en' ? 'Replace Variables' : 'Substituir Variáveis';
+        }
+        
+        // Update match/unmatch indicators
+        const matchIndicators = document.querySelectorAll('.match-indicator');
+        matchIndicators.forEach(indicator => {
+          if (indicator.textContent === 'match' || indicator.textContent === 'correspondência') {
+            indicator.textContent = currentLanguage === 'en' ? 'match' : 'correspondência';
+          } else if (indicator.textContent === 'unmatch' || indicator.textContent === 'sem correspondência') {
+            indicator.textContent = currentLanguage === 'en' ? 'unmatch' : 'sem correspondência';
+          }
+        });
+        
+        // Update preview content if it contains default text
+        const previewContent = document.getElementById('preview-content');
+        if (previewContent) {
+          const contentText = previewContent.textContent.trim();
+          if (contentText.includes('Ainda não há nada') || contentText.includes('Nothing to preview')) {
+            previewContent.textContent = currentLanguage === 'en' ? 
+              'Nothing to preview yet. Select an external library and a local collection to see the matches.' : 
+              'Ainda não há nada para pré-visualizar. Selecione uma biblioteca externa e uma coleção local para ver as correspondências.';
+          }
+        }
+        
+        console.log('Dynamic content updated successfully');
+      } catch (error) {
+        console.error('Error updating dynamic content:', error);
+      }
     }
     
     // Call initialization on DOMContentLoaded
     document.addEventListener('DOMContentLoaded', function() {
       initializeLanguageSystem();
+      // Process i18n elements after DOM is loaded
+      processI18nElements();
     });
     
     // Also initialize immediately in case DOM is already loaded
@@ -2905,7 +3323,7 @@
 
   <!-- Footer -->
   <div class="footer">
-    <div class="footer-version">v0.5.0-beta</div>
+    <div class="footer-version">v0.5.0-beta | PT</div>
     <div class="footer-settings">
       <button id="settings-button" class="settings-button" aria-label="Settings" onclick="return toggleSettings();">
         <span class="material-icons">settings</span>
@@ -2938,4 +3356,252 @@
   </div>
   </div>
 </body>
+  <!-- Include translations directly in the HTML file for Figma plugin -->
+  <script>
+    // Translations embedded directly in the HTML file
+    // This ensures they're available in the Figma plugin environment
+    const translations = {
+      'en': {
+        // General
+        'language_code': 'EN',
+        'language_name': 'English',
+        
+        // Tabs
+        'update_collections': 'Update Collections',
+        'update_variables': 'Update Variables',
+        'list_libraries': 'List Libraries',
+        
+        // Update Collections tab
+        'update_collections_title': 'Update Collections',
+        'reference_library': 'Reference Library:',
+        'local_collection': 'Local Collection:',
+        'select_library': 'Select Library',
+        'select_collection': 'Select Collection',
+        'select_local_collection': 'Select Local Collection',
+        'update_button': 'Update Collections',
+        'no_libraries': 'No libraries available',
+        'select_library_first': 'Please select a library first',
+        'no_collections': 'No collections available in this library',
+        'preview_title': 'Preview:',
+        'preview_matches': 'Preview Matches',
+        'no_matches_found': 'No matches found',
+        'matches_found': 'Matches found:',
+        'local_variable': 'Local Variable',
+        'library_variable': 'Library Variable',
+        'loading_libraries': 'Loading libraries...',
+        'loading_local_collections': 'Loading local collections...',
+        'no_preview_yet': 'Nothing to preview yet. Select an external library and a local collection to see the matches.',
+        'select_external_library_help': 'Select the external library with the variables you want to use as reference',
+        'select_local_collection_help': 'Select the local collection whose variables will be replaced',
+        'no_local_collections': 'No local collection found. Create local variable collections first.',
+        
+        // Variable types and properties
+        'color_variables': 'Color Variables',
+        'fills': 'Fills',
+        'strokes': 'Strokes',
+        'numeric_variables': 'Numeric Variables',
+        'text_variables': 'Text Variables',
+        'effects': 'Effects',
+        'text_styles': 'Text Styles',
+        'layout_grids': 'Layout Grids',
+        'others': 'Others',
+        'match': 'match',
+        'no_match': 'no match',
+        'items_with_matches': '<strong>{count} of {total}</strong> items have matches in the selected collection.',
+        
+        // Update Variables tab
+        'update_variables_title': 'Update Variables',
+        'reference_library_var': 'Reference Library:',
+        'reference_collection': 'Reference Collection:',
+        'scope_selection': 'Substitution Scope',
+        'current_selection': 'Current Selection',
+        'current_page': 'Current Page',
+        'search_variables': 'Search Variables',
+        'replace_variables': 'Replace Variables',
+        'select_library_collection': 'Select Library and Collection',
+        'select_scope': 'Select Scope',
+        'no_variables_found_selection': 'No variables or styles found in the selected elements.',
+        
+        // List Libraries tab
+        'list_libraries_title': 'Aplica Variables Sweep',
+        'all_libraries': 'All libraries:',
+        'searching_libraries': 'Searching libraries...',
+        'reload': 'Reload',
+        'library_id': 'Library ID',
+        'library_type': 'Type',
+        'component_library': 'Component Library',
+        'variable_library': 'Variable Library',
+        
+        // Settings
+        'settings': 'Settings',
+        'settings_title': 'Settings',
+        'language': 'Language / Idioma',
+        'cancel': 'Cancel',
+        'save': 'Save',
+        'settings_saved': 'Settings saved successfully',
+        
+        // Messages
+        'processing': 'Processing...',
+        'no_selection': 'No elements selected',
+        'select_elements': 'Please select elements to process',
+        'no_variables_found': 'No variables found',
+        'variables_found': 'Variables found:',
+        'success': 'Success',
+        'error': 'Error',
+        'loading': 'Loading...',
+        'updating': 'Updating...',
+        'searching': 'Searching...',
+        
+        // Confirmation dialog
+        'confirm': 'Confirm',
+        'confirm_replace': 'Are you sure you want to replace these variables?',
+        'confirm_replacement': 'Confirm Variable Replacement',
+        'variables_to_be_replaced': 'Variables to be replaced ({count})',
+        'variables_without_matches': 'Variables without matches ({count})',
+        'will_be_replaced': 'Will be replaced',
+        'no_match_found': 'No match found',
+        'replacement_note': 'Note: The replacement will only be applied to the selected scope.',
+        'cancel': 'Cancel',
+        'confirm_button': 'Confirm Replacement',
+        'yes': 'Yes',
+        'no': 'No',
+        
+        // Error messages
+        'error_no_library': 'Error: No library selected',
+        'error_no_collection': 'Error: No collection selected',
+        'error_no_variables': 'Error: No variables found to replace',
+        'error_api': 'API Error: Could not complete the operation',
+        
+        // Success messages
+        'success_updated': 'Successfully updated {count} variables',
+        'success_replaced': 'Successfully replaced {count} variables',
+        
+        // Footer
+        'version': 'v{version}',
+        'version_with_lang': 'v{version} | {lang}'
+      },
+      'pt-br': {
+        // General
+        'language_code': 'PT',
+        'language_name': 'Português',
+        
+        // Tabs
+        'update_collections': 'Atualizar Collections',
+        'update_variables': 'Atualizar Variáveis',
+        'list_libraries': 'Listar Bibliotecas',
+        
+        // Update Collections tab
+        'update_collections_title': 'Atualizar Collections',
+        'reference_library': 'Biblioteca de referência:',
+        'local_collection': 'Coleção local:',
+        'select_library': 'Selecionar Biblioteca',
+        'select_collection': 'Selecionar Coleção',
+        'select_local_collection': 'Selecionar Coleção Local',
+        'update_button': 'Atualizar Collections',
+        'no_libraries': 'Nenhuma biblioteca disponível',
+        'select_library_first': 'Por favor, selecione uma biblioteca primeiro',
+        'no_collections': 'Nenhuma coleção disponível nesta biblioteca',
+        'preview_title': 'Pré-visualização:',
+        'preview_matches': 'Visualizar Correspondências',
+        'no_matches_found': 'Nenhuma correspondência encontrada',
+        'matches_found': 'Correspondências encontradas:',
+        'local_variable': 'Variável Local',
+        'library_variable': 'Variável da Biblioteca',
+        'loading_libraries': 'Carregando bibliotecas...',
+        'loading_local_collections': 'Carregando coleções locais...',
+        'no_preview_yet': 'Ainda não há nada para pré-visualizar. Selecione uma biblioteca externa e uma coleção local para ver as correspondências.',
+        'select_external_library_help': 'Selecione a biblioteca externa com as variáveis que deseja usar como referência',
+        'select_local_collection_help': 'Selecione a coleção local cujas variáveis serão substituídas',
+        'no_local_collections': 'Nenhuma coleção local encontrada. Crie coleções de variáveis locais primeiro.',
+        
+        // Variable types and properties
+        'color_variables': 'Variáveis de Cor',
+        'fills': 'Preenchimentos',
+        'strokes': 'Bordas',
+        'numeric_variables': 'Variáveis Numéricas',
+        'text_variables': 'Variáveis de Texto',
+        'effects': 'Efeitos',
+        'text_styles': 'Estilos de Texto',
+        'layout_grids': 'Grids de Layout',
+        'others': 'Outros',
+        'match': 'correspondência',
+        'no_match': 'sem correspondência',
+        'items_with_matches': '<strong>{count} de {total}</strong> itens têm correspondência na coleção selecionada.',
+        
+        // Update Variables tab
+        'update_variables_title': 'Atualizar Variáveis',
+        'reference_library_var': 'Biblioteca de referência:',
+        'reference_collection': 'Coleção de referência:',
+        'scope_selection': 'Escopo de substituição',
+        'current_selection': 'Seleção Atual',
+        'current_page': 'Página Atual',
+        'search_variables': 'Buscar Variáveis',
+        'replace_variables': 'Substituir Variáveis',
+        'select_library_collection': 'Selecionar Biblioteca e Coleção',
+        'select_scope': 'Selecionar Escopo',
+        'no_variables_found_selection': 'Nenhuma variável ou estilo encontrado nos elementos selecionados.',
+        
+        // List Libraries tab
+        'list_libraries_title': 'Aplica Variables Sweep',
+        'all_libraries': 'Todas as bibliotecas:',
+        'searching_libraries': 'Procurando bibliotecas...',
+        'reload': 'Recarregar',
+        'library_id': 'ID da Biblioteca',
+        'library_type': 'Tipo',
+        'component_library': 'Biblioteca de Componentes',
+        'variable_library': 'Biblioteca de Variáveis',
+        
+        // Settings
+        'settings': 'Configurações',
+        'settings_title': 'Configurações',
+        'language': 'Idioma / Language',
+        'cancel': 'Cancelar',
+        'save': 'Salvar',
+        'settings_saved': 'Configurações salvas com sucesso',
+        
+        // Messages
+        'processing': 'Processando...',
+        'no_selection': 'Nenhum elemento selecionado',
+        'select_elements': 'Por favor, selecione elementos para processar',
+        'no_variables_found': 'Nenhuma variável encontrada',
+        'variables_found': 'Variáveis encontradas:',
+        'success': 'Sucesso',
+        'error': 'Erro',
+        'loading': 'Carregando...',
+        'updating': 'Atualizando...',
+        'searching': 'Pesquisando...',
+        
+        // Confirmation dialog
+        'confirm': 'Confirmar',
+        'confirm_replace': 'Tem certeza que deseja substituir essas variáveis?',
+        'confirm_replacement': 'Confirmar Substituição de Variáveis',
+        'variables_to_be_replaced': 'Variáveis a serem substituídas ({count})',
+        'variables_without_matches': 'Variáveis sem correspondência ({count})',
+        'will_be_replaced': 'Será substituída',
+        'no_match_found': 'Sem correspondência',
+        'replacement_note': 'Nota: A substituição será aplicada apenas ao escopo selecionado.',
+        'cancel': 'Cancelar',
+        'confirm_button': 'Confirmar Substituição',
+        'yes': 'Sim',
+        'no': 'Não',
+        
+        // Error messages
+        'error_no_library': 'Erro: Nenhuma biblioteca selecionada',
+        'error_no_collection': 'Erro: Nenhuma coleção selecionada',
+        'error_no_variables': 'Erro: Nenhuma variável encontrada para substituir',
+        'error_api': 'Erro de API: Não foi possível completar a operação',
+        
+        // Success messages
+        'success_updated': 'Atualizadas com sucesso {count} variáveis',
+        'success_replaced': 'Substituídas com sucesso {count} variáveis',
+        
+        // Footer
+        'version': 'v{version}',
+        'version_with_lang': 'v{version} | {lang}'
+      }
+    };
+    
+    // Make translations available globally
+    window.translations = translations;
+  </script>
 </html> 
