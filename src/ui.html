@@ -864,13 +864,13 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 16px;
+      padding: .5rem 1rem;
       border-bottom: 1px solid #e5e7eb;
     }
 
     .settings-title {
       margin: 0;
-      font-size: 16px;
+      font-size: 0.75rem;
       font-weight: 600;
     }
 
@@ -893,7 +893,8 @@
     .settings-section label {
       display: block;
       margin-bottom: 8px;
-      font-weight: 500;
+      font-size: 0.75rem;
+      font-weight: 600;
       color: #374151;
     }
 
@@ -903,7 +904,7 @@
       border: 1px solid #d1d5db;
       border-radius: 4px;
       background-color: white;
-      font-size: 14px;
+      font-size: 12px;
       margin-bottom: 16px;
     }
     
@@ -2041,7 +2042,7 @@
               message.collections.forEach(collection => {
                 const option = document.createElement('option');
                 option.value = collection.id;
-              option.textContent = collection.name + (collection.type ? ` (${collection.type})` : '');
+              option.textContent = collection.name;
               collectionSelectVar.appendChild(option);
             });
             
@@ -3160,21 +3161,36 @@
         // Update library type labels in List Libraries tab
         const libraryTypeLabels = document.querySelectorAll('.library-type');
         libraryTypeLabels.forEach(label => {
-          if (label.textContent === 'Variáveis' || label.textContent === 'Variables') {
-            label.textContent = currentLanguage === 'en' ? 'Variables' : 'Variáveis';
+          if (label.textContent === 'Variáveis' || label.textContent === 'Variables' || label.textContent === 'Componentes' || label.textContent === 'Components') {
+            if (label.textContent === 'Variáveis' || label.textContent === 'Variables') {
+              label.textContent = currentLanguage === 'en' ? 'Variables' : 'Variáveis';
+            } else if (label.textContent === 'Componentes' || label.textContent === 'Components') {
+              label.textContent = currentLanguage === 'en' ? 'Components' : 'Componentes';
+            }
           }
         });
         
         // Update library description labels
         const libraryDescLabels = document.querySelectorAll('.component-id');
         libraryDescLabels.forEach(label => {
-          if (label.textContent === 'Biblioteca de Variáveis' || label.textContent === 'Variable Library') {
-            label.textContent = currentLanguage === 'en' ? 'Variable Library' : 'Biblioteca de Variáveis';
+          if (label.textContent === 'Biblioteca de Variáveis' || label.textContent === 'Variable Library' || 
+              label.textContent === 'Biblioteca de Componentes' || label.textContent === 'Component Library') {
+            if (label.textContent === 'Biblioteca de Variáveis' || label.textContent === 'Variable Library') {
+              label.textContent = currentLanguage === 'en' ? 'Variable Library' : 'Biblioteca de Variáveis';
+            } else if (label.textContent === 'Biblioteca de Componentes' || label.textContent === 'Component Library') {
+              label.textContent = currentLanguage === 'en' ? 'Component Library' : 'Biblioteca de Componentes';
+            }
           }
         });
         
+        // Update the List Libraries tab title
+        const listLibrariesTitle = document.querySelector('#list-libs h2');
+        if (listLibrariesTitle) {
+          listLibrariesTitle.textContent = currentLanguage === 'en' ? 'List Libraries' : 'Lista de Bibliotecas';
+        }
+        
         // Update all library-related text in the list libraries tab
-        const allLibrariesText = document.querySelector('#list-libs h3 + p');
+        const allLibrariesText = document.querySelector('#list-libs .section-title');
         if (allLibrariesText && (allLibrariesText.textContent === 'All libraries:' || allLibrariesText.textContent === 'Todas as bibliotecas:')) {
           allLibrariesText.textContent = currentLanguage === 'en' ? 'All libraries:' : 'Todas as bibliotecas:';
         }
