@@ -2134,8 +2134,15 @@
             libraryElement.className = 'component-item';
             
             const labelElement = document.createElement('span');
-            labelElement.className = 'library-label';
-            labelElement.textContent = library.type || 'Biblioteca';
+            labelElement.className = 'library-label library-type';
+            // Traduzir o tipo da biblioteca de acordo com o idioma atual
+            if (library.type === 'Variáveis' || library.type === 'Variables') {
+              labelElement.textContent = currentLanguage === 'en' ? 'Variables' : 'Variáveis';
+            } else if (library.type === 'Componentes' || library.type === 'Components') {
+              labelElement.textContent = currentLanguage === 'en' ? 'Components' : 'Componentes';
+            } else {
+              labelElement.textContent = library.type || (currentLanguage === 'en' ? 'Library' : 'Biblioteca');
+            }
             libraryElement.appendChild(labelElement);
             
             const nameElement = document.createElement('div');
@@ -2150,8 +2157,15 @@
             
             if (library.library) {
               const typeElement = document.createElement('div');
-              typeElement.className = 'library-name';
-              typeElement.textContent = library.library;
+              typeElement.className = 'library-name component-id';
+              // Traduzir o nome da biblioteca de acordo com o idioma atual
+              if (library.library === 'Biblioteca de Variáveis' || library.library === 'Variable Library') {
+                typeElement.textContent = currentLanguage === 'en' ? 'Variable Library' : 'Biblioteca de Variáveis';
+              } else if (library.library === 'Biblioteca de Componentes' || library.library === 'Component Library') {
+                typeElement.textContent = currentLanguage === 'en' ? 'Component Library' : 'Biblioteca de Componentes';
+              } else {
+                typeElement.textContent = library.library;
+              }
               libraryElement.appendChild(typeElement);
             }
             
@@ -2964,6 +2978,13 @@
           updateUILanguage();
           updateTabContent();
           updateDynamicContent();
+          
+          // Recarregar as bibliotecas para atualizar os textos
+          parent.postMessage({
+            pluginMessage: {
+              type: 'reload-libraries'
+            }
+          }, '*');
           
           // In Figma plugin, we would save to clientStorage
           try {

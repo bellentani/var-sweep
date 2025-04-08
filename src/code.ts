@@ -2386,6 +2386,13 @@ figma.ui.onmessage = async (msg) => {
     return;
   }
   
+  // Tratar mensagem de recarregar bibliotecas (após mudança de idioma)
+  if (msg.type === 'reload-libraries') {
+    console.log("[BIBLIOTECA-SWEEP] Recarregando bibliotecas após mudança de idioma");
+    await carregarBibliotecas();
+    return;
+  }
+  
   // Tratar a resposta de seleção de biblioteca e coleção
   if (msg.type === 'resposta-selecao-biblioteca-colecao') {
     // Esta mensagem é tratada internamente na função testeFloat
