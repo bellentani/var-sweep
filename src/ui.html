@@ -1047,7 +1047,8 @@
       <p class="no-components">Procurando bibliotecas...</p>
     </div>
     
-    <button id="refresh-button" class="action-button">Recarregar</button>
+    <!-- Botão temporariamente desabilitado - será implementado no futuro -->
+    <button id="refresh-button" class="action-button" style="display: none;"  disabled title="Funcionalidade temporariamente desabilitada">Recarregar</button>
   </div>
 
   <!-- Modal de confirmação para substituição de variáveis -->
@@ -1229,14 +1230,94 @@
       }, '*');
     }
     
-    // Evento para o botão de recarregar
-    refreshButton.addEventListener('click', () => {
-      componentsContainer.innerHTML = '<p class="no-components">Procurando bibliotecas...</p>';
-      librarySelect.innerHTML = '<option value="">Carregando bibliotecas...</option>';
-      hideError();
+    // Variável para armazenar o ID do timeout
+    let libraryLoadingTimeout;
+    
+    // Função para lidar com timeout de carregamento de bibliotecas
+    function handleLibraryLoadingTimeout() {
+      console.error('[UI] Timeout: Carregamento de bibliotecas excedeu o tempo limite');
+      if (componentsContainer) {
+        componentsContainer.innerHTML = '<p class="error-message">Falha ao carregar bibliotecas. O tempo limite foi excedido.</p>';
+      }
+      showError("Falha ao carregar bibliotecas. Tente novamente ou reinicie o plugin.");
+      hideLoadingOverlay();
+      
+      // Notificar o plugin sobre o timeout
+      parent.postMessage({ 
+        pluginMessage: { 
+          type: 'loading-timeout',
+          message: 'O carregamento de bibliotecas excedeu o tempo limite'
+        } 
+      }, '*');
+    }
+    
+    // Variável para armazenar o ID do timeout de forçar exibição
+    let forceDisplayTimeout;
+    
+    // Função para forçar a exibição das bibliotecas mesmo sem resposta
+    function forceDisplayLibraries() {
+      console.warn('[UI] Forçando exibição das bibliotecas após timeout');
+      
+      // Esconder o loading overlay
+      hideLoadingOverlay();
+      
+      // Limpar a mensagem de info
       showInfo("");
-      showCollectionsLoading();
+      
+      // Mostrar uma mensagem no container de componentes
+      if (componentsContainer) {
+        componentsContainer.innerHTML = `
+          <p class="info-message">As bibliotecas foram carregadas, mas podem estar incompletas.</p>
+          <div class="component-item">
+            <div class="library-label">Variáveis</div>
+            <div class="component-name">Biblioteca do documento atual</div>
+            <div class="component-id">ID: documento-atual</div>
+            <div class="library-name">Biblioteca de Variáveis</div>
+          </div>
+        `;
+      }
+    }
+    
+    // Evento para o botão de recarregar - temporariamente desabilitado
+    /* 
+    refreshButton.addEventListener('click', () => {
+      // Atualizar apenas os elementos que existem
+      if (componentsContainer) {
+        componentsContainer.innerHTML = '<p class="no-components">Procurando bibliotecas...</p>';
+      }
+      
+      // Esconder mensagens de erro e mostrar mensagem de info
+      hideError();
+      showInfo("Recarregando bibliotecas...");
+      
+      // Mostrar loading overlay
+      showLoadingOverlay("Recarregando bibliotecas...");
+      
+      // Limpar qualquer timeout existente
+      if (libraryLoadingTimeout) {
+        clearTimeout(libraryLoadingTimeout);
+      }
+      
+      if (forceDisplayTimeout) {
+        clearTimeout(forceDisplayTimeout);
+      }
+      
+      // Configurar um novo timeout para o erro (20 segundos)
+      libraryLoadingTimeout = setTimeout(handleLibraryLoadingTimeout, 20000);
+      
+      // Configurar um timeout para forçar a exibição mesmo sem resposta (10 segundos)
+      forceDisplayTimeout = setTimeout(forceDisplayLibraries, 10000);
+      
+      // Enviar mensagem para recarregar
       parent.postMessage({ pluginMessage: { type: 'recarregar' } }, '*');
+      
+      console.log('[UI] Solicitação de recarregamento de bibliotecas enviada');
+    });
+    */
+    
+    // Adicionar tooltip explicando que o botão está desabilitado temporariamente
+    refreshButton.addEventListener('mouseover', () => {
+      refreshButton.title = "Funcionalidade temporariamente desabilitada";
     });
 
     // Evento para o seletor de bibliotecas
@@ -1553,12 +1634,39 @@
             break;
 
           case 'libraries-data':
+          // Limpar os timeouts quando os dados chegarem
+          if (libraryLoadingTimeout) {
+            clearTimeout(libraryLoadingTimeout);
+            libraryLoadingTimeout = null;
+          }
+          
+          if (forceDisplayTimeout) {
+            clearTimeout(forceDisplayTimeout);
+            forceDisplayTimeout = null;
+          }
+          
+          // Esconder o loading overlay
+          hideLoadingOverlay();
+          
+          // Limpar a mensagem de info
+          showInfo("");
+          
+          console.log('[UI] Dados de bibliotecas recebidos:', message.libraries);
           const libraries = message.libraries || [];
           
-            // Limpar e preencher o select com as bibliotecas
+          // Verificar se há uma mensagem de erro
+          if (message.error) {
+            showError(message.error);
+            if (componentsContainer) {
+              componentsContainer.innerHTML = '<p class="error-message">Falha ao carregar bibliotecas.</p>';
+            }
+            return;
+          }
+          
+          // Limpar e preencher o select com as bibliotecas
           if (librarySelect) librarySelect.innerHTML = '';
           librarySelectUpdate.innerHTML = '';
-            librarySelectVar.innerHTML = '';
+          librarySelectVar.innerHTML = '';
           
           // Adicionar opção padrão
           const defaultOption = document.createElement('option');
@@ -1568,25 +1676,26 @@
             : 'Nenhuma biblioteca disponível';
           
           if (librarySelect) librarySelect.appendChild(defaultOption.cloneNode(true));
-            librarySelectUpdate.appendChild(defaultOption.cloneNode(true));
-            librarySelectVar.appendChild(defaultOption.cloneNode(true));
+          librarySelectUpdate.appendChild(defaultOption.cloneNode(true));
+          librarySelectVar.appendChild(defaultOption.cloneNode(true));
           
           // Adicionar opções para cada biblioteca
           libraries.forEach(library => {
             const option = document.createElement('option');
             option.value = library.id;
             option.textContent = library.name;
-              
+            
             if (librarySelect) librarySelect.appendChild(option.cloneNode(true));
-              librarySelectUpdate.appendChild(option.cloneNode(true));
-              librarySelectVar.appendChild(option.cloneNode(true));
-            });
+            librarySelectUpdate.appendChild(option.cloneNode(true));
+            librarySelectVar.appendChild(option.cloneNode(true));
+          });
           
           // Mostrar bibliotecas no container principal
           componentsContainer.innerHTML = '';
           
           if (!libraries || libraries.length === 0) {
             componentsContainer.innerHTML = '<p class="no-components">Não foram encontradas bibliotecas neste arquivo</p>';
+            showInfo("Nenhuma biblioteca encontrada no documento atual.");
             return;
           }
           

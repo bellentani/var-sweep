@@ -69,11 +69,22 @@ function serializarSeguro(obj: any): string {
 // Função para listar bibliotecas únicas ADICIONADAS ao arquivo (não apenas usadas)
 async function carregarBibliotecas(): Promise<void> {
   try {
-    console.log("Iniciando carregamento de bibliotecas ADICIONADAS...");
+    figma.notify("Carregando bibliotecas...", {timeout: 2000});
+    console.log("[BIBLIOTECA-SWEEP] Iniciando carregamento de bibliotecas ADICIONADAS...");
+    console.log("[BIBLIOTECA-SWEEP] Timestamp de início: " + new Date().toISOString());
     
     // Usamos um Map para garantir que cada biblioteca apareça apenas uma vez
     // A chave é o nome da biblioteca, o valor é a informação da biblioteca
     const bibliotecasMap = new Map<string, BibliotecaInfo>();
+    
+    // Registrar informações sobre o documento atual
+    console.log("[BIBLIOTECA-SWEEP] Informações do documento: " + 
+      JSON.stringify({
+        id: figma.fileKey,
+        name: figma.root.name,
+        type: figma.root.type
+      })
+    );
 
     // MÉTODO 1: Obter bibliotecas de variáveis
     try {
@@ -296,7 +307,9 @@ async function carregarBibliotecas(): Promise<void> {
     
     // Se não encontramos nenhuma biblioteca, mostramos uma mensagem
     if (bibliotecas.length === 0) {
-      console.log("Nenhuma biblioteca adicionada encontrada");
+      console.log("[BIBLIOTECA-SWEEP] Nenhuma biblioteca adicionada encontrada");
+      console.log("[BIBLIOTECA-SWEEP] Timestamp de conclusão (sem bibliotecas): " + new Date().toISOString());
+      figma.notify("Nenhuma biblioteca encontrada", {timeout: 3000});
       figma.ui.postMessage({
         type: 'libraries-data',
         message: "Não foi possível encontrar bibliotecas adicionadas a este documento. Adicione bibliotecas através do menu 'Libraries' do Figma.",
@@ -306,7 +319,11 @@ async function carregarBibliotecas(): Promise<void> {
     }
     
     // Exibimos as bibliotecas encontradas
-    console.log(`Encontradas ${bibliotecas.length} bibliotecas adicionadas no total`);
+    console.log(`[BIBLIOTECA-SWEEP] Encontradas ${bibliotecas.length} bibliotecas adicionadas no total`);
+    console.log("[BIBLIOTECA-SWEEP] Lista de bibliotecas encontradas: " + bibliotecas.map(b => b.name).join(", "));
+    console.log("[BIBLIOTECA-SWEEP] Timestamp de conclusão (com bibliotecas): " + new Date().toISOString());
+    figma.notify(`Encontradas ${bibliotecas.length} bibliotecas`, {timeout: 2000});
+    
     figma.ui.postMessage({
       type: 'libraries-data',
       message: `Encontradas ${bibliotecas.length} bibliotecas adicionadas`,
@@ -315,10 +332,15 @@ async function carregarBibliotecas(): Promise<void> {
     
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("Erro no processamento principal:", errorMessage);
+    console.error("[BIBLIOTECA-SWEEP] Erro no processamento principal: " + errorMessage);
+    console.log("[BIBLIOTECA-SWEEP] Timestamp do erro: " + new Date().toISOString());
+    figma.notify("Erro ao carregar bibliotecas", {error: true, timeout: 3000});
+    
+    // Enviar mensagem de erro para a UI
     figma.ui.postMessage({
-      type: 'error',
-      message: "Ocorreu um erro ao tentar listar as bibliotecas: " + errorMessage
+      type: 'libraries-data',
+      libraries: [],
+      error: 'Erro ao carregar bibliotecas: ' + errorMessage
     });
   }
 }
@@ -2355,7 +2377,14 @@ async function substituirVariaveisEmColecao(matches: Array<{
 
 // Configurar o manipulador de mensagens
 figma.ui.onmessage = async (msg) => {
-  console.log('Mensagem recebida:', msg);
+  console.log('[BIBLIOTECA-SWEEP] Mensagem recebida:', msg);
+  
+  // Tratar mensagem de timeout de carregamento
+  if (msg.type === 'loading-timeout') {
+    console.error("[BIBLIOTECA-SWEEP] Timeout reportado pela UI: " + msg.message);
+    figma.notify("O carregamento de bibliotecas excedeu o tempo limite", {error: true, timeout: 3000});
+    return;
+  }
   
   // Tratar a resposta de seleção de biblioteca e coleção
   if (msg.type === 'resposta-selecao-biblioteca-colecao') {
@@ -2583,10 +2612,13 @@ figma.ui.onmessage = async (msg) => {
     console.log('UI pronta, carregando dados iniciais...');
     await carregarDadosIniciais();
   }
+  // Funcionalidade de recarregar temporariamente desabilitada
+  /*
   else if (msg.type === 'recarregar') {
     console.log('Recarregando dados...');
     await carregarDadosIniciais();
   }
+  */
   else if (msg.type === 'carregarColecoes') {
     console.log(`Carregando coleções da biblioteca: ${msg.libraryId}`);
     await carregarColecoes(msg.libraryId);
