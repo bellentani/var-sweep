@@ -661,7 +661,7 @@ async function carregarColecoesLocais(): Promise<void> {
     const colecoes: ColecaoInfo[] = [];
     
     // Obter todas as coleções de variáveis locais
-    const localCollections = figma.variables.getLocalVariableCollections();
+    const localCollections = await figma.variables.getLocalVariableCollectionsAsync();
     
     if (localCollections && localCollections.length > 0) {
       console.log(`Encontradas ${localCollections.length} coleções locais de variáveis`);
@@ -979,7 +979,7 @@ async function aplicarVariavelFloat(node: SceneNode, variable: { id: string, nam
     }
     
     // Obter a variável
-    const varObj = figma.variables.getVariableById(variable.id);
+    const varObj = await figma.variables.getVariableByIdAsync(variable.id);
     if (!varObj) {
       console.log(`Variável não encontrada com ID ${variable.id}`);
       return false;
@@ -1448,7 +1448,7 @@ async function buscarVariaveisEEstilos(escopo: 'selection' | 'page'): Promise<Va
   // Conjunto para controlar variáveis que já foram adicionadas
   const addedVariableIds = new Set<string>();
 
-  function processarNo(node: BaseNode) {
+  async function processarNo(node: BaseNode) {
     // Verifica variáveis vinculadas
     if ('boundVariables' in node) {
       const boundVars = (node as any).boundVariables;
@@ -1457,10 +1457,10 @@ async function buscarVariaveisEEstilos(escopo: 'selection' | 'page'): Promise<Va
         console.log(`Propriedades vinculadas:`, Object.keys(boundVars));
         
         // Processar todas as propriedades com variáveis vinculadas
-        Object.entries(boundVars).forEach(([property, value]: [string, any]) => {
+        for (const [property, value] of Object.entries(boundVars)) {
           // Se é um valor de variável única
-          if (value && value.id) {
-            const variable = figma.variables.getVariableById(value.id);
+          if (value && typeof value === 'object' && 'id' in value) {
+            const variable = await figma.variables.getVariableByIdAsync(value.id as string);
             if (variable && !addedVariableIds.has(variable.id)) {
               console.log(`Encontrada variável: ${variable.name}, tipo: ${variable.resolvedType}`);
               addedVariableIds.add(variable.id);
@@ -1477,24 +1477,25 @@ async function buscarVariaveisEEstilos(escopo: 'selection' | 'page'): Promise<Va
           } 
           // Se é um array de variáveis (como em fills ou strokes)
           else if (Array.isArray(value)) {
-            value.forEach((varItem, index) => {
-              if (varItem && varItem.id) {
-                const variable = figma.variables.getVariableById(varItem.id);
+            for (let index = 0; index < value.length; index++) {
+              const varItem = value[index];
+              if (varItem && typeof varItem === 'object' && 'id' in varItem) {
+                const variable = await figma.variables.getVariableByIdAsync(varItem.id as string);
                 if (variable && !addedVariableIds.has(variable.id)) {
                   addedVariableIds.add(variable.id);
-              variables.push({
-                name: variable.name,
-                type: variable.resolvedType.toString(),
-                collection: variable.variableCollectionId,
-                nodeId: node.id,
+                  variables.push({
+                    name: variable.name,
+                    type: variable.resolvedType.toString(),
+                    collection: variable.variableCollectionId,
+                    nodeId: node.id,
                     property: `${property}[${index}]`,
                     isRealVariable: true // Esta é uma variável real
                   });
                 }
               }
-            });
+            }
           }
-        });
+        }
       }
     }
     
@@ -1506,8 +1507,9 @@ async function buscarVariaveisEEstilos(escopo: 'selection' | 'page'): Promise<Va
                             (node as any).boundVariables.fills;
                             
       // Se não tem variáveis vinculadas a fills, adicionar como cores inline
-      if (!hasBoundFills) {
-        node.fills.forEach((fill, index) => {
+      if (!hasBoundFills && node.fills) {
+        for (let index = 0; index < node.fills.length; index++) {
+          const fill = node.fills[index];
           if (fill.type === 'SOLID' && fill.color) {
             const rgba = `rgba(${Math.round(fill.color.r * 255)}, ${Math.round(fill.color.g * 255)}, ${Math.round(fill.color.b * 255)}, ${fill.opacity || 1})`;
             
@@ -1521,7 +1523,7 @@ async function buscarVariaveisEEstilos(escopo: 'selection' | 'page'): Promise<Va
               colorValue: rgba
             });
           }
-        });
+        }
       }
     }
     
@@ -1532,8 +1534,9 @@ async function buscarVariaveisEEstilos(escopo: 'selection' | 'page'): Promise<Va
                              (node as any).boundVariables.strokes;
                              
       // Se não tem variáveis vinculadas a strokes, adicionar como cores inline                       
-      if (!hasBoundStrokes) {
-        node.strokes.forEach((stroke, index) => {
+      if (!hasBoundStrokes && node.strokes) {
+        for (let index = 0; index < node.strokes.length; index++) {
+          const stroke = node.strokes[index];
           if (stroke.type === 'SOLID' && stroke.color) {
             const rgba = `rgba(${Math.round(stroke.color.r * 255)}, ${Math.round(stroke.color.g * 255)}, ${Math.round(stroke.color.b * 255)}, ${stroke.opacity || 1})`;
                                
@@ -1547,13 +1550,13 @@ async function buscarVariaveisEEstilos(escopo: 'selection' | 'page'): Promise<Va
               colorValue: rgba
             });
           }
-        });
+        }
       }
     }
 
     // Verifica estilos
     if ('fillStyleId' in node && node.fillStyleId) {
-      const style = figma.getStyleById(node.fillStyleId.toString());
+      const style = await figma.getStyleByIdAsync(node.fillStyleId.toString());
       if (style) {
         variables.push({
           name: style.name,
@@ -1566,7 +1569,7 @@ async function buscarVariaveisEEstilos(escopo: 'selection' | 'page'): Promise<Va
     }
 
     if ('strokeStyleId' in node && node.strokeStyleId) {
-      const style = figma.getStyleById(node.strokeStyleId.toString());
+      const style = await figma.getStyleByIdAsync(node.strokeStyleId.toString());
       if (style) {
         variables.push({
           name: style.name,
@@ -1579,7 +1582,7 @@ async function buscarVariaveisEEstilos(escopo: 'selection' | 'page'): Promise<Va
               }
 
     if ('effectStyleId' in node && node.effectStyleId) {
-      const style = figma.getStyleById(node.effectStyleId.toString());
+      const style = await figma.getStyleByIdAsync(node.effectStyleId.toString());
       if (style) {
         variables.push({
           name: style.name,
@@ -1592,7 +1595,7 @@ async function buscarVariaveisEEstilos(escopo: 'selection' | 'page'): Promise<Va
     }
 
     if ('textStyleId' in node && node.textStyleId) {
-      const style = figma.getStyleById(node.textStyleId.toString());
+      const style = await figma.getStyleByIdAsync(node.textStyleId.toString());
       if (style) {
         variables.push({
           name: style.name,
@@ -1605,7 +1608,7 @@ async function buscarVariaveisEEstilos(escopo: 'selection' | 'page'): Promise<Va
     }
 
     if ('gridStyleId' in node && node.gridStyleId) {
-      const style = figma.getStyleById(node.gridStyleId.toString());
+      const style = await figma.getStyleByIdAsync(node.gridStyleId.toString());
       if (style) {
         variables.push({
           name: style.name,
@@ -1619,12 +1622,16 @@ async function buscarVariaveisEEstilos(escopo: 'selection' | 'page'): Promise<Va
 
     // Processa nós filhos recursivamente
     if ('children' in node) {
-      (node as any).children.forEach((child: BaseNode) => processarNo(child));
+      for (const child of (node as any).children) {
+        await processarNo(child);
+      }
     }
   }
 
   // Processa todos os nós no escopo
-  nodes.forEach(node => processarNo(node));
+  for (const node of nodes) {
+    await processarNo(node);
+  }
 
   return variables;
 }
@@ -1771,9 +1778,10 @@ async function preVisualizarCorrespondencias(libraryId: string, localCollectionI
     console.log(`Obtidas ${libraryVariables.length} variáveis da biblioteca para referência`);
     
     // Obter variáveis da coleção local
-    const localVariables = localCollection.variableIds.map((id: string) => 
-      figma.variables.getVariableById(id)
-    ).filter((v: any) => v !== null);
+    const localVariablesPromises = localCollection.variableIds.map(async (id: string) => 
+      await figma.variables.getVariableByIdAsync(id)
+    );
+    const localVariables = (await Promise.all(localVariablesPromises)).filter((v: any) => v !== null);
     
     console.log(`Encontradas ${localVariables.length} variáveis na coleção local`);
     
@@ -1861,7 +1869,7 @@ async function preVisualizarCorrespondencias(libraryId: string, localCollectionI
             ((localValue as any).type === 'VARIABLE_ALIAS') && 
             'id' in localValue) {
               const referencedVarId = localValue.id as string;
-              const referencedVar = figma.variables.getVariableById(referencedVarId);
+              const referencedVar = await figma.variables.getVariableByIdAsync(referencedVarId);
               
               if (referencedVar) {
             const matchingLibraryVars = libraryVariables.filter(v => v.name === referencedVar.name);
@@ -1934,7 +1942,7 @@ async function preVisualizarCorrespondencias(libraryId: string, localCollectionI
     for (const localId in matchesMap) {
       try {
         // Obter a variável local
-        const localVar = figma.variables.getVariableById(localId);
+        const localVar = await figma.variables.getVariableByIdAsync(localId);
         
         if (!localVar) {
           console.warn(`Variável local com ID ${localId} não encontrada`);
@@ -1990,7 +1998,7 @@ async function preVisualizarCorrespondencias(libraryId: string, localCollectionI
                   valorFormatado = (valorLocal as any).value ? 'true' : 'false';
                   break;
                 case 'VARIABLE_ALIAS':
-                  const refVar = figma.variables.getVariableById((valorLocal as any).id);
+                  const refVar = await figma.variables.getVariableByIdAsync((valorLocal as any).id);
                   valorFormatado = refVar ? `→ ${refVar.name}` : `→ ID:${(valorLocal as any).id}`;
                   break;
                 default:
@@ -2068,7 +2076,7 @@ async function substituirVariaveisEmColecao(matches: Array<{
     let variaveisComErro = 0;
     
     // Função para formatar valor para exibição nos logs
-    function formatarValorLog(valor: any): string {
+    async function formatarValorLog(valor: any): Promise<string> {
       if (!valor) return "undefined";
       
       if (typeof valor === 'object') {
@@ -2079,7 +2087,7 @@ async function substituirVariaveisEmColecao(matches: Array<{
         } else if (valor.type === 'STRING') {
           return `"${valor.value}"`;
         } else if (valor.type === 'VARIABLE_ALIAS') {
-          const refVar = figma.variables.getVariableById(valor.id);
+          const refVar = await figma.variables.getVariableByIdAsync(valor.id);
           return `Alias -> ${refVar ? refVar.name : valor.id}`;
         } else {
           return JSON.stringify(valor);
@@ -2128,7 +2136,7 @@ async function substituirVariaveisEmColecao(matches: Array<{
       if (typeof valor === 'object' && valor !== null && 
           valor.type === 'VARIABLE_ALIAS' && valor.id) {
         
-        const variavelReferenciada = figma.variables.getVariableById(valor.id);
+        const variavelReferenciada = await figma.variables.getVariableByIdAsync(valor.id);
         if (variavelReferenciada) {
           console.log(`Variável é referência para ${variavelReferenciada.name}`);
           
@@ -3041,7 +3049,7 @@ async function substituirVariaveisNoEscopo(
               // Verificar se é uma referência de variável válida
               if (bindingValue && bindingValue.type === 'VARIABLE_ALIAS' && bindingValue.id) {
                 // Obter a variável original
-                const varOriginal = figma.variables.getVariableById(bindingValue.id);
+                const varOriginal = await figma.variables.getVariableByIdAsync(bindingValue.id);
                 
                 if (varOriginal) {
                   console.log(`→ Encontrada variável "${varOriginal.name}" aplicada à propriedade "${property}"`);
@@ -3067,13 +3075,14 @@ async function substituirVariaveisNoEscopo(
       
       // 2. Verificar variáveis em fills e strokes (caso especial para cores)
       if ('fills' in node && Array.isArray(node.fills)) {
-        node.fills.forEach((fill, index) => {
+        for (let index = 0; index < node.fills.length; index++) {
+          const fill = node.fills[index];
           if (fill.type === 'SOLID' && 'boundVariables' in fill) {
             const fillBoundVars = (fill as any).boundVariables;
             if (fillBoundVars && fillBoundVars.color && fillBoundVars.color.type === 'VARIABLE_ALIAS') {
               try {
                 const colorVarId = fillBoundVars.color.id;
-                const colorVar = figma.variables.getVariableById(colorVarId);
+                const colorVar = await figma.variables.getVariableByIdAsync(colorVarId);
                 
                 if (colorVar) {
                   console.log(`→ Encontrada variável de cor "${colorVar.name}" em fill[${index}]`);
@@ -3091,17 +3100,18 @@ async function substituirVariaveisNoEscopo(
               }
             }
           }
-        });
+        }
       }
       
       if ('strokes' in node && Array.isArray(node.strokes)) {
-        node.strokes.forEach((stroke, index) => {
+        for (let index = 0; index < node.strokes.length; index++) {
+          const stroke = node.strokes[index];
           if (stroke.type === 'SOLID' && 'boundVariables' in stroke) {
             const strokeBoundVars = (stroke as any).boundVariables;
             if (strokeBoundVars && strokeBoundVars.color && strokeBoundVars.color.type === 'VARIABLE_ALIAS') {
               try {
                 const colorVarId = strokeBoundVars.color.id;
-                const colorVar = figma.variables.getVariableById(colorVarId);
+                const colorVar = await figma.variables.getVariableByIdAsync(colorVarId);
                 
                 if (colorVar) {
                   console.log(`→ Encontrada variável de cor "${colorVar.name}" em stroke[${index}]`);
@@ -3119,7 +3129,7 @@ async function substituirVariaveisNoEscopo(
               }
             }
           }
-        });
+        }
       }
       
       console.log(`→ Total de ${variaveisDetectadas.length} variáveis detectadas no nó`);
@@ -3544,7 +3554,7 @@ async function aplicarVariaveisAoNo(
           
         const strokeId = (node as any).boundVariables.strokeWeight.id;
         try {
-          const strokeVar = figma.variables.getVariableById(strokeId);
+          const strokeVar = await figma.variables.getVariableByIdAsync(strokeId);
           if (strokeVar) {
             variaveisAplicadas.push({
               id: strokeId,
@@ -3573,7 +3583,7 @@ async function aplicarVariaveisAoNo(
       for (const prop in boundVars) {
         if (propriedadesFloat.includes(prop) && boundVars[prop] && boundVars[prop].id) {
           try {
-            const variavelAtual = figma.variables.getVariableById(boundVars[prop].id);
+            const variavelAtual = await figma.variables.getVariableByIdAsync(boundVars[prop].id);
             if (variavelAtual) {
               // Verificar se já adicionamos esta variável (evitar duplicatas para strokeWeight)
               const jaAdicionada = variaveisAplicadas.some(v => 
