@@ -5,67 +5,122 @@
   <style>
     :root {
       /* Light theme variables (default) */
+      /* Cores de fundo e texto */
       --background-color: #ffffff;
       --text-color: #333333;
       --border-color: #e5e7eb;
+      
+      /* Campos de formulário */
       --input-background: #ffffff;
+      --input-text: #333333;
+      
+      /* Botões */
       --button-primary-bg: #18a0fb;
       --button-primary-text: #ffffff;
       --button-secondary-bg: #e5e7eb;
       --button-secondary-text: #374151;
+      
+      /* Abas */
       --tab-active-bg: #18a0fb;
       --tab-active-text: #ffffff;
       --tab-inactive-bg: #f3f4f6;
       --tab-inactive-text: #6b7280;
+      
+      /* Mensagens e alertas */
       --error-color: #c62828;
       --error-bg: #ffebee;
       --warning-color: #f59e0b;
       --success-color: #10b981;
+      
+      /* Componentes */
       --component-bg: #f9fafb;
       --component-hover: #f3f4f6;
+      
+      /* Modal e overlay */
       --modal-bg: #ffffff;
       --modal-overlay: rgba(0, 0, 0, 0.5);
       --settings-bg: #ffffff;
+      
+      /* Estados desabilitados */
+      --disabled-bg: #f3f4f6;
+      --disabled-text: #9ca3af;
       --disabled-bg-light: #f3f4f6;
       --disabled-text-light: #9ca3af;
-      --tag-bg: #dfcfd7; 
-      --tag-text: #912964;
+      
+      /* Tags e labels */
+      --tag-bg: #efe1e8;
+      --tag-text: #792856;
+      --tag-secondary-bg: #d1e0ff;
+      --tag-secondary-text: #1a56db;
+      
+      /* Descrições e labels */
+      --label-color: #374151;
+      --form-label-color: #374151;
+      --description-color: #6b7280;
+      
+      /* Preview */
+      --preview-bg: #f3f4f6;
     }
     
     /* Dark theme - Dracula Theme */
     body.dark-theme {
+      /* Cores de fundo e texto */
       --background-color: #282a36; /* Dracula Background */
       --text-color: #f8f8f2; /* Dracula Foreground */
       --border-color: #44475a; /* Dracula Current Line */
+      
+      /* Campos de formulário */
       --input-background: #383a59; /* Darker than Selection */
       --input-text: #f8f8f2; /* Dracula Foreground */
+      
+      /* Botões */
       --button-primary-bg: #8be9fd; /* Dracula Cyan */
       --button-primary-text: #282a36; /* Dracula Background */
       --button-secondary-bg: #6272a4; /* Dracula Comment */
       --button-secondary-text: #f8f8f2; /* Dracula Foreground */
+      
+      /* Abas */
       --tab-active-bg: #bd93f9; /* Dracula Purple */
       --tab-active-text: #282a36; /* Dracula Background */
       --tab-inactive-bg: #44475a; /* Dracula Current Line */
       --tab-inactive-text: #f8f8f2; /* Dracula Foreground */
+      
+      /* Mensagens e alertas */
       --error-color: #ff5555; /* Dracula Red */
+      --error-bg: rgba(255, 85, 85, 0.15); /* Dracula Red com opacidade reduzida */
       --warning-color: #ffb86c; /* Dracula Orange */
       --success-color: #50fa7b; /* Dracula Green */
+      
+      /* Componentes */
       --component-bg: #44475a; /* Dracula Selection */
       --component-hover: #6272a4; /* Dracula Comment */
+      
+      /* Modal e overlay */
       --modal-bg: #282a36; /* Dracula Background */
       --modal-overlay: rgba(0, 0, 0, 0.7);
       --settings-bg: #282a36; /* Dracula Background */
-      --label-color: #f8f8f2; /* Dracula Foreground - melhor contraste */
-      --form-label-color: #f8f8f2; /* Dracula Foreground - melhor contraste */
-      --description-color: #bd93f9; /* Dracula Purple - melhor contraste para textos descritivos */
-      --error-bg: rgba(255, 85, 85, 0.15); /* Dracula Red com opacidade reduzida - mais discreto */
+      
+      /* Estados desabilitados */
+      --disabled-bg: #44475a; /* Dracula Selection */
+      --disabled-text: #6272a4; /* Dracula Comment */
+      --disabled-bg-light: #44475a; /* Para compatibilidade */
+      --disabled-text-light: #6272a4; /* Para compatibilidade */
+      
+      /* Tags e labels */
       --tag-bg: #ff79c6; /* Dracula Pink */
       --tag-text: #282a36; /* Dracula Background */
       --tag-secondary-bg: #bd93f9; /* Dracula Purple */
       --tag-secondary-text: #282a36; /* Dracula Background */
-      --preview-bg: #383a59; /* Mais escuro que Selection - para preview */
-      --disabled-bg: #44475a; /* Dracula Selection - para botões desabilitados */
-      --disabled-text: #6272a4; /* Dracula Comment - para texto em botões desabilitados */
+      
+      /* Descrições e labels */
+      --label-color: #f8f8f2; /* Dracula Foreground - melhor contraste */
+      --form-label-color: #f8f8f2; /* Dracula Foreground - melhor contraste */
+      --description-color: #bd93f9; /* Dracula Purple - melhor contraste */
+      
+      /* Preview */
+      --preview-bg: #383a59; /* Mais escuro que Selection */
+      
+      /* Radio buttons */
       --radio-border: #6272a4; /* Dracula Comment */
       --radio-checked: #bd93f9; /* Dracula Purple */
     }
@@ -101,6 +156,7 @@
       padding: 2px 6px;
       border-radius: 3px;
       margin-right: 6px;
+      margin-bottom: 0.25rem;
       background-color: var(--tag-bg);
       color: var(--tag-text);
     }
