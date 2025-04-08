@@ -904,7 +904,7 @@
       border: 1px solid #d1d5db;
       border-radius: 4px;
       background-color: white;
-      font-size: 12px;
+      font-size: 0.75rem;
       margin-bottom: 16px;
     }
     
@@ -1842,7 +1842,7 @@
       const selectedCollectionId = collectionSelectVar.value;
       
       if (!selectedCollectionId) {
-        previewContentVar.textContent = "Selecione uma coleção para visualizar variáveis.";
+        previewContentVar.textContent = currentLanguage === 'en' ? "Select a collection to preview variables." : "Selecione uma coleção para visualizar variáveis.";
         updateButtonVar.disabled = true;
         return;
       }
@@ -2077,7 +2077,7 @@
           }
           
           loadingPreviewVar.style.display = 'none';
-          previewContentVar.textContent = "Selecione uma coleção para visualizar variáveis.";
+          previewContentVar.textContent = currentLanguage === 'en' ? "Select a collection to preview variables." : "Selecione uma coleção para visualizar variáveis.";
             break;
 
           case 'libraries-data':
@@ -2119,8 +2119,8 @@
           const defaultOption = document.createElement('option');
           defaultOption.value = '';
           defaultOption.textContent = libraries.length > 0 
-            ? 'Selecione uma biblioteca...' 
-            : 'Nenhuma biblioteca disponível';
+            ? (currentLanguage === 'en' ? 'Select a library...' : 'Selecione uma biblioteca...') 
+            : (currentLanguage === 'en' ? 'No libraries available' : 'Nenhuma biblioteca disponível');
           
           if (librarySelect) librarySelect.appendChild(defaultOption.cloneNode(true));
           librarySelectUpdate.appendChild(defaultOption.cloneNode(true));
@@ -2141,8 +2141,8 @@
           componentsContainer.innerHTML = '';
           
           if (!libraries || libraries.length === 0) {
-            componentsContainer.innerHTML = '<p class="no-components">Não foram encontradas bibliotecas neste arquivo</p>';
-            showInfo("Nenhuma biblioteca encontrada no documento atual.");
+            componentsContainer.innerHTML = `<p class="no-components">${currentLanguage === 'en' ? 'No libraries found in this file' : 'Não foram encontradas bibliotecas neste arquivo'}</p>`;
+            showInfo(currentLanguage === 'en' ? "No libraries found in the current document." : "Nenhuma biblioteca encontrada no documento atual.");
             return;
           }
           
@@ -2166,12 +2166,12 @@
             
             const nameElement = document.createElement('div');
             nameElement.className = 'component-name';
-            nameElement.textContent = library.name || 'Biblioteca sem nome';
+            nameElement.textContent = library.name || (currentLanguage === 'en' ? 'Unnamed library' : 'Biblioteca sem nome');
             libraryElement.appendChild(nameElement);
             
             const idElement = document.createElement('div');
             idElement.className = 'component-id';
-            idElement.textContent = `ID: ${library.id || 'Desconhecido'}`;
+            idElement.textContent = `ID: ${library.id || (currentLanguage === 'en' ? 'Unknown' : 'Desconhecido')}`;
             libraryElement.appendChild(idElement);
             
             if (library.library) {
@@ -2199,14 +2199,14 @@
           if (!message.collections || message.collections.length === 0) {
             const defaultOption = document.createElement('option');
             defaultOption.value = '';
-            defaultOption.textContent = 'Nenhuma coleção local disponível';
+            defaultOption.textContent = currentLanguage === 'en' ? 'No local collections available' : 'Nenhuma coleção local disponível';
             localCollectionSelect.appendChild(defaultOption);
-            showErrorUpdate('Nenhuma coleção local encontrada. Crie coleções de variáveis locais primeiro.');
+            showErrorUpdate(currentLanguage === 'en' ? 'No local collections found. Create local variable collections first.' : 'Nenhuma coleção local encontrada. Crie coleções de variáveis locais primeiro.');
           } else {
             // Adicionar opção padrão
             const defaultOption = document.createElement('option');
             defaultOption.value = '';
-            defaultOption.textContent = 'Selecione uma coleção local...';
+            defaultOption.textContent = currentLanguage === 'en' ? 'Select a local collection...' : 'Selecione uma coleção local...';
             localCollectionSelect.appendChild(defaultOption);
             
             // Adicionar opções para cada coleção
