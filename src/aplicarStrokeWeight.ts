@@ -13,7 +13,7 @@ async function aplicarStrokeWeight(node: SceneNode, variavel: Variable): Promise
     let valorStroke = 1; // Valor padrão
     try {
       if (variavel.variableCollectionId) {
-        const colecao = figma.variables.getVariableCollectionById(variavel.variableCollectionId);
+        const colecao = await figma.variables.getVariableCollectionByIdAsync(variavel.variableCollectionId);
         if (colecao && colecao.defaultModeId && variavel.valuesByMode) {
           const modoAtual = colecao.defaultModeId;
           if (variavel.valuesByMode[modoAtual] !== undefined) {

@@ -993,7 +993,7 @@ async function aplicarVariavelFloat(node: SceneNode, variable: { id: string, nam
       // Obter o valor da variável para aplicação
       let valorRadius = null;
       if (varObj.resolvedType === 'FLOAT' && varObj.variableCollectionId) {
-        const colecao = figma.variables.getVariableCollectionById(varObj.variableCollectionId);
+        const colecao = await figma.variables.getVariableCollectionByIdAsync(varObj.variableCollectionId);
         if (colecao && colecao.defaultModeId) {
           valorRadius = varObj.valuesByMode[colecao.defaultModeId];
           console.log(`>>> Valor da variável de radius: ${valorRadius}`);
@@ -1153,7 +1153,7 @@ async function aplicarVariavelFloat(node: SceneNode, variable: { id: string, nam
       try {
         console.log(`Tentando aplicar valor numérico diretamente...`);
         if (varObj.resolvedType === 'FLOAT' && varObj.variableCollectionId) {
-          const colecao = figma.variables.getVariableCollectionById(varObj.variableCollectionId);
+          const colecao = await figma.variables.getVariableCollectionByIdAsync(varObj.variableCollectionId);
           if (colecao && colecao.defaultModeId) {
             const valorVar = varObj.valuesByMode[colecao.defaultModeId];
             if (typeof valorVar === 'number') {
@@ -1733,7 +1733,7 @@ async function preVisualizarCorrespondencias(libraryId: string, localCollectionI
     }
     
     // Buscar a coleção local
-    const localCollection = figma.variables.getVariableCollectionById(localCollectionId);
+    const localCollection = await figma.variables.getVariableCollectionByIdAsync(localCollectionId);
     
     if (!localCollection) {
       throw new Error(`Coleção local com ID ${localCollectionId} não encontrada`);
@@ -2187,14 +2187,14 @@ async function substituirVariaveisEmColecao(matches: Array<{
     for (const match of matches) {
       try {
         // Obter a variável local
-        const localVar = figma.variables.getVariableById(match.localId);
+        const localVar = await figma.variables.getVariableByIdAsync(match.localId);
         if (!localVar) {
           console.warn(`Variável local com ID ${match.localId} não encontrada`);
           continue;
         }
         
         // Obter a coleção local
-        const localCollection = figma.variables.getVariableCollectionById(localVar.variableCollectionId);
+        const localCollection = await figma.variables.getVariableCollectionByIdAsync(localVar.variableCollectionId);
         if (!localCollection) {
           console.warn(`Coleção local para variável ${localVar.name} não encontrada`);
           continue;
@@ -2310,16 +2310,57 @@ async function substituirVariaveisEmColecao(matches: Array<{
                       
                       try {
                         // Aplicar a referência SOMENTE para este modo específico
-                        localVar.setValueForMode(modoId, referencia);
-                        variavelAlterada = true;
-                        console.log(`Modo ${modoName} atualizado com sucesso para ${importedVar.name}`);
+                        try {
+                          // Abordagem mais simples: tentar usar diretamente o método setValueForMode
+                          // com tratamento de erro mais detalhado
+                          try {
+                            // Tentar método síncrono diretamente
+                            localVar.setValueForMode(modoId, referencia);
+                            console.log(`Valor definido com sucesso para o modo ${modoName} usando método síncrono`);
+                          } catch (syncErr) {
+                            console.error(`Erro ao usar método síncrono:`, syncErr);
+                            console.error(`Detalhes do erro:`, JSON.stringify(syncErr, Object.getOwnPropertyNames(syncErr)));
+                            
+                            // Tentar outra abordagem: usar o método updateVariableValue
+                            try {
+                              // @ts-ignore - Método pode não estar nas definições de tipo
+                              if (typeof figma.variables.updateVariableValue === 'function') {
+                                // @ts-ignore
+                                figma.variables.updateVariableValue(localVar, modoId, referencia);
+                                console.log(`Valor atualizado com sucesso usando updateVariableValue`);
+                              } else {
+                                throw new Error("Método updateVariableValue não disponível");
+                              }
+                            } catch (updateErr) {
+                              console.error(`Erro ao usar updateVariableValue:`, updateErr);
+                              throw new Error(`Não foi possível atualizar a variável ${localVar.name}: ${updateErr instanceof Error ? updateErr.message : String(updateErr)}`);
+                            }
+                          }
+                          variavelAlterada = true;
+                          console.log(`Modo ${modoName} atualizado com sucesso para ${importedVar.name}`);
+                        } catch (setErr) {
+                          console.error(`Erro detalhado ao definir valor para modo ${modoName}:`, setErr);
+                          throw setErr; // Re-throw para ser capturado pelo bloco catch externo
+                        }
                       } catch (err) {
                         console.warn(`Erro ao aplicar referência para modo ${modoName}: ${err}`);
                         
                         // Restaurar o valor original
                         try {
-                          localVar.setValueForMode(modoId, valorBackup);
-                          console.log(`Restaurado valor original para o modo ${modoName}`);
+                          try {
+                            // Tentar usar a versão assíncrona primeiro (pode não estar nas definições de tipo)
+                            // @ts-ignore
+                            if (typeof localVar.setValueForModeAsync === 'function') {
+                              // @ts-ignore
+                              await localVar.setValueForModeAsync(modoId, valorBackup);
+                            } else {
+                              // Fallback para o método síncrono
+                              localVar.setValueForMode(modoId, valorBackup);
+                            }
+                            console.log(`Restaurado valor original para o modo ${modoName}`);
+                          } catch (restoreSetErr) {
+                            console.error(`Erro detalhado ao restaurar valor para modo ${modoName}:`, restoreSetErr);
+                          }
                         } catch (restoreErr) {
                           console.error(`Erro ao restaurar valor original para o modo ${modoName}: ${restoreErr}`);
                         }
@@ -2351,7 +2392,8 @@ async function substituirVariaveisEmColecao(matches: Array<{
           console.log(`Variável ${localVar.name} atualizada com sucesso em pelo menos um modo`);
         }
       } catch (varErr) {
-        console.error(`Erro ao processar variável ${match.localName}: ${varErr}`);
+        console.error(`Erro ao processar variável ${match.localName}:`, varErr);
+        console.error(`Detalhes completos do erro:`, JSON.stringify(varErr, Object.getOwnPropertyNames(varErr)));
         variaveisComErro++;
       }
     }
@@ -2374,6 +2416,7 @@ async function substituirVariaveisEmColecao(matches: Array<{
     }
   } catch (error) {
     console.error("Erro ao substituir variáveis:", error);
+    console.error("Detalhes completos do erro:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
     
     figma.ui.postMessage({
       type: 'update-collections-result',
@@ -3929,7 +3972,7 @@ const aplicarStrokeWeightDiretamente = async (node: SceneNode, variable: Variabl
     let valorStroke = 1;
     try {
       if (variable.variableCollectionId) {
-        const colecao = figma.variables.getVariableCollectionById(variable.variableCollectionId);
+        const colecao = await figma.variables.getVariableCollectionByIdAsync(variable.variableCollectionId);
         if (colecao && colecao.defaultModeId && variable.valuesByMode) {
           const modoAtual = colecao.defaultModeId;
           if (variable.valuesByMode[modoAtual] !== undefined) {
