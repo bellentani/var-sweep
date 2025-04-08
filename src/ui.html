@@ -1,16 +1,18 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       margin: 0;
-      padding: 16px;
+      padding: 0;
       color: #333;
     }
     
     .container {
-      padding: 20px;
+      padding: 16px;
+      margin-bottom: 48px;
     }
     
     h2 {
@@ -157,6 +159,11 @@
       display: flex;
       margin-bottom: 16px;
       border-bottom: 1px solid #ddd;
+      position: sticky;
+      top: 0;
+      background-color: white;
+      z-index: 100;
+      padding: 16px 16px 0 16px;
     }
     
     .tab {
@@ -167,6 +174,7 @@
       cursor: pointer;
       font-size: 12px;
       font-weight: 500;
+      margin-bottom: -1px;
     }
     
     .tab.active {
@@ -767,6 +775,129 @@
     }
 
     /* Estilos para o modal de confirmação */
+    /* Footer styles */
+    .footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 40px;
+      background-color: #f9fafb;
+      border-top: 1px solid #e5e7eb;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 16px;
+      font-size: 11px;
+      color: #6b7280;
+      z-index: 1001;
+      box-sizing: border-box;
+    }
+
+    .footer-version {
+      font-weight: 500;
+    }
+
+    .footer-settings {
+      display: flex;
+      align-items: center;
+    }
+
+    .settings-button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 11px;
+      padding: 4px 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      gap: 4px;
+    }
+    
+    .settings-button span.material-icons {
+      font-size: 14px;
+    }
+
+    .settings-button:hover {
+      background-color: #e5e7eb;
+    }
+
+    /* Settings overlay styles */
+    .settings-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 2000;
+    }
+
+    .settings-overlay.active {
+      display: flex;
+    }
+
+    .settings-container {
+      background-color: white;
+      border-radius: 8px;
+      width: 80%;
+      max-width: 400px;
+      max-height: 80%;
+      overflow-y: auto;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .settings-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .settings-title {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .settings-close {
+      background: none;
+      border: none;
+      font-size: 20px;
+      cursor: pointer;
+      color: #6b7280;
+    }
+
+    .settings-content {
+      padding: 16px;
+    }
+
+    .settings-section {
+      margin-bottom: 16px;
+    }
+
+    .settings-section label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+      color: #374151;
+    }
+
+    .settings-select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      background-color: white;
+      font-size: 14px;
+    }
+
     /* Loading overlay styles */
     .loading-overlay {
       position: fixed;
@@ -944,6 +1075,7 @@
   </style>
 </head>
 <body>
+  <div class="main-content" style="padding-top: 0;">
   <!-- Abas de navegação -->
   <div class="tabs">
     <div class="tab active" data-tab="update-collections">Update Collections</div>
@@ -953,7 +1085,7 @@
   
   <!-- Conteúdo da Aba Update Collections -->
   <div id="update-collections" class="tab-content active container">
-    <h2>Substituir Variáveis</h2>
+    <h2>Atualizar Collections</h2>
     <div id="error-container-update" style="display: none;" class="error-message"></div>
     <div id="info-container-update" style="display: none;" class="info-message"></div>
     
@@ -982,7 +1114,7 @@
         </div>
       </div>
       
-      <button id="update-button" class="action-button" disabled>Substituir Variáveis</button>
+      <button id="update-button" class="action-button" disabled>Atualizar Collections</button>
     </div>
   </div>
   
@@ -1037,7 +1169,7 @@
   
   <!-- Conteúdo da Aba List Libs (funcionalidade original) -->
   <div id="list-libs" class="tab-content container">
-    <h2>Biblioteca Sweep</h2>
+    <h2>Aplica Variables Sweep</h2>
     <div id="error-container" style="display: none;" class="error-message"></div>
     <div id="info-container" style="display: none;" class="info-message"></div>
 
@@ -2400,12 +2532,76 @@
     // Expor as funções globalmente para que possam ser chamadas de qualquer lugar
     window.showLoadingOverlay = showLoadingOverlay;
     window.hideLoadingOverlay = hideLoadingOverlay;
+
+    // Settings functionality
+    const settingsButton = document.getElementById('settings-button');
+    const settingsOverlay = document.getElementById('settings-overlay');
+    const settingsClose = document.getElementById('settings-close');
+    const languageSelect = document.getElementById('language-select');
+
+    // Open settings overlay
+    settingsButton.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      settingsOverlay.classList.add('active');
+      console.log('Settings button clicked, overlay should be visible');
+    });
+
+    // Close settings overlay
+    settingsClose.addEventListener('click', () => {
+      settingsOverlay.classList.remove('active');
+    });
+
+    // Close settings when clicking outside the settings container
+    settingsOverlay.addEventListener('click', (e) => {
+      if (e.target === settingsOverlay) {
+        settingsOverlay.classList.remove('active');
+      }
+    });
+
+    // Handle language change
+    languageSelect.addEventListener('change', (e) => {
+      const selectedLanguage = e.target.value;
+      console.log(`Language changed to: ${selectedLanguage}`);
+      // The actual localization logic will be implemented later
+    });
   </script>
   
   <!-- Loading Overlay -->
   <div id="loading-overlay" class="loading-overlay">
     <div class="loading-spinner"></div>
     <div id="loading-text" class="loading-text">Processando...</div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="footer-version">v0.5.0-beta</div>
+    <div class="footer-settings">
+      <button id="settings-button" class="settings-button" aria-label="Settings">
+        <span class="material-icons">settings</span>
+        <span>Settings</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Settings Overlay -->
+  <div id="settings-overlay" class="settings-overlay">
+    <div class="settings-container">
+      <div class="settings-header">
+        <h3 class="settings-title">Settings</h3>
+        <button id="settings-close" class="settings-close">×</button>
+      </div>
+      <div class="settings-content">
+        <div class="settings-section">
+          <label for="language-select">Language / Idioma</label>
+          <select id="language-select" class="settings-select">
+            <option value="en">English</option>
+            <option value="pt-br" selected>Português (Brasil)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
   </div>
 </body>
 </html> 

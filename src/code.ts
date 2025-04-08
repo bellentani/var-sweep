@@ -1,8 +1,8 @@
 /// <reference types="@figma/plugin-typings" />
 
 // Adicionando log para debug
-console.log("Plugin var-sweep iniciando...");
-console.log("Versão: 0.3.0-beta");
+console.log("Plugin Aplica Variables Sweep iniciando...");
+console.log("Versão: 0.5.0-beta");
 
 // Definição dos tipos necessários
 interface BibliotecaInfo {
