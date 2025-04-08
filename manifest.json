@@ -1,10 +1,11 @@
 {
-  "name": "Biblioteca Sweep",
-  "id": "biblioteca-sweep",
+  "name": "Aplica Variables Sweep",
+  "id": "1491518793864720281",
   "api": "1.0.0",
   "main": "dist/code.js",
   "ui": "dist/ui.html",
   "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
   "permissions": [
     "currentuser",
     "teamlibrary",
@@ -12,6 +13,6 @@
   ],
   "networkAccess": {
     "allowedDomains": ["*"],
-    "reasoning": "Acessar detalhes de bibliotecas de equipe que podem estar hospedadas remotamente"
+    "reasoning": "Smart variable and style management across Figma libraries"
   }
 } 

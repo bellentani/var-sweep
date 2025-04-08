@@ -1,7 +1,7 @@
 {
-  "name": "biblioteca-sweep",
+  "name": "aplica-variables-sweep",
   "version": "0.6.0-beta",
-  "description": "Plugin para listar bibliotecas do Figma",
+  "description": "Smart variable and style management across Figma libraries",
   "main": "dist/code.js",
   "scripts": {
     "build": "webpack --mode=production",
