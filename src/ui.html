@@ -1267,6 +1267,146 @@
   </div>
 
   <script>
+    // Localization system
+    const translations = {
+      'en': {
+        // Tabs
+        'update_collections': 'Update Collections',
+        'update_variables': 'Update Variables',
+        'list_libraries': 'List Libraries',
+        
+        // Update Collections tab
+        'update_collections_title': 'Update Collections',
+        'select_library': 'Select Library',
+        'select_collection': 'Select Collection',
+        'update_button': 'Update',
+        'no_libraries': 'No libraries available',
+        'select_library_first': 'Please select a library first',
+        
+        // Update Variables tab
+        'update_variables_title': 'Update Variables',
+        'scope_selection': 'Scope',
+        'current_selection': 'Current Selection',
+        'current_page': 'Current Page',
+        'search_variables': 'Search Variables',
+        'replace_variables': 'Replace Variables',
+        
+        // List Libraries tab
+        'list_libraries_title': 'Aplica Variables Sweep',
+        'all_libraries': 'All libraries:',
+        'searching_libraries': 'Searching libraries...',
+        'reload': 'Reload',
+        
+        // Settings
+        'settings': 'Settings',
+        'settings_title': 'Settings',
+        'language': 'Language / Idioma',
+        'cancel': 'Cancel',
+        'save': 'Save',
+        
+        // Messages
+        'processing': 'Processing...',
+        'no_selection': 'No elements selected',
+        'select_elements': 'Please select elements to process',
+        'no_variables_found': 'No variables found',
+        'variables_found': 'Variables found:',
+        'success': 'Success',
+        'error': 'Error',
+      },
+      'pt-br': {
+        // Tabs
+        'update_collections': 'Atualizar Collections',
+        'update_variables': 'Atualizar Variáveis',
+        'list_libraries': 'Listar Bibliotecas',
+        
+        // Update Collections tab
+        'update_collections_title': 'Atualizar Collections',
+        'select_library': 'Selecionar Biblioteca',
+        'select_collection': 'Selecionar Coleção',
+        'update_button': 'Atualizar',
+        'no_libraries': 'Nenhuma biblioteca disponível',
+        'select_library_first': 'Por favor, selecione uma biblioteca primeiro',
+        
+        // Update Variables tab
+        'update_variables_title': 'Atualizar Variáveis',
+        'scope_selection': 'Escopo',
+        'current_selection': 'Seleção Atual',
+        'current_page': 'Página Atual',
+        'search_variables': 'Buscar Variáveis',
+        'replace_variables': 'Substituir Variáveis',
+        
+        // List Libraries tab
+        'list_libraries_title': 'Aplica Variables Sweep',
+        'all_libraries': 'Todas as bibliotecas:',
+        'searching_libraries': 'Procurando bibliotecas...',
+        'reload': 'Recarregar',
+        
+        // Settings
+        'settings': 'Configurações',
+        'settings_title': 'Configurações',
+        'language': 'Idioma / Language',
+        'cancel': 'Cancelar',
+        'save': 'Salvar',
+        
+        // Messages
+        'processing': 'Processando...',
+        'no_selection': 'Nenhum elemento selecionado',
+        'select_elements': 'Por favor, selecione elementos para processar',
+        'no_variables_found': 'Nenhuma variável encontrada',
+        'variables_found': 'Variáveis encontradas:',
+        'success': 'Sucesso',
+        'error': 'Erro',
+      }
+    };
+    
+    // Current language
+    let currentLanguage = 'pt-br'; // Default language
+    
+    // Function to get translation
+    function t(key) {
+      return translations[currentLanguage][key] || key;
+    }
+    
+    // Function to update all UI text based on selected language
+    function updateUILanguage() {
+      // Update tabs
+      document.querySelector('[data-tab="update-collections"]').textContent = t('update_collections');
+      document.querySelector('[data-tab="update-variables"]').textContent = t('update_variables');
+      document.querySelector('[data-tab="list-libs"]').textContent = t('list_libraries');
+      
+      // Update Update Collections tab
+      document.querySelector('#update-collections h2').textContent = t('update_collections_title');
+      document.querySelector('label[for="library-select"]').textContent = t('select_library');
+      document.querySelector('label[for="collection-select"]').textContent = t('select_collection');
+      document.querySelector('#update-button').textContent = t('update_button');
+      
+      // Update Update Variables tab
+      document.querySelector('#update-variables h2').textContent = t('update_variables_title');
+      document.querySelector('.scope-label').textContent = t('scope_selection');
+      document.querySelector('label[for="scope-selection"]').textContent = t('current_selection');
+      document.querySelector('label[for="scope-page"]').textContent = t('current_page');
+      document.querySelector('#search-button').textContent = t('search_variables');
+      document.querySelector('#replace-button').textContent = t('replace_variables');
+      
+      // Update List Libraries tab
+      document.querySelector('#list-libs h2').textContent = t('list_libraries_title');
+      document.querySelector('#list-libs .section-title').textContent = t('all_libraries');
+      document.querySelector('#components-container .no-components').textContent = t('searching_libraries');
+      document.querySelector('#refresh-button').textContent = t('reload');
+      
+      // Update Settings
+      document.querySelector('#settings-button span:last-child').textContent = t('settings');
+      document.querySelector('.settings-title').textContent = t('settings_title');
+      document.querySelector('label[for="language-select"]').textContent = t('language');
+      document.querySelector('#settings-cancel').textContent = t('cancel');
+      document.querySelector('#settings-update').textContent = t('save');
+      
+      // Update loading text
+      document.querySelector('#loading-text').textContent = t('processing');
+      
+      console.log(`UI language updated to: ${currentLanguage}`);
+    }
+    
     document.addEventListener('DOMContentLoaded', function() {
     // Elementos do DOM para ambas as abas
     const tabs = document.querySelectorAll('.tab');
@@ -2659,9 +2799,27 @@
       if (settingsUpdate) {
         settingsUpdate.onclick = function() {
           console.log('Update settings button clicked');
-          const selectedLanguage = languageSelect.value;
+          const languageSelect = document.getElementById('language-select');
+          const selectedLanguage = languageSelect ? languageSelect.value : 'pt-br';
           console.log(`Saving language setting: ${selectedLanguage}`);
-          // Here we would save the settings, but for now just close the overlay
+          
+          // Save the language preference
+          try {
+            // In Figma plugin, we would use clientStorage instead of localStorage
+            // This is just a mock for the UI preview
+            localStorage.setItem('aplica-variables-sweep-language', selectedLanguage);
+            
+            // Update current language and refresh UI
+            currentLanguage = selectedLanguage;
+            updateUILanguage();
+            
+            // Show success message (could be implemented with a toast notification)
+            console.log('Settings saved successfully');
+          } catch (error) {
+            console.error('Error saving language preference:', error);
+          }
+          
+          // Close the overlay
           settingsOverlay.classList.remove('active');
           return false;
         };
@@ -2679,13 +2837,64 @@
     
     // Initialize settings immediately as well
     initializeSettings();
-
-    // Handle language change
-    languageSelect.addEventListener('change', (e) => {
-      const selectedLanguage = e.target.value;
-      console.log(`Language changed to: ${selectedLanguage}`);
-      // The actual localization logic will be implemented later
+    
+    // Initialize language functionality
+    function initializeLanguageSystem() {
+      console.log('Initializing language system');
+      const languageSelect = document.getElementById('language-select');
+      
+      if (!languageSelect) {
+        console.error('Language select element not found');
+        return;
+      }
+      
+      // Handle language change
+      languageSelect.addEventListener('change', function(e) {
+        const selectedLanguage = e.target.value;
+        console.log(`Language changed to: ${selectedLanguage}`);
+        // Update current language and refresh UI
+        currentLanguage = selectedLanguage;
+        updateUILanguage();
+      });
+      
+      // Try to get language from localStorage or plugin storage
+      try {
+        // In Figma plugin, we would use clientStorage instead of localStorage
+        // This is just a mock for the UI preview
+        const savedLanguage = localStorage.getItem('aplica-variables-sweep-language');
+        if (savedLanguage && (savedLanguage === 'en' || savedLanguage === 'pt-br')) {
+          currentLanguage = savedLanguage;
+          // Update the select element to match the current language
+          languageSelect.value = currentLanguage;
+        } else {
+          // If no saved preference, try to detect from browser
+          const browserLanguage = navigator.language.toLowerCase();
+          if (browserLanguage.startsWith('pt')) {
+            currentLanguage = 'pt-br';
+          } else {
+            currentLanguage = 'en';
+          }
+          languageSelect.value = currentLanguage;
+        }
+      } catch (error) {
+        console.error('Error getting language preference:', error);
+        // Default to Portuguese if there's an error
+        currentLanguage = 'pt-br';
+        languageSelect.value = currentLanguage;
+      }
+      
+      // Apply initial language
+      updateUILanguage();
+      console.log('Language system initialized with language:', currentLanguage);
+    }
+    
+    // Call initialization on DOMContentLoaded
+    document.addEventListener('DOMContentLoaded', function() {
+      initializeLanguageSystem();
     });
+    
+    // Also initialize immediately in case DOM is already loaded
+    initializeLanguageSystem();
   </script>
   
   <!-- Loading Overlay -->
