@@ -1173,15 +1173,18 @@
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      z-index: 9999;
+      z-index: 10000;
       opacity: 0;
       visibility: hidden;
       transition: opacity 0.2s ease, visibility 0.2s ease;
+      pointer-events: none;
     }
     
     .loading-overlay.active {
       opacity: 1;
       visibility: visible;
+      pointer-events: all;
+      backdrop-filter: blur(2px);
     }
     
     .loading-spinner {
@@ -3060,6 +3063,9 @@
       
       console.log('Variáveis a serem substituídas:', variablesToReplace);
       
+      // Mostrar o loading overlay antes de enviar a solicitação
+      showLoadingOverlay(getTranslation(currentLanguage, 'processing_substitution'));
+      
       // Enviar mensagem para o plugin com as variáveis a serem substituídas
       parent.postMessage({ 
         pluginMessage: { 
@@ -3161,12 +3167,31 @@
       const defaultMessage = getTranslation(currentLanguage, 'processing');
       loadingText.textContent = message || defaultMessage;
       
+      // Desabilitar todos os botões e inputs para evitar interações durante o processamento
+      document.querySelectorAll('button, input, select').forEach(element => {
+        if (!element.hasAttribute('data-disabled-state')) {
+          element.setAttribute('data-disabled-state', element.disabled);
+          element.disabled = true;
+        }
+      });
+      
+      // Mostrar o overlay
       loadingOverlay.classList.add('active');
+      document.body.style.overflow = 'hidden'; // Prevenir scroll
     }
     
     function hideLoadingOverlay() {
       const loadingOverlay = document.getElementById('loading-overlay');
+      
+      // Restaurar o estado de habilitação dos elementos
+      document.querySelectorAll('[data-disabled-state]').forEach(element => {
+        element.disabled = element.getAttribute('data-disabled-state') === 'true';
+        element.removeAttribute('data-disabled-state');
+      });
+      
+      // Esconder o overlay
       loadingOverlay.classList.remove('active');
+      document.body.style.overflow = ''; // Restaurar scroll
     }
     
     // Expor as funções globalmente para que possam ser chamadas de qualquer lugar
@@ -3820,6 +3845,7 @@
         
         // Messages
         'processing': 'Processing...',
+        'processing_substitution': 'Processing variable substitution...',
         'no_selection': 'No elements selected',
         'select_elements': 'Please select elements to process',
         'no_variables_found': 'No variables found',
@@ -3947,6 +3973,7 @@
         
         // Messages
         'processing': 'Processando...',
+        'processing_substitution': 'Processando substituição de variáveis...',
         'no_selection': 'Nenhum elemento selecionado',
         'select_elements': 'Por favor, selecione elementos para processar',
         'no_variables_found': 'Nenhuma variável encontrada',
