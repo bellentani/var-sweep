@@ -58,6 +58,22 @@
       /* Library Colors */
       --library-bg: #e6f7ff;
       --library-text: #0070e0;
+      
+      /* Color Samples and Shadows */
+      --color-sample-border: rgba(0, 0, 0, 0.1);
+      --box-shadow-light: rgba(0, 0, 0, 0.1);
+      --box-shadow-medium: rgba(0, 0, 0, 0.15);
+      
+      /* Variable Type Backgrounds */
+      --color-type-bg: rgba(198, 40, 40, 0.2);
+      --number-type-bg: rgba(46, 125, 50, 0.2);
+      --text-type-bg: rgba(21, 101, 192, 0.2);
+      --boolean-type-bg: rgba(239, 108, 0, 0.2);
+      --fill-type-bg: rgba(123, 31, 162, 0.2);
+      --stroke-type-bg: rgba(57, 73, 171, 0.15);
+      --effect-type-bg: rgba(0, 105, 92, 0.15);
+      --text-style-type-bg: rgba(194, 24, 91, 0.15);
+      --grid-type-bg: rgba(85, 139, 47, 0.15);
     }
     
     /* Dark theme - Dracula Theme */
@@ -115,6 +131,22 @@
       /* Library Colors */
       --library-bg: #6272a4; /* Dracula Comment */
       --library-text: #f8f8f2; /* Dracula Foreground */
+      
+      /* Color Samples and Shadows */
+      --color-sample-border: rgba(255, 255, 255, 0.2);
+      --box-shadow-light: rgba(0, 0, 0, 0.3);
+      --box-shadow-medium: rgba(0, 0, 0, 0.4);
+      
+      /* Variable Type Backgrounds */
+      --color-type-bg: rgba(255, 85, 85, 0.2);
+      --number-type-bg: rgba(80, 250, 123, 0.2);
+      --text-type-bg: rgba(189, 147, 249, 0.2);
+      --boolean-type-bg: rgba(255, 184, 108, 0.2);
+      --fill-type-bg: rgba(189, 147, 249, 0.2);
+      --stroke-type-bg: rgba(139, 233, 253, 0.15);
+      --effect-type-bg: rgba(80, 250, 123, 0.15);
+      --text-style-type-bg: rgba(255, 121, 198, 0.15);
+      --grid-type-bg: rgba(80, 250, 123, 0.15);
       
       /* Radio Buttons */
       --radio-border: #6272a4; /* Dracula Comment */
@@ -197,11 +229,11 @@
     /* Ajustes específicos para o tema claro */
     body:not(.dark-theme) .error-message {
       background-color: var(--error-bg);
-      color: #c62828;
+      color: var(--error-color);
     }
     
     .info-message {
-      background-color: rgba(189, 147, 249, 0.15);
+      background-color: var(--error-bg);
       color: var(--tag-secondary-bg);
       padding: 12px;
       border-radius: 6px;
@@ -631,48 +663,48 @@
 
     /* Tipos específicos de variáveis */
     .var-type.color {
-      background: rgba(198, 40, 40, 0.2);
+      background: var(--color-type-bg);
       color: var(--error-color);
     }
 
     .var-type.number {
-      background: rgba(46, 125, 50, 0.2);
+      background: var(--number-type-bg);
       color: var(--success-color);
     }
 
     .var-type.text {
-      background: rgba(21, 101, 192, 0.2);
+      background: var(--text-type-bg);
       color: var(--tag-secondary-text);
     }
 
     .var-type.boolean {
-      background: rgba(239, 108, 0, 0.2);
+      background: var(--boolean-type-bg);
       color: var(--warning-color);
     }
 
     /* Tipos específicos de estilos */
     .var-type.fill {
-      background: rgba(123, 31, 162, 0.2);
+      background: var(--fill-type-bg);
       color: var(--tag-secondary-bg);
     }
 
     .var-type.stroke {
-      background: rgba(57, 73, 171, 0.15);
+      background: var(--stroke-type-bg);
       color: var(--tag-secondary-text);
     }
 
     .var-type.effect {
-      background: rgba(0, 105, 92, 0.15);
+      background: var(--effect-type-bg);
       color: var(--success-color);
     }
 
     .var-type.text-style {
-      background: rgba(194, 24, 91, 0.15);
+      background: var(--text-style-type-bg);
       color: var(--tag-text);
     }
 
     .var-type.grid {
-      background: rgba(85, 139, 47, 0.15);
+      background: var(--grid-type-bg);
       color: var(--success-color);
     }
 
@@ -891,7 +923,7 @@
     /* Estilos específicos para o modo escuro */
     body.dark-theme .mode-name {
       background-color: var(--button-secondary-bg); /* Dracula Comment */
-      color: #f8f8f2; /* Dracula Foreground */
+      color: var(--text-color); /* Dracula Foreground */
     }
 
     .mode-value {
@@ -922,15 +954,15 @@
       height: 14px;
       border-radius: 3px;
       margin-right: 6px;
-      border: 1px solid rgba(0, 0, 0, 0.1);
+      border: 1px solid var(--color-sample-border);
       display: inline-block;
       vertical-align: middle;
     }
 
     /* Garantindo que as cores sejam exibidas corretamente */
     .var-type.color {
-      background: #ffebee;
-      color: #c62828;
+      background: var(--color-type-bg);
+      color: var(--error-color);
       display: flex;
       align-items: center;
     }
@@ -1018,7 +1050,7 @@
       max-width: 400px;
       max-height: 80%;
       overflow-y: auto;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 4px 6px var(--box-shadow-light);
       border: 1px solid var(--border-color);
     }
 
@@ -1202,7 +1234,7 @@
       width: 80%;
       max-width: 500px;
       max-height: 80vh;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      box-shadow: 0 4px 12px var(--box-shadow-medium);
       display: flex;
       flex-direction: column;
       font-size: 12px;
